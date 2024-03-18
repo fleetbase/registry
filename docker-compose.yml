@@ -3,7 +3,7 @@ version: "3.8"
 services:
   verdaccio:
     build:
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.verdaccio
     user: root
     environment:
       - VERDACCIO_PORT=4873

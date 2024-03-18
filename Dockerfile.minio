@@ -1,0 +1,3 @@
+FROM minio/minio
+COPY create-bucket.sh /usr/bin/create-bucket.sh
+CMD ["sh", "-c", "server /data --console-address \":9001\" && /usr/bin/create-bucket.sh"]
