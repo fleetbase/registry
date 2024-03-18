@@ -1,0 +1,1 @@
+This is the official source code for the fleetbase extensions registry. It works as a package registry for both composer and npm packages and explicilty "fleetbas extensions" which must contain an "extension.json" file.

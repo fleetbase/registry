@@ -1,0 +1,11 @@
+.npmrc
+.pnpm-store
+docker-compose.override.yml
+npm-debug.log
+yarn-error.log
+.env
+*/.npmrc
+storage/*
+config/htpasswd
+plugins/*/node_modules
+minio/

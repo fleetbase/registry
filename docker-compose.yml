@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  verdaccio:
+    build:
+      dockerfile: Dockerfile
+    user: root
+    environment:
+      - VERDACCIO_PORT=4873
+    ports:
+      - '4873:4873'
+    volumes:
+      - './storage:/verdaccio/storage'
+      - './config:/verdaccio/conf'
+      - './plugins:/verdaccio/plugins'
+
+  minio:
+    image: minio/minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ACCESS_KEY: 'foobar'
+      MINIO_SECRET_KEY: '1234567e'
+    ports:
+      - 9000:9000
+      - 9001:9001
+    volumes:
+      - ./minio:/data
