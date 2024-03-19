@@ -17,3 +17,13 @@ for dir in */; do
         echo "No package-lock.json found in $dir, skipping..."
     fi
 done
+
+# Install verdaccio-* directories globally
+for dir in verdaccio-*; do
+    if [ -d "$dir" ]; then
+        echo "Installing $dir globally..."
+        npm install -g "./$dir"
+    fi
+done
+
+echo "Global installation of verdaccio plugins completed."
