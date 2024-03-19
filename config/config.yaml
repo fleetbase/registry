@@ -61,15 +61,9 @@ store:
 
 # https://verdaccio.org/docs/configuration#authentication
 auth:
-  htpasswd:
-    file: ./htpasswd
-    # Maximum amount of users allowed to register, defaults to "+inf".
-    # You can set this to -1 to disable registration.
-    # max_users: 1000
-    # Hash algorithm, possible options are: "bcrypt", "md5", "sha1", "crypt".
-    algorithm: bcrypt # by default is crypt, but is recommended use bcrypt for new installations
-    # Rounds number for "bcrypt", will be ignored for other algorithms.
-    # rounds: 10
+  '@fleetbase/verdaccio-fleetbase-auth':
+    fleetbaseHost: http://application:8000
+    fleetbaseApiKey: flb_live_BwHOc2c7t1H4S0IlsZh4
 
 # https://verdaccio.org/docs/configuration#uplinks
 # a list of other known repositories we can talk to

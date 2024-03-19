@@ -7,3 +7,6 @@
 [submodule "plugins/verdaccio-fleetbase-s3-storage"]
 	path = plugins/verdaccio-fleetbase-s3-storage
 	url = git@github.com:fleetbase/verdaccio-fleetbase-s3-storage.git
+[submodule "plugins/verdaccio-fleetbase-auth"]
+	path = plugins/verdaccio-fleetbase-auth
+	url = git@github.com:fleetbase/verdaccio-fleetbase-auth.git
