@@ -62,55 +62,32 @@ store:
 # https://verdaccio.org/docs/configuration#authentication
 auth:
   '@fleetbase/verdaccio-fleetbase-auth':
-    fleetbaseHost: http://application:8000
-    fleetbaseApiKey: flb_live_BwHOc2c7t1H4S0IlsZh4
+    fleetbaseHost: https://api.fleetbase.io
+    fleetbaseApiKey: 1234567e
 
 # https://verdaccio.org/docs/configuration#uplinks
 # a list of other known repositories we can talk to
 uplinks:
   npmjs:
     url: https://registry.npmjs.org/
+  github:
+    url: https://npm.pkg.github.com/
 
 # Learn how to protect your packages
 # https://verdaccio.org/docs/protect-your-dependencies/
 # https://verdaccio.org/docs/configuration#packages
 packages:
   '@fleetbase/*':
-    access: $authenticated
-    publish: $authenticated
-    storage: local-storage
-
-  '@flb/*':
-    access: $authenticated
-    publish: $authenticated
-    storage: local-storage
-
-  '@flb-extension/*':
-    access: $authenticated
-    publish: $authenticated
-    storage: local-storage
-
-  '@*/*':
-    # scoped packages
     access: $all
     publish: $authenticated
-    unpublish: $authenticated
+    proxy: npmjs
+
+  '@*/*':
+    access: $all
     proxy: npmjs
 
   '**':
-    # allow all users (including non-authenticated users) to read and
-    # publish all packages
-    #
-    # you can specify usernames/groupnames (depending on your auth plugin)
-    # and three keywords: "$all", "$anonymous", "$authenticated"
     access: $all
-
-    # allow all known users to publish/publish packages
-    # (anyone can register by default, remember?)
-    publish: $authenticated
-    unpublish: $authenticated
-
-    # if package is not available locally, proxy requests to 'npmjs' registry
     proxy: npmjs
 
 # To improve your security configuration and  avoid dependency confusion
@@ -164,7 +141,7 @@ server:
 #   max: 1000
 
 # https://verdaccio.org/docs/configuration#max-body-size
-max_body_size: 300mb
+max_body_size: 600mb
 
 # https://verdaccio.org/docs/configuration#listen-port
 # listen:

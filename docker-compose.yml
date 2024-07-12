@@ -6,7 +6,11 @@ services:
       dockerfile: Dockerfile.verdaccio
     user: root
     environment:
-      VERDACCIO_POR: 4873
+      VERDACCIO_PORT: 4873
+      FLEETBASE_HOST: https://api.fleetbase.io
+      AWS_KEY_PREFIX: fleetbase-extensions
+      AWS_ACCESS_KEY_ID: foobar
+      AWS_SECRET_ACCESS_KEY: 1234567e
     ports:
       - '4873:4873'
     volumes:
@@ -19,8 +23,8 @@ services:
     restart: always
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ACCESS_KEY: 'foobar'
-      MINIO_SECRET_KEY: '1234567e'
+      MINIO_ACCESS_KEY: foobar
+      MINIO_SECRET_KEY: 1234567e
     ports:
       - 9000:9000
       - 9001:9001
