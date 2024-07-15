@@ -60,13 +60,6 @@ Update composer.json
         {
             "type": "composer",
             "url": "https://registry.fleetbase.io"
-        },
-        {
-            "packagist.org": false
-        },
-        {
-            "type": "composer",
-            "url": "https://repo.packagist.org"
         }
     ]
 }
