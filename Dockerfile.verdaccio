@@ -1,5 +1,11 @@
-FROM verdaccio/verdaccio
+# loosely pin
+FROM verdaccio/verdaccio:5
+
 USER root
-ADD plugins /verdaccio/plugins
+
+COPY plugins /verdaccio/plugins
 RUN cd /verdaccio/plugins && sh install.sh
-ADD config/config.yaml /verdaccio/conf/config.yaml
+COPY config/config.yaml /verdaccio/conf/config.yaml
+
+# revert the user back
+USER verdaccio
