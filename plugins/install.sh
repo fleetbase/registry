@@ -3,11 +3,6 @@
 # exit when a subcommand fails
 set -e
 
-# npm install -g @fleetbase/verdaccio-fleetbase-auth
-# npm install -g @fleetbase/verdaccio-fleetbase-s3-storage
-# npm install -g @fleetbase/verdaccio-composer-middleware
-# npm install -g @fleetbase/verdaccio-fleetbase-extensions-middleware
-
 # Save the current working directory
 current_dir=$(pwd)
 
@@ -19,9 +14,8 @@ for dir in */; do
 	if [[ -f "${dir}package.json" ]]; then
 		echo "Running npm install in $dir"
 		cd "$dir"
-		npm install
+		npm install --no-bin-links --install-strategy=shallow --omit=optional
 		npm run build
-		npm link
 		cd "$current_dir" # Go back to the original directory
 	else
 		echo "No package.json found in $dir, skipping..."
