@@ -10,30 +10,34 @@
 # https://verdaccio.org/docs/best
 
 # path to a directory with all packages
-storage: ../storage
+# storage: ../storage
 # path to a directory with plugins to include
 plugins: ../plugins
 
 # https://verdaccio.org/docs/webui
 web:
-  title: Fleetbase Extensions
+  enable: false
+  # title: Fleetbase Registry
+  # logo: https://fleetbase-production-media.s3.ap-southeast-1.amazonaws.com/uploads/system/9lFuRxLgv.png
+  # scope: '@fleetbase'
+  # primary_color: '#101827'
   # comment out to disable gravatar support
   # gravatar: false
   # by default packages are ordercer ascendant (asc|desc)
   # sort_packages: asc
   # convert your UI to the dark side
-  # darkMode: true
+  # darkMode: false
   # html_cache: true
   # by default all features are displayed
-  # login: true
-  # showInfo: true
-  # showSettings: true
+  # login: false
+  # showInfo: false
+  # showSettings: false
   # In combination with darkMode you can force specific theme
-  # showThemeSwitch: true
-  # showFooter: true
-  # showSearch: true
+  # showThemeSwitch: false
+  # showFooter: false
+  # showSearch: false
   # showRaw: true
-  # showDownloadTarball: true
+  # showDownloadTarball: false
   #  HTML tags injected after manifest <scripts/>
   # scriptsBodyAfter:
   #    - '<script type="text/javascript" src="https://my.company.com/customJS.min.js"></script>'
@@ -64,6 +68,7 @@ auth:
   '@fleetbase/verdaccio-fleetbase-auth':
     fleetbaseHost: https://api.fleetbase.io
     fleetbaseApiKey: 1234567e
+    protectedPrefixes: '@fleetbase,fleetbase,@flb,@fleetbase-extension,@flb-extension'
 
 # https://verdaccio.org/docs/configuration#uplinks
 # a list of other known repositories we can talk to
@@ -177,6 +182,8 @@ middlewares:
     enabled: true
   '@fleetbase/verdaccio-composer-middleware':
     enabled: true
+    fleetbaseHost: https://api.fleetbase.io
+    fleetbaseApiKey: 1234567e
 
 # https://verdaccio.org/docs/logger
 # log settings
