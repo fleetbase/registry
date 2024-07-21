@@ -1,8 +1,10 @@
+FROM ghcr.io/springload/ssm-parent:1.8.3 AS ssm-parent
 # Use a specific version to avoid unexpected changes
-FROM verdaccio/verdaccio:5
+FROM verdaccio/verdaccio:5 AS base
 
 USER root
 
+WORKDIR /verdaccio
 # Copy plugins to the intended directory
 COPY plugins /verdaccio/plugins
 
@@ -14,3 +16,11 @@ COPY config/config.yaml /verdaccio/conf/config.yaml
 
 # Revert to the Verdaccio user for security
 USER verdaccio
+
+FROM base AS aws-app
+
+COPY --from=ssm-parent /usr/bin/ssm-parent /usr/bin/ssm-parent
+ENTRYPOINT ["/usr/bin/ssm-parent", "run", "-e", "-n", "$SSM_PARAMETER", "--","uid_entrypoint"]
+CMD [ "/bin/sh", "-c", "verdaccio --config /verdaccio/conf/config.yaml --listen $VERDACCIO_PROTOCOL://0.0.0.0:$VERDACCIO_PORT"]
+
+FROM base AS app

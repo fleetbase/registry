@@ -4,18 +4,22 @@ services:
   verdaccio:
     build:
       dockerfile: Dockerfile.verdaccio
-    user: root
+    #    user: root
     environment:
       VERDACCIO_PORT: 4873
       FLEETBASE_HOST: https://api.fleetbase.io
+      FLEETBASE_API_KEY: your_fleetbase_api_key_here
       AWS_KEY_PREFIX: fleetbase-extensions
       AWS_ACCESS_KEY_ID: foobar
       AWS_SECRET_ACCESS_KEY: 1234567e
+      AWS_BUCKET: flb
+      AWS_ENDPOINT: http://minio:9000
+      AWS_REGION: ap-southeast-1
     ports:
-      - '4873:4873'
+      - "4873:4873"
     volumes:
-      - './config:/verdaccio/conf'
-      - './plugins:/verdaccio/plugins'
+      - "./config:/verdaccio/conf"
+      - "./plugins:/verdaccio/plugins"
 
   minio:
     image: minio/minio
