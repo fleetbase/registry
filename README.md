@@ -75,4 +75,4 @@ For support or inquiries, please [open an issue](link-to-issue-tracker).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the APGLV v3 License - see the [LICENSE.md](LICENSE.md) file for details.

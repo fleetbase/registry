@@ -10,30 +10,34 @@
 # https://verdaccio.org/docs/best
 
 # path to a directory with all packages
-storage: ../storage
+# storage: ../storage
 # path to a directory with plugins to include
 plugins: ../plugins
 
 # https://verdaccio.org/docs/webui
 web:
-  title: Fleetbase Extensions
+  enable: false
+  # title: Fleetbase Registry
+  # logo: https://fleetbase-production-media.s3.ap-southeast-1.amazonaws.com/uploads/system/9lFuRxLgv.png
+  # scope: '@fleetbase'
+  # primary_color: '#101827'
   # comment out to disable gravatar support
   # gravatar: false
   # by default packages are ordercer ascendant (asc|desc)
   # sort_packages: asc
   # convert your UI to the dark side
-  # darkMode: true
+  # darkMode: false
   # html_cache: true
   # by default all features are displayed
-  # login: true
-  # showInfo: true
-  # showSettings: true
+  # login: false
+  # showInfo: false
+  # showSettings: false
   # In combination with darkMode you can force specific theme
-  # showThemeSwitch: true
-  # showFooter: true
-  # showSearch: true
+  # showThemeSwitch: false
+  # showFooter: false
+  # showSearch: false
   # showRaw: true
-  # showDownloadTarball: true
+  # showDownloadTarball: false
   #  HTML tags injected after manifest <scripts/>
   # scriptsBodyAfter:
   #    - '<script type="text/javascript" src="https://my.company.com/customJS.min.js"></script>'
@@ -50,20 +54,18 @@ web:
 
 # customized storage
 store:
-  '@fleetbase/verdaccio-fleetbase-s3-storage':
-    bucket: fleetbase-registry
+  "@fleetbase/verdaccio-fleetbase-s3-storage":
+    bucket: AWS_BUCKET
     keyPrefix: flb
-    region: ap-southeast-1
-    endpoint: http://minio:9000
-    accessKeyId: foobar
-    secretAccessKey: 1234567e
     s3ForcePathStyle: true
 
 # https://verdaccio.org/docs/configuration#authentication
 auth:
-  '@fleetbase/verdaccio-fleetbase-auth':
+  "@fleetbase/verdaccio-fleetbase-auth":
     fleetbaseHost: https://api.fleetbase.io
-    fleetbaseApiKey: 1234567e
+    # use FLEETBASE_API_KEY instead
+    #fleetbaseApiKey: yourkey
+    protectedPrefixes: "@fleetbase,fleetbase,@flb,@fleetbase-extension,@flb-extension"
 
 # https://verdaccio.org/docs/configuration#uplinks
 # a list of other known repositories we can talk to
@@ -77,16 +79,16 @@ uplinks:
 # https://verdaccio.org/docs/protect-your-dependencies/
 # https://verdaccio.org/docs/configuration#packages
 packages:
-  '@fleetbase/*':
+  "@fleetbase/*":
     access: $all
     publish: $authenticated
     proxy: npmjs
 
-  '@*/*':
+  "@*/*":
     access: $all
     proxy: npmjs
 
-  '**':
+  "**":
     access: $all
     proxy: npmjs
 
@@ -173,10 +175,12 @@ max_body_size: 600mb
 middlewares:
   audit:
     enabled: true
-  '@fleetbase/verdaccio-fleetbase-extensions-middleware':
+  "@fleetbase/verdaccio-fleetbase-extensions-middleware":
     enabled: true
-  '@fleetbase/verdaccio-composer-middleware':
+  "@fleetbase/verdaccio-composer-middleware":
     enabled: true
+    fleetbaseHost: https://api.fleetbase.io
+    fleetbaseApiKey: 1234567e
 
 # https://verdaccio.org/docs/logger
 # log settings
@@ -198,3 +202,4 @@ log: { type: stdout, format: pretty, level: debug }
 # i18n:
 # list of the available translations https://github.com/verdaccio/verdaccio/blob/master/packages/plugins/ui-theme/src/i18n/ABOUT_TRANSLATIONS.md
 #   web: en-US
+
