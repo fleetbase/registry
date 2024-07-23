@@ -9,7 +9,7 @@ WORKDIR /verdaccio
 COPY plugins /verdaccio/plugins
 
 # Run installation scripts for plugins
-RUN cd /verdaccio/plugins && sh install.sh
+RUN npm install -g typescript && cd /verdaccio/plugins && sh install.sh
 
 # Copy Verdaccio's configuration file
 COPY config/config.yaml /verdaccio/conf/config.yaml
