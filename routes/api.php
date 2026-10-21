@@ -3,6 +3,7 @@
 use App\Http\Controllers\Account\AccountController;
 use App\Http\Controllers\Account\TokenController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Catalog\CatalogController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -18,6 +19,14 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')->name('v1.')->group(function () {
+    Route::prefix('catalog')->name('catalog.')->middleware('throttle:catalog')->group(function () {
+        Route::get('extensions', [CatalogController::class, 'extensions'])->name('extensions');
+        Route::get('extensions/{slug}', [CatalogController::class, 'extension'])->name('extension');
+        Route::get('extensions/{slug}/releases', [CatalogController::class, 'releases'])->name('releases');
+        Route::get('publishers/{slug}', [CatalogController::class, 'publisher'])->name('publisher');
+        Route::get('categories', [CatalogController::class, 'categories'])->name('categories');
+    });
+
     Route::prefix('auth')->name('auth.')->middleware('throttle:auth')->group(function () {
         Route::post('register', [AuthController::class, 'register'])->name('register');
         Route::post('verify', [AuthController::class, 'verify'])->name('verify');
