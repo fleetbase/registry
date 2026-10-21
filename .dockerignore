@@ -1,0 +1,16 @@
+.git
+.github
+.claude
+legacy
+node_modules
+vendor
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+database/*.sqlite*
+.env
+.env.*
+!.env.example
+tests
+*.md

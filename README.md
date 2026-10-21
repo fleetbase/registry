@@ -1,59 +1,130 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Fleetbase Extensions Registry
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+The Registry Service is the single system of record for Fleetbase extensions: accounts and
+publishers, the public catalog, releases and their review, package delivery for npm and
+Composer, licences and purchases. Every Fleetbase instance (cloud or self-hosted), the `flb`
+CLI and the publisher website are clients of it.
 
-## About Laravel
+This branch (`v2`) holds the rewrite described in the implementation plan. The previous
+Verdaccio-based registry is kept under [`legacy/`](legacy/LEGACY.md) and still deploys from
+there until the publishing cutover.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Status
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Phase 1, Workstreams A and B:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Area | State |
+| --- | --- |
+| Data model (18 tables + verification codes), category seeder | done |
+| Account auth: register, email verification code, login, logout, personal tokens | done |
+| Public catalog API (`/v1/catalog/*`) with 60 s cache | done |
+| Docker image, compose stack (app, queue, MySQL, MinIO, Mailpit), CI | done |
+| npm packument and tarball endpoints, Composer v2 repository | next |
+| Releases upload, checks, review; instance API; Stripe | later workstreams |
 
-## Learning Laravel
+## Stack
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+Laravel 12 on PHP 8.3, MySQL 8, S3-compatible object storage. The Fleetbase core-api
+conventions the plan relies on (`Model` with UUID keys and public ids, `HasUuid`,
+`HasPublicId`, the `Money` cast, `Http\Filter\Filter`, `FleetbaseResource`) are ported
+into `app/` with the same names and behaviour, so code written against them reads like
+any other Fleetbase API package.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Local development
 
-## Laravel Sponsors
+Zero-dependency (SQLite, mail to log):
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```bash
+composer install
+cp .env.example .env && php artisan key:generate
+php artisan migrate --seed
+php artisan serve
+```
 
-### Premium Partners
+Full stack with Docker:
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```bash
+docker compose up --build
+```
 
-## Contributing
+| Service | URL |
+| --- | --- |
+| API | http://localhost:8000 |
+| MinIO console | http://localhost:9001 (minio / miniosecret) |
+| Mailpit (verification emails) | http://localhost:8025 |
+| MySQL | localhost:3307 (registry / registry) |
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Run the tests:
 
-## Code of Conduct
+```bash
+composer test
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## API overview
 
-## Security Vulnerabilities
+All routes live under `/v1`. Errors use the Fleetbase envelope `{"errors": ["..."]}`;
+validation failures add a `fields` map. Resources are returned unwrapped; paged lists return
+`{"data": [...], "meta": {total, per_page, current_page, last_page, from, to, time}}`.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Auth and account
+
+| Method and path | Purpose |
+| --- | --- |
+| `POST /v1/auth/register` | name, email, password, optional username. Creates the account (status `pending_verification`) and a personal organization, emails a 6-digit code |
+| `POST /v1/auth/verify` | email + code. Activates the account |
+| `POST /v1/auth/verify/resend` | email. Sends a new code for unverified accounts |
+| `POST /v1/auth/login` | email + password (+ token_name, scopes, expires_in_days). Returns a personal token once |
+| `POST /v1/auth/logout` | Revokes the token used for the request |
+| `GET /v1/account` | The caller's account with organizations and roles |
+| `GET /v1/account/tokens` | The caller's tokens, masked (`flbp_…a1b2`) |
+| `POST /v1/account/tokens` | name, scopes (`read`, `publish`, `install`, `instance:register`, `*`), expires_in_days (max 365), optional organization. Plaintext returned once |
+| `DELETE /v1/account/tokens/{id}` | Revoke |
+
+Tokens are `flbp_` + 40 random characters, stored as SHA-256, expiring, scoped and revocable.
+Send them as `Authorization: Bearer flbp_…`. Passwords are bcrypt hashes checked with
+`Hash::check`, the same as core-api's `Auth::checkPassword`, so cloud users import without
+a reset. Keep `BCRYPT_ROUNDS` at or above the cost of imported hashes (cloud uses 10; the
+default here is 12) because Laravel's `hashed` cast refuses hashes above the configured cost.
+
+### Public catalog (no auth, cached 60 s)
+
+| Method and path | Returns |
+| --- | --- |
+| `GET /v1/catalog/extensions?q=&category=&pricing=&hosting=&sort=&page=&limit=` | Paged listings with publisher, category, latest release, install count, compat, price, package names |
+| `GET /v1/catalog/extensions/{slug}` | Full listing, screenshots, publisher, versions summary |
+| `GET /v1/catalog/extensions/{slug}/releases?channel=` | Published (and yanked) releases: versions, channels, dates, sizes, notes, compat |
+| `GET /v1/catalog/publishers/{slug}` | Publisher profile and their published extensions |
+| `GET /v1/catalog/categories` | Categories with published extension counts |
+
+Filters: `pricing=free|paid`, `hosting=cloud|self_hosted|both` (listings marked `both`
+match either side), `category=<slug or id>[,…]`, `publisher=<slug>`, `tag=<tag>`.
+Sorts: `popular` (default, by installs), `newest`, `updated`, `name`, `price`.
+Slugs and public ids (`ext_…`, `org_…`) are both accepted where a slug is expected.
+
+## Repository layout
+
+```
+app/
+  Auth/TokenGuard.php          bearer-token guard (auth:token)
+  Casts/Money.php              minor-unit money cast
+  Http/Filter/                 request-driven query filters (ExtensionFilter)
+  Http/Resources/              Fleetbase-style JSON resources
+  Models/                      one model per table; Model.php is the base
+  Support/                     Http and Utils helpers
+database/migrations/           the data model
+database/seeders/              CategorySeeder (41 categories from registry-bridge)
+docker/                        compose helpers
+legacy/                        the Verdaccio registry (v1)
+tests/Feature/{Auth,Catalog}   Pest feature tests (SQLite in memory)
+```
+
+## Deployment
+
+`docker-bake.hcl` at the root builds the `aws-app` target (the image wrapped with
+`ssm-parent`, as the v1 deploy does). The `deploy/*` workflow still builds the Verdaccio
+image from `legacy/` until the catalog cutover; point it at the root bake file when the
+service goes to staging.
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+AGPL-3.0-or-later. See [LICENSE.md](LICENSE.md).

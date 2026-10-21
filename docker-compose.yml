@@ -1,0 +1,136 @@
+# Local development stack for the Registry Service.
+#   docker compose up --build
+# API:     http://localhost:8000
+# MinIO:   http://localhost:9001  (console, minio / miniosecret)
+# Mailpit: http://localhost:8025
+name: fleetbase-registry
+
+services:
+  app:
+    build:
+      context: .
+      target: app
+    ports:
+      - "8000:8080"
+    env_file:
+      - .env.docker
+    environment:
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: registry
+      DB_USERNAME: registry
+      DB_PASSWORD: registry
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+      SESSION_DRIVER: database
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_FROM_ADDRESS: registry@fleetbase.local
+      FILESYSTEM_DISK: s3
+      REGISTRY_STORAGE_DISK: s3
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: miniosecret
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_BUCKET: fleetbase-registry
+      AWS_ENDPOINT: http://minio:9000
+      AWS_URL: http://localhost:9000/fleetbase-registry
+      AWS_USE_PATH_STYLE_ENDPOINT: "true"
+    volumes:
+      - ./:/var/www/html
+      - app_vendor:/var/www/html/vendor
+    depends_on:
+      mysql:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      mailpit:
+        condition: service_started
+
+  queue:
+    build:
+      context: .
+      target: app
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=120"]
+    env_file:
+      - .env.docker
+    environment:
+      AUTORUN_ENABLED: "false"
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_DATABASE: registry
+      DB_USERNAME: registry
+      DB_PASSWORD: registry
+      QUEUE_CONNECTION: database
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_FROM_ADDRESS: registry@fleetbase.local
+      FILESYSTEM_DISK: s3
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: miniosecret
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_BUCKET: fleetbase-registry
+      AWS_ENDPOINT: http://minio:9000
+      AWS_USE_PATH_STYLE_ENDPOINT: "true"
+    volumes:
+      - ./:/var/www/html
+      - app_vendor:/var/www/html/vendor
+    depends_on:
+      app:
+        condition: service_started
+
+  mysql:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: registry
+      MYSQL_USER: registry
+      MYSQL_PASSWORD: registry
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: miniosecret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  minio-init:
+    image: minio/mc:latest
+    entrypoint: ["/bin/sh", "/create-bucket.sh"]
+    volumes:
+      - ./docker/create-bucket.sh:/create-bucket.sh:ro
+    depends_on:
+      minio:
+        condition: service_started
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+volumes:
+  mysql_data:
+  minio_data:
+  app_vendor:
