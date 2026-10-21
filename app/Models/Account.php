@@ -69,6 +69,7 @@ class Account extends Model implements AuthenticatableContract
     public function organizations(): BelongsToMany
     {
         return $this->belongsToMany(Organization::class, 'memberships', 'account_uuid', 'organization_uuid', 'uuid', 'uuid')
+            ->using(Membership::class)
             ->withPivot('role')
             ->withTimestamps();
     }

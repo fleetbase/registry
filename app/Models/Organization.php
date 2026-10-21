@@ -50,6 +50,7 @@ class Organization extends Model
     public function accounts(): BelongsToMany
     {
         return $this->belongsToMany(Account::class, 'memberships', 'organization_uuid', 'account_uuid', 'uuid', 'uuid')
+            ->using(Membership::class)
             ->withPivot('role')
             ->withTimestamps();
     }

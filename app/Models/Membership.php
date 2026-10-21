@@ -4,8 +4,12 @@ namespace App\Models;
 
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\Pivot;
 
-class Membership extends Model
+/**
+ * Account ↔ organization link with a role. A pivot model so `attach()` still assigns a uuid.
+ */
+class Membership extends Pivot
 {
     use HasUuid;
 
@@ -22,6 +26,14 @@ class Membership extends Model
     public const ROLES = [self::ROLE_OWNER, self::ROLE_ADMIN, self::ROLE_PUBLISHER, self::ROLE_BILLING, self::ROLE_MEMBER];
 
     protected $table = 'memberships';
+
+    protected $primaryKey = 'uuid';
+
+    protected $keyType = 'string';
+
+    public $incrementing = false;
+
+    public $timestamps = true;
 
     protected $fillable = ['organization_uuid', 'account_uuid', 'role'];
 

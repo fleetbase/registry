@@ -13,8 +13,6 @@ use Illuminate\Support\Str;
  */
 class FleetbaseResource extends JsonResource
 {
-    public static $wrap = 'data';
-
     protected array $excluded = [];
 
     public function toArray($request)
