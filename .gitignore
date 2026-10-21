@@ -4,8 +4,8 @@ docker-compose.override.yml
 npm-debug.log
 yarn-error.log
 .env
-*/.npmrc
+legacy/*/.npmrc
 storage/*
-config/htpasswd
-plugins/*/node_modules
-minio/
+legacy/config/htpasswd
+legacy/plugins/*/node_modules
+legacy/minio/
