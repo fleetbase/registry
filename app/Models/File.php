@@ -27,6 +27,9 @@ class File extends Model
 
     public const TYPE_SCREENSHOT = 'screenshot';
 
+    /** A cloud registry-bridge bundle archive copied by `registry:import`. */
+    public const TYPE_SOURCE_BUNDLE = 'source_bundle';
+
     protected $table = 'files';
 
     protected string $publicIdType = 'file';

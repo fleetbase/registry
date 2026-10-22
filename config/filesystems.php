@@ -60,6 +60,19 @@ return [
             'report' => false,
         ],
 
+        // Read-only view of the cloud API's file bucket, used by `registry:import`.
+        'import_source' => [
+            'driver' => 's3',
+            'key' => env('IMPORT_SOURCE_AWS_ACCESS_KEY_ID', env('AWS_ACCESS_KEY_ID')),
+            'secret' => env('IMPORT_SOURCE_AWS_SECRET_ACCESS_KEY', env('AWS_SECRET_ACCESS_KEY')),
+            'region' => env('IMPORT_SOURCE_AWS_DEFAULT_REGION', env('AWS_DEFAULT_REGION')),
+            'bucket' => env('IMPORT_SOURCE_AWS_BUCKET'),
+            'endpoint' => env('IMPORT_SOURCE_AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('IMPORT_SOURCE_AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false,
+            'report' => false,
+        ],
+
     ],
 
     /*
