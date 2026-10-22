@@ -5,6 +5,7 @@ use App\Models\Extension;
 use App\Models\ExtensionPackage;
 use App\Models\File;
 use App\Models\Release;
+use App\Models\Instance;
 use App\Models\Token;
 use App\Services\ReleaseStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -112,4 +113,16 @@ function makeRelease(ExtensionPackage $package, string $version, string $channel
     $release->forceFill([$npm ? 'engine_tarball_file_uuid' : 'api_tarball_file_uuid' => $file->uuid])->save();
 
     return $release;
+}
+
+/**
+ * Issue an instance token and authenticate subsequent requests with it.
+ */
+function actingAsInstance(Instance $instance): string
+{
+    $plain = $instance->issueToken();
+
+    test()->withHeader('Authorization', 'Bearer '.$plain);
+
+    return $plain;
 }

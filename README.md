@@ -11,7 +11,7 @@ there until the publishing cutover.
 
 ## Status
 
-Phase 1, Workstreams A and B:
+Phase 1, Workstreams A to C:
 
 | Area | State |
 | --- | --- |
@@ -20,7 +20,9 @@ Phase 1, Workstreams A and B:
 | Public catalog API (`/v1/catalog/*`) with 60 s cache | done |
 | Docker image, compose stack (app, queue, MySQL, MinIO, Mailpit), CI | done |
 | Package store (`ReleaseStorage`), npm packument and tarball endpoints, Composer v2 repository, licence gate, `@fleetbase` namespace protection | done |
-| Releases upload, checks, review; instance API; Stripe | later workstreams |
+| Instance API: registration codes, register, me, updates, installs, licence seats | done |
+| `registry:import` from the cloud registry-bridge tables (dry run, anomaly report, tarball copy) | done |
+| Releases upload, checks, review; Stripe | later workstreams |
 
 ## Stack
 
@@ -91,6 +93,7 @@ validation failures add a `fields` map. Resources are returned unwrapped; paged 
 | `GET /v1/account/tokens` | The caller's tokens, masked (`flbp_…a1b2`) |
 | `POST /v1/account/tokens` | name, scopes (`read`, `publish`, `install`, `instance:register`, `*`), expires_in_days (max 365), optional organization. Plaintext returned once |
 | `DELETE /v1/account/tokens/{id}` | Revoke |
+| `POST /v1/account/instance-codes` | Optional organization (slug or id). Mints a single-use instance registration code (`XXXX-XXXX-XXXX-XXXX`) valid 15 minutes. Needs the `instance:register` scope and the owner or admin role; defaults to the token's organization, else the personal one |
 
 Tokens are `flbp_` + 40 random characters, stored as SHA-256, expiring, scoped and revocable.
 Send them as `Authorization: Bearer flbp_…`. Passwords are bcrypt hashes checked with
@@ -162,27 +165,118 @@ URLs written into metadata use the public host.
 to extensions of an organization flagged `is_staff`
 (`php artisan registry:staff <slug> [--revoke]`).
 
+### Instance API (instance token)
+
+An organization owner or admin mints a registration code, pastes it into the instance (console
+admin page or `flb instance register`), and the instance exchanges it for an instance token.
+Instance tokens are `flbi_` + 40 random characters, shown once and stored as SHA-256 in
+`instances.token_hash`. They go through the same `TokenGuard` as personal tokens with a kind
+check: the `auth:instance` guard accepts only `flbi_` tokens and `auth:token` only `flbp_`
+tokens, so neither works on the other's routes. Setting `instances.status` to `revoked`
+disables a token.
+
+| Method and path | Purpose |
+| --- | --- |
+| `POST /v1/instances/register` | No bearer token. Body: `code`, `name`, `kind` (`cloud` or `self_hosted`), optional `host`, `console_version`, `api_version`. Redeems the code (single use, 15 minutes) and returns `{token, token_type, instance}`; the token is never shown again |
+| `GET /v1/instances/me` | The instance, its organization, and the organization's licences with `seats_used` and `activated_here` |
+| `GET /v1/instances/me/updates?channel=` | Every extension installed on the instance: the installed release, the newest compatible published release, `update_available`. `channel=beta` includes beta releases |
+| `POST /v1/instances/me/installs` | Body: `extension` (slug, `ext_` id or an npm/Composer package name), `version` or `release` (`rel_` id), `status` (`installing`, `installed`, `failed`), optional `error`, `installed_by`. Returns `{install, activation}` |
+| `DELETE /v1/instances/me/installs/{extension}` | Reports an uninstall (scoped npm names work in the path). Returns `{install, deactivated}` |
+
+Install rules:
+
+- One `installs` row per attempt: `installing` opens it, `installed` or `failed` closes it.
+  When a release is installed, earlier `installed` rows for that extension become
+  `uninstalled`, so each instance counts once in the catalog's install counts.
+- `installing` and `installed` claim a licence seat (seat = instance) and return the
+  activation. Free extensions get an automatic `free` licence for the instance's organization
+  on first install, with unlimited seats (`max_activations` null). Paid extensions need an
+  active licence with a free seat, else 403. A revoked or expired licence counts as none.
+- A new install (`installing`) needs a published listing, a published release and a hosting
+  value that matches the instance kind (422 otherwise). `installed` and `failed` also accept
+  a yanked release, since an instance may already have it.
+- `failed` releases the seat, unless an earlier release of the extension is still installed
+  (a failed upgrade).
+- Compatibility comes from `releases.compat` (`{"console": "<range>", "api": "<range>"}`,
+  npm/Composer range syntax, evaluated with composer/semver). A side with no range accepts any
+  version; an instance that does not report a version, or reports one that is not semver,
+  is not constrained on that side; a range that does not parse never matches.
+
+## Importing from Fleetbase Cloud
+
+`registry:import` copies the cloud registry-bridge tables into the service, following the
+plan's mapping rules. It reads `registry_extensions`, `registry_extension_bundles`,
+`registry_extension_purchases`, `registry_extension_installs`, `registry_users`,
+`registry_developer_accounts`, `users`, `companies`, `files` and `categories`.
+
+```bash
+# Rehearse: counts and anomalies, then roll back. Nothing is written and no file is copied.
+php artisan registry:import --from=/backups/fleetbase-cloud.sql.gz --dry-run
+
+# Import, keeping the full anomaly list for the publisher follow-up.
+php artisan registry:import --from=mysql://reader:secret@cloud-replica:3306/fleetbase --report=import-report.json
+```
+
+| Option | Meaning |
+| --- | --- |
+| `--from` | `mysql://user:pass@host:3306/db` (or `mariadb://`), `sqlite:///path/file.sqlite`, or a path to a `.sql` / `.sql.gz` dump. Dumps are loaded into a temporary SQLite file without a MySQL server; mysqldump's extended inserts and one-tuple-per-line dumps both work, and statements for other tables are skipped |
+| `--dry-run` | Runs the whole mapping in a transaction that is rolled back, so the counts and anomalies are exactly what a real run would produce |
+| `--source-disk` | Filesystem disk holding the cloud `files` objects. Default `REGISTRY_IMPORT_SOURCE_DISK` (`import_source`, an S3 disk configured by `IMPORT_SOURCE_AWS_*`) |
+| `--report` | Also writes the full report, every anomaly included, as JSON |
+| `--examples` | Anomaly examples printed per type (default 10) |
+
+What it writes:
+
+| Cloud | Service | Rule |
+| --- | --- | --- |
+| `registry_developer_accounts` | `accounts`, personal `organizations`, `memberships` (owner) | Status kept (`active`, `suspended`, `pending_verification`); bcrypt hash copied |
+| `companies` | `organizations` | One per company the registry tables reference (publishers, registry users, buyers, installers); `stripe_connect_id` copied |
+| `registry_users` (cloud) + `users` | `accounts`, `memberships` | One account per user (registry_users has one row per token); owner if the user owns the company, else publisher; password hash copied; tokens not migrated |
+| `categories` | `categories` | Matched to seeded categories by `internal_id`, then slug; others created |
+| `registry_extensions` | `extensions`, `prices`, `extension_packages` | Package names from the current bundle's `package.json` and `composer.json`, then older bundles, then the Phase 0 `package_name` column; listings with no bundle and no package name become drafts; `self_managed` maps to hosting `self_hosted`; icon and screenshots copied |
+| `registry_extension_bundles` | `releases` | Version from `extension.json`; `bundle_number` kept in `manifest`; status pending → uploaded, awaiting_review → in_review, approved, published, rejected; `compat` from `extension.json` when present. The bundle archive is copied to `tarballs/imported/…` as a `source_bundle` file with a SHA-256 checksum; a bundle whose file is missing imports as `yanked` |
+| `registry_extension_purchases` | `purchases`, `licences` | One paid licence per purchase with 5 seats; a soft-deleted purchase revokes its licence |
+| `registry_extension_installs` | `instances`, `installs`, `licence_activations` | One synthetic cloud instance per company (no token); soft-deleted installs become `uninstalled`; live installs claim a seat on the paid licence or an automatic free licence |
+
+Idempotency: every imported row stores the uuid of its source row in `source_uuid`, and
+re-runs match on it and update in place; an unchanged source produces only "unchanged"
+counts. Slugs, usernames and paid seat counts are set on first import and then left alone.
+Tarballs already copied with a checksum are not copied again; a release imported as yanked
+is restored when its tarball becomes retrievable. An account whose email already belongs to
+another account (created in the service, or imported from the other source table) is mapped
+onto it and never overwritten.
+
+The anomaly report lists: extensions without package names or bundles, bundles whose
+tarball is missing (with the reason), duplicate package names (the first live, published
+listing keeps the name), users without emails, accounts merged by email, bundles without a
+version or repeating a version, rows that reference missing companies, users or extensions,
+installs with no usable licence, renamed slugs, unknown statuses, subscription pricing, and
+icons that could not be copied.
+
 ## Repository layout
 
 ```
 app/
-  Auth/TokenGuard.php          bearer-token guard (auth:token)
+  Actions/                     ActivateLicence, DeactivateLicence, RegisterAccount
+  Auth/TokenGuard.php          bearer-token guard (auth:token, auth:instance)
   Casts/Money.php              minor-unit money cast
-  Console/Commands/            registry:seed, registry:staff
+  Console/Commands/            registry:seed, registry:staff, registry:import
   Http/Controllers/Packages/   npm and Composer endpoints
+  Import/                      importer: SQL dump loader, source connection, mapping, report
   Http/Filter/                 request-driven query filters (ExtensionFilter)
   Http/Middleware/             scope:…, licence:npm|composer
   Http/Resources/              Fleetbase-style JSON resources
   Models/                      one model per table; Model.php is the base
   Services/                    ReleaseStorage, LicenceGate, Packages/ (packument, Composer metadata)
-  Support/                     Http, Utils, Semver, Tarball helpers
+  Support/                     Http, Utils, Semver, Tarball and Compat (semver ranges) helpers
 database/fixtures/packages/    fixture tarballs for registry:seed --seed-release
 database/migrations/           the data model
 database/seeders/              CategorySeeder (41 categories from registry-bridge)
 docker/                        compose helpers
 legacy/                        the Verdaccio registry (v1)
-tests/Feature/{Auth,Catalog,Packages}  Pest feature tests (SQLite in memory)
+tests/Feature/{Auth,Catalog,Packages,Instance,Import}  Pest feature tests (SQLite in memory)
 tests/Conformance/packages.sh  real npm and Composer clients against a running service
+tests/Fixtures/import/         mysqldump fixture of the cloud registry tables
 ```
 
 ## Deployment

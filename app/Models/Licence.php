@@ -67,4 +67,27 @@ class Licence extends Model
     {
         return $this->status === self::STATUS_ACTIVE && ($this->expires_at === null || $this->expires_at->isFuture());
     }
+
+    /**
+     * Null `max_activations` means unlimited seats (automatic free licences).
+     */
+    public function isUnlimited(): bool
+    {
+        return $this->max_activations === null;
+    }
+
+    public function activeActivations(): HasMany
+    {
+        return $this->activations()->whereNull('deactivated_at');
+    }
+
+    public function seatsUsed(): int
+    {
+        return $this->activeActivations()->count();
+    }
+
+    public function hasFreeSeat(): bool
+    {
+        return $this->isUnlimited() || $this->seatsUsed() < $this->max_activations;
+    }
 }

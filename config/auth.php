@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Account;
+use App\Models\Instance;
 
 return [
 
@@ -10,7 +11,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | Every API request authenticates with a bearer token. The `token` guard
-    | resolves personal tokens (flbp_) through App\Auth\TokenGuard.
+    | resolves personal tokens (flbp_) and the `instance` guard resolves
+    | instance tokens (flbi_), both through App\Auth\TokenGuard.
     |
     */
 
@@ -24,12 +26,20 @@ return [
             'driver' => 'registry-token',
             'provider' => 'accounts',
         ],
+        'instance' => [
+            'driver' => 'registry-instance-token',
+            'provider' => 'instances',
+        ],
     ],
 
     'providers' => [
         'accounts' => [
             'driver' => 'eloquent',
             'model' => Account::class,
+        ],
+        'instances' => [
+            'driver' => 'eloquent',
+            'model' => Instance::class,
         ],
     ],
 

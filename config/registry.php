@@ -27,6 +27,11 @@ return [
     // Maximum uploaded bundle size in bytes (used by release checks in Workstream C).
     'max_bundle_bytes' => (int) env('REGISTRY_MAX_BUNDLE_BYTES', 50 * 1024 * 1024),
 
+    'import' => [
+        // Disk holding the cloud `files` objects (bundles, icons) that `registry:import` copies.
+        'source_disk' => env('REGISTRY_IMPORT_SOURCE_DISK', 'import_source'),
+    ],
+
     'storage' => [
         // Disk that holds tarballs, prebuilt dist archives, icons and screenshots.
         'disk' => env('REGISTRY_STORAGE_DISK', 's3'),
