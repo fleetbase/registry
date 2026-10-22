@@ -14,10 +14,12 @@ class Tarball
     public const BLOCK = 512;
 
     /**
-     * Visit each entry header. The visitor receives (name, type, size) and returns true to
-     * receive the entry's contents through `$onContents`, or null to stop iterating.
+     * Visit each entry header. The visitor receives (name, type, size, raw name, link
+     * target) and returns true to receive the entry's contents through `$onContents`, or
+     * null to stop iterating. `name` is normalised (no leading `./` or `/`); the raw name is
+     * exactly what the archive holds, for the path traversal checks.
      *
-     * @param  \Closure(string $name, string $type, int $size): ?bool  $visitor
+     * @param  \Closure(string $name, string $type, int $size, string $rawName, string $linkTarget): ?bool  $visitor
      * @param  \Closure(string $name, string $contents): void|null  $onContents
      */
     public static function walk(string $path, \Closure $visitor, ?\Closure $onContents = null, int $maxEntryBytes = 1024 * 1024): void
@@ -30,12 +32,18 @@ class Tarball
 
         try {
             $longName = null;
+            $longLink = null;
             $paxPath = null;
+            $paxLink = null;
 
             while (true) {
                 $header = self::readExactly($handle, self::BLOCK);
                 if ($header === null || trim($header, "\0") === '') {
                     return;
+                }
+
+                if (! self::validChecksum($header)) {
+                    throw new \RuntimeException('Not a tar archive (bad header checksum).');
                 }
 
                 $type = $header[156] === "\0" ? '0' : $header[156];
@@ -48,24 +56,32 @@ class Tarball
 
                 $padded = (int) (ceil($size / self::BLOCK) * self::BLOCK);
 
-                // Metadata entries describe the next header.
-                if ($type === 'L' || $type === 'x') {
+                // Metadata entries describe the next header (`g` describes the whole archive).
+                if (in_array($type, ['L', 'K', 'x', 'g'], true)) {
                     $data = self::readExactly($handle, $padded) ?? '';
                     $data = substr($data, 0, $size);
                     if ($type === 'L') {
                         $longName = self::cString($data);
-                    } elseif (preg_match('/^\d+ path=(.*)$/m', $data, $m)) {
-                        $paxPath = $m[1];
+                    } elseif ($type === 'K') {
+                        $longLink = self::cString($data);
+                    } elseif ($type === 'x') {
+                        if (preg_match('/^\d+ path=(.*)$/m', $data, $m)) {
+                            $paxPath = $m[1];
+                        }
+                        if (preg_match('/^\d+ linkpath=(.*)$/m', $data, $m)) {
+                            $paxLink = $m[1];
+                        }
                     }
 
                     continue;
                 }
 
-                $name = $paxPath ?? $longName ?? $name;
-                $longName = $paxPath = null;
-                $name = ltrim(preg_replace('#^\./#', '', $name), '/');
+                $rawName = $paxPath ?? $longName ?? $name;
+                $linkTarget = $paxLink ?? $longLink ?? self::cString(substr($header, 157, 100));
+                $longName = $longLink = $paxPath = $paxLink = null;
+                $name = ltrim(preg_replace('#^(\./)+#', '', $rawName), '/');
 
-                $wants = $visitor($name, $type, $size);
+                $wants = $visitor($name, $type, $size, $rawName, $linkTarget);
                 if ($wants === null) {
                     return;
                 }
@@ -146,6 +162,25 @@ class Tarball
             }
             $length -= strlen($chunk);
         }
+    }
+
+    /**
+     * The header checksum: the sum of all header bytes with the checksum field read as
+     * spaces. Old tars summed signed bytes, so either sum is accepted.
+     */
+    protected static function validChecksum(string $header): bool
+    {
+        $field = trim(self::cString(substr($header, 148, 8)));
+        if ($field === '' || preg_match('/^[0-7]+$/', $field) !== 1) {
+            return false;
+        }
+
+        $blank = substr_replace($header, '        ', 148, 8);
+        $unsigned = array_sum(unpack('C*', $blank));
+        $signed = array_sum(unpack('c*', $blank));
+        $expected = octdec($field);
+
+        return $expected === $unsigned || $expected === $signed;
     }
 
     protected static function parseSize(string $field): int

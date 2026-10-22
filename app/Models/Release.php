@@ -50,6 +50,17 @@ class Release extends Model
         self::STATUS_IN_REVIEW, self::STATUS_APPROVED, self::STATUS_REJECTED, self::STATUS_PUBLISHED, self::STATUS_YANKED,
     ];
 
+    /** Releases that have been out (published, possibly yanked since). */
+    public const RELEASED_STATUSES = [self::STATUS_PUBLISHED, self::STATUS_YANKED];
+
+    /** Waiting for staff: the review queue. */
+    public const QUEUE_STATUSES = [self::STATUS_SUBMITTED, self::STATUS_IN_REVIEW, self::STATUS_APPROVED];
+
+    /**
+     * Never submitted, failed or rejected: uploading the same version again replaces it.
+     */
+    public const REPLACEABLE_STATUSES = [self::STATUS_UPLOADED, self::STATUS_FAILED_CHECKS, self::STATUS_REJECTED];
+
     protected $table = 'releases';
 
     protected string $publicIdType = 'rel';
@@ -108,7 +119,7 @@ class Release extends Model
 
     public function reviews(): HasMany
     {
-        return $this->hasMany(Review::class, 'release_uuid', 'uuid')->orderBy('created_at');
+        return $this->hasMany(Review::class, 'release_uuid', 'uuid')->orderBy('created_at')->orderBy('id');
     }
 
     public function scopePublished(Builder $query): Builder
@@ -126,6 +137,51 @@ class Release extends Model
         return $this->status === self::STATUS_YANKED;
     }
 
+    public function scopeReleased(Builder $query): Builder
+    {
+        return $query->whereIn('status', self::RELEASED_STATUSES);
+    }
+
+    public function isReplaceable(): bool
+    {
+        return in_array($this->status, self::REPLACEABLE_STATUSES, true);
+    }
+
+    public function metaValue(string $key, mixed $default = null): mixed
+    {
+        return data_get($this->meta ?? [], $key, $default);
+    }
+
+    /**
+     * Merge keys into `meta` (dot notation allowed) without saving.
+     */
+    public function mergeMeta(array $values): static
+    {
+        $meta = $this->meta ?? [];
+        foreach ($values as $key => $value) {
+            data_set($meta, $key, $value);
+        }
+        $this->meta = $meta;
+
+        return $this;
+    }
+
+    /**
+     * The uploaded files by role: `engine`, `api`, `dist`.
+     *
+     * @return array<string, File>
+     */
+    public function archives(): array
+    {
+        $this->loadMissing(['engineTarball', 'apiTarball', 'engineDist']);
+
+        return array_filter([
+            'engine' => $this->engineTarball,
+            'api' => $this->apiTarball,
+            'dist' => $this->engineDist,
+        ]);
+    }
+
     /**
      * All automated checks passed (and at least one exists).
      */
@@ -138,15 +194,15 @@ class Release extends Model
 
     /**
      * Rule from the data model: publishable when every check passes and the latest
-     * review action is `approve`. Auto-publish policy (D6) is applied by the caller.
+     * transition is an approval (by staff, or by the D6 auto-approval).
      */
     public function isPublishable(): bool
     {
-        if (! $this->checksPassed()) {
+        if ($this->status !== self::STATUS_APPROVED || ! $this->checksPassed()) {
             return false;
         }
 
-        $latestReview = $this->reviews()->latest('created_at')->first();
+        $latestReview = $this->reviews()->reorder()->latest('id')->first();
 
         return $latestReview?->action === Review::ACTION_APPROVE;
     }

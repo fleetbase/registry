@@ -14,6 +14,7 @@ use App\Models\Extension;
 use App\Models\Install;
 use App\Models\Organization;
 use App\Models\Release;
+use App\Support\CatalogCache;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\JsonResponse;
@@ -142,13 +143,12 @@ class CatalogController extends Controller
     }
 
     /**
-     * Serve from cache for 60 seconds. The closure must return array data.
+     * Serve from cache for 60 seconds. The closure must return array data. Publishing
+     * flushes the cache (`CatalogCache::flush()`).
      */
     protected function cached(Request $request, \Closure $build): JsonResponse
     {
-        $key = 'catalog:'.sha1($request->fullUrl());
-
-        $data = Cache::remember($key, self::CACHE_SECONDS, $build);
+        $data = Cache::remember(CatalogCache::key($request), self::CACHE_SECONDS, $build);
 
         return response()->json($data)
             ->header('Cache-Control', 'public, max-age='.self::CACHE_SECONDS.', s-maxage='.self::CACHE_SECONDS)

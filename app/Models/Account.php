@@ -117,6 +117,26 @@ class Account extends Model implements AuthenticatableContract
     }
 
     /**
+     * The account's role in the organization, or null when it is not a member.
+     */
+    public function roleIn(Organization|string $organization): ?string
+    {
+        return Membership::query()
+            ->where('account_uuid', $this->uuid)
+            ->where('organization_uuid', $organization instanceof Organization ? $organization->uuid : $organization)
+            ->value('role');
+    }
+
+    /**
+     * Member of an organization flagged `is_staff` (Fleetbase staff: release review and
+     * moderation).
+     */
+    public function isStaff(): bool
+    {
+        return $this->organizations()->where('is_staff', true)->exists();
+    }
+
+    /**
      * The account's personal organization (created at registration).
      */
     public function personalOrganization(): ?Organization

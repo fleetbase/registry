@@ -4,13 +4,15 @@ use App\Models\Account;
 use App\Models\Extension;
 use App\Models\ExtensionPackage;
 use App\Models\File;
-use App\Models\Release;
 use App\Models\Instance;
+use App\Models\Release;
 use App\Models\Token;
 use App\Services\ReleaseStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
+
+require_once __DIR__.'/Helpers/releases.php';
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
@@ -18,11 +20,16 @@ pest()->extend(TestCase::class)
 
 pest()->extend(TestCase::class)->in('Unit');
 
-// Package tests run against a fake registry disk.
+// Package and release tests run against a fake registry disk.
 pest()->beforeEach(function () {
     config(['registry.storage.disk' => 'packages']);
     Storage::fake('packages');
-})->in('Feature/Packages');
+})->in('Feature/Packages', 'Feature/Releases');
+
+// Release checks never depend on a gitleaks binary on the machine running the tests.
+pest()->beforeEach(function () {
+    config(['registry.releases.gitleaks_binary' => '']);
+})->in('Feature/Releases');
 
 /**
  * Issue a token for the account and authenticate subsequent requests with it.
@@ -38,28 +45,31 @@ function actingAsAccount(Account $account, array $scopes = [Token::SCOPE_ALL]): 
 
 /**
  * Write a gzipped ustar archive of `path => contents` and return its path. Paths longer than
- * 100 bytes go through a GNU long-name entry, as npm and GNU tar write them.
+ * 100 bytes go through a GNU long-name entry, as npm and GNU tar write them. A value may be
+ * `['type' => '2', 'link' => 'target', 'contents' => '']` for other entry types.
  */
 function makeTarball(array $files, bool $gzip = true): string
 {
     $block = fn (string $data) => $data.str_repeat("\0", (512 - strlen($data) % 512) % 512);
-    $header = function (string $name, int $size, string $type = '0'): string {
+    $header = function (string $name, int $size, string $type = '0', string $link = ''): string {
         $h = str_pad(substr($name, 0, 100), 100, "\0")
             .str_pad('0000644', 8, "\0").str_pad('0000000', 8, "\0").str_pad('0000000', 8, "\0")
             .str_pad(decoct($size), 11, '0', STR_PAD_LEFT)."\0"
             .str_pad(decoct(0), 11, '0', STR_PAD_LEFT)."\0"
-            .'        '.$type.str_repeat("\0", 100)."ustar\0".'00'.str_repeat("\0", 32 + 32 + 8 + 8 + 155 + 12);
+            .'        '.$type.str_pad(substr($link, 0, 100), 100, "\0")."ustar\0".'00'.str_repeat("\0", 32 + 32 + 8 + 8 + 155 + 12);
         $sum = array_sum(array_map('ord', str_split($h)));
 
         return substr_replace($h, str_pad(decoct($sum), 6, '0', STR_PAD_LEFT)."\0 ", 148, 8);
     };
 
     $tar = '';
-    foreach ($files as $name => $contents) {
+    foreach ($files as $name => $entry) {
+        $entry = is_array($entry) ? $entry + ['type' => '0', 'link' => '', 'contents' => ''] : ['type' => '0', 'link' => '', 'contents' => $entry];
+        $contents = $entry['type'] === '0' ? $entry['contents'] : '';
         if (strlen($name) > 100) {
             $tar .= $header('././@LongLink', strlen($name) + 1, 'L').$block($name."\0");
         }
-        $tar .= $header($name, strlen($contents)).$block($contents);
+        $tar .= $header($name, strlen($contents), $entry['type'], $entry['link']).$block($contents);
     }
     $tar .= str_repeat("\0", 1024);
 

@@ -16,7 +16,10 @@ RUN --mount=type=cache,target=/tmp/cache \
 # ---- Runtime ---------------------------------------------------------------
 FROM serversideup/php:8.3-fpm-nginx-alpine AS base
 
+# Release uploads: two 50 MB archives plus a 100 MB prebuilt dist (config/registry.php).
 ENV PHP_OPCACHE_ENABLE=1 \
+    PHP_UPLOAD_MAX_FILE_SIZE=110M \
+    PHP_POST_MAX_SIZE=220M \
     AUTORUN_ENABLED=false \
     AUTORUN_LARAVEL_MIGRATION=false \
     NGINX_WEBROOT=/var/www/html/public \

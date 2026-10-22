@@ -53,7 +53,9 @@ services:
     build:
       context: .
       target: app
-    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=120"]
+    # RunReleaseChecks may take up to 900 s; retry_after must be longer or a slow check
+    # run is picked up a second time.
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=900"]
     env_file:
       - .env.docker
     environment:
@@ -63,7 +65,10 @@ services:
       DB_DATABASE: registry
       DB_USERNAME: registry
       DB_PASSWORD: registry
+      CACHE_STORE: database
       QUEUE_CONNECTION: database
+      DB_QUEUE_RETRY_AFTER: "960"
+      REGISTRY_STORAGE_DISK: s3
       MAIL_MAILER: smtp
       MAIL_HOST: mailpit
       MAIL_PORT: 1025

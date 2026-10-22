@@ -25,6 +25,9 @@ class Membership extends Pivot
 
     public const ROLES = [self::ROLE_OWNER, self::ROLE_ADMIN, self::ROLE_PUBLISHER, self::ROLE_BILLING, self::ROLE_MEMBER];
 
+    /** Roles that may create listings and upload, submit, withdraw and yank releases. */
+    public const PUBLISHING_ROLES = [self::ROLE_OWNER, self::ROLE_ADMIN, self::ROLE_PUBLISHER];
+
     protected $table = 'memberships';
 
     protected $primaryKey = 'uuid';

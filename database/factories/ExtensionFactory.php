@@ -42,6 +42,20 @@ class ExtensionFactory extends Factory
         return $this->state(fn () => ['status' => Extension::STATUS_PUBLISHED, 'published_at' => now()]);
     }
 
+    /**
+     * Every field the first-release readiness rules ask for (`ListingReadiness`).
+     */
+    public function listingReady(): static
+    {
+        return $this->state(fn () => [
+            'promotional_text' => fake()->sentence(),
+            'copyright' => '© '.fake()->company(),
+            'website_url' => 'https://example.com',
+            'support_url' => 'https://example.com/support',
+            'privacy_url' => 'https://example.com/privacy',
+        ]);
+    }
+
     public function hosting(string $hosting): static
     {
         return $this->state(fn () => ['hosting' => $hosting]);

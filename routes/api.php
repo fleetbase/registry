@@ -3,12 +3,15 @@
 use App\Http\Controllers\Account\AccountController;
 use App\Http\Controllers\Account\InstanceCodeController;
 use App\Http\Controllers\Account\TokenController;
+use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Catalog\CatalogController;
-use App\Http\Controllers\Packages\ComposerController;
-use App\Http\Controllers\Packages\NpmController;
 use App\Http\Controllers\Instance\InstallController;
 use App\Http\Controllers\Instance\InstanceController;
+use App\Http\Controllers\Packages\ComposerController;
+use App\Http\Controllers\Packages\NpmController;
+use App\Http\Controllers\Publisher\ExtensionController as PublisherExtensionController;
+use App\Http\Controllers\Publisher\ReleaseController as PublisherReleaseController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -22,7 +25,10 @@ use Illuminate\Support\Facades\Route;
 | clients address them as registry roots.
 | Instance routes: Authorization: Bearer flbi_… (instance token), except
 | `instances/register`, which takes a registration code in the body.
-| Publisher, admin and Stripe routes are added in later workstreams.
+| Publisher routes: personal token with the `publish` scope and the owner, admin or
+| publisher role in the listing's organization.
+| Admin routes: personal token with the `review` scope, member of an `is_staff` organization.
+| Stripe routes are added in a later workstream.
 |
 */
 
@@ -49,6 +55,29 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('account/tokens', [TokenController::class, 'store'])->name('account.tokens.store');
         Route::delete('account/tokens/{token}', [TokenController::class, 'destroy'])->name('account.tokens.destroy');
         Route::post('account/instance-codes', [InstanceCodeController::class, 'store'])->middleware('scope:instance:register')->name('account.instance-codes.store');
+    });
+
+    Route::prefix('publisher')->name('publisher.')->middleware(['auth:token', 'throttle:publish', 'scope:publish'])->group(function () {
+        Route::get('extensions', [PublisherExtensionController::class, 'index'])->name('extensions.index');
+        Route::post('extensions', [PublisherExtensionController::class, 'store'])->name('extensions.store');
+        Route::get('extensions/{slug}', [PublisherExtensionController::class, 'show'])->name('extensions.show');
+        Route::patch('extensions/{slug}', [PublisherExtensionController::class, 'update'])->name('extensions.update');
+        Route::get('extensions/{slug}/releases', [PublisherReleaseController::class, 'index'])->name('releases.index');
+        Route::post('extensions/{slug}/releases', [PublisherReleaseController::class, 'store'])->middleware('throttle:upload')->name('releases.store');
+        Route::get('releases/{release}', [PublisherReleaseController::class, 'show'])->name('releases.show');
+        Route::post('releases/{release}/submit', [PublisherReleaseController::class, 'submit'])->name('releases.submit');
+        Route::post('releases/{release}/withdraw', [PublisherReleaseController::class, 'withdraw'])->name('releases.withdraw');
+        Route::post('releases/{release}/yank', [PublisherReleaseController::class, 'yank'])->name('releases.yank');
+    });
+
+    Route::prefix('admin')->name('admin.')->middleware(['auth:token', 'throttle:api', 'scope:review', 'staff'])->group(function () {
+        Route::get('releases', [ReviewController::class, 'queue'])->name('releases.queue');
+        Route::get('releases/{release}', [ReviewController::class, 'show'])->name('releases.show');
+        Route::post('releases/{release}/claim', [ReviewController::class, 'claim'])->name('releases.claim');
+        Route::post('releases/{release}/approve', [ReviewController::class, 'approve'])->name('releases.approve');
+        Route::post('releases/{release}/reject', [ReviewController::class, 'reject'])->name('releases.reject');
+        Route::post('releases/{release}/publish', [ReviewController::class, 'publish'])->name('releases.publish');
+        Route::post('extensions/{slug}/suspend', [ReviewController::class, 'suspend'])->name('extensions.suspend');
     });
 
     Route::prefix('instances')->name('instances.')->group(function () {

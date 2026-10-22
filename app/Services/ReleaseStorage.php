@@ -80,7 +80,12 @@ class ReleaseStorage
 
         $meta = $attributes['meta'] ?? [];
         if ($manifestName = self::MANIFEST_FOR_TYPE[$type] ?? null) {
-            $manifest = Tarball::manifest($sourcePath, $manifestName);
+            try {
+                $manifest = Tarball::manifest($sourcePath, $manifestName);
+            } catch (\RuntimeException) {
+                // Not a readable archive; stored anyway so the release checks can report it.
+                $manifest = null;
+            }
             if ($manifest !== null) {
                 $meta[Str::snake(str_replace('.', '_', $manifestName))] = $manifest;
             }

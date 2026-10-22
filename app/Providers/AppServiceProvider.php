@@ -82,6 +82,11 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('instance-register', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
 
+        RateLimiter::for('publish', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->uuid ?: $request->ip()));
+
+        // Release uploads carry up to two 50 MB archives and a dist.
+        RateLimiter::for('upload', fn (Request $request) => Limit::perHour(60)->by($request->user()?->uuid ?: $request->ip()));
+
         RateLimiter::for('catalog', fn (Request $request) => Limit::perMinute(300)->by($request->ip()));
 
         // npm and Composer fetch metadata and archives in bursts during an install.

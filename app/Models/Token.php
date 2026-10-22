@@ -33,7 +33,10 @@ class Token extends Model
 
     public const SCOPE_INSTANCE_REGISTER = 'instance:register';
 
-    public const SCOPES = [self::SCOPE_ALL, self::SCOPE_READ, self::SCOPE_PUBLISH, self::SCOPE_INSTALL, self::SCOPE_INSTANCE_REGISTER];
+    /** Staff review and moderation (`/v1/admin/*`); also needs a staff organization membership. */
+    public const SCOPE_REVIEW = 'review';
+
+    public const SCOPES = [self::SCOPE_ALL, self::SCOPE_READ, self::SCOPE_PUBLISH, self::SCOPE_INSTALL, self::SCOPE_INSTANCE_REGISTER, self::SCOPE_REVIEW];
 
     public const MAX_LIFETIME_DAYS = 365;
 
