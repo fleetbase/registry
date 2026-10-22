@@ -26,6 +26,8 @@ class Instance extends Model
 
     public const KINDS = [self::KIND_CLOUD, self::KIND_SELF_HOSTED];
 
+    public const STATUS_ACTIVE = 'active';
+
     protected $table = 'instances';
 
     protected string $publicIdType = 'inst';

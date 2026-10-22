@@ -51,10 +51,12 @@ Route::prefix('npm')->name('npm.')->middleware('throttle:packages')->group(funct
     Route::get('-/whoami', [NpmController::class, 'whoami'])->name('whoami');
 
     Route::get('{package}/-/{file}', [NpmController::class, 'tarball'])
+        ->middleware('licence:npm')
         ->where(['package' => NpmController::NAME_PATTERN, 'file' => '[A-Za-z0-9._~+-]+\\.tgz'])
         ->name('tarball');
 
     Route::get('{package}', [NpmController::class, 'packument'])
+        ->middleware('licence:npm')
         ->where('package', NpmController::NAME_PATTERN)
         ->name('packument');
 
@@ -67,10 +69,12 @@ Route::prefix('composer')->name('composer.')->middleware('throttle:packages')->g
     Route::get('packages.json', [ComposerController::class, 'packages'])->name('packages');
 
     Route::get('p2/{vendor}/{package}.json', [ComposerController::class, 'versions'])
+        ->middleware('licence:composer')
         ->where(['vendor' => ComposerController::VENDOR_PATTERN, 'package' => ComposerController::PACKAGE_PATTERN.'(?:~dev)?'])
         ->name('versions');
 
     Route::get('dist/{vendor}/{package}/{version}.tar', [ComposerController::class, 'dist'])
+        ->middleware('licence:composer')
         ->where(['vendor' => ComposerController::VENDOR_PATTERN, 'package' => ComposerController::PACKAGE_PATTERN, 'version' => '[A-Za-z0-9.+_-]+'])
         ->name('dist');
 });

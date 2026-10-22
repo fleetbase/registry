@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsurePackageLicence;
 use App\Http\Middleware\EnsureTokenScope;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'scope' => EnsureTokenScope::class,
+            'licence' => EnsurePackageLicence::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
