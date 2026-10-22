@@ -79,10 +79,11 @@ uplinks:
 # https://verdaccio.org/docs/protect-your-dependencies/
 # https://verdaccio.org/docs/configuration#packages
 packages:
+  # Fleetbase extensions are private to this registry: no proxy, so a name that is missing here
+  # is a 404 instead of being resolved from npmjs (dependency-confusion protection).
   "@fleetbase/*":
     access: $all
     publish: $authenticated
-    proxy: npmjs
 
   "@*/*":
     access: $all
@@ -123,19 +124,16 @@ server:
 # // url -> https://somedomain.org/second_prefix/'
 
 # https://verdaccio.org/docs/configuration#security
-# security:
-#   api:
-#     legacy: true
-#     jwt:
-#       sign:
-#         expiresIn: 29d
-#       verify:
-#         someProp: [value]
-#    web:
-#      sign:
-#        expiresIn: 1h # 1 hour by default
-#      verify:
-#         someProp: [value]
+# API tokens are signed JWTs. With the legacy (AES) scheme every request re-sent the user's
+# credentials to the Fleetbase API through the auth plugin; a JWT is verified locally and only
+# allow_access / allow_publish still consult Fleetbase.
+security:
+  api:
+    legacy: false
+    jwt:
+      sign:
+        expiresIn: 7d
+      verify: {}
 
 # https://verdaccio.org/docs/configuration#user-rate-limit
 # userRateLimit:
@@ -180,11 +178,13 @@ middlewares:
   "@fleetbase/verdaccio-composer-middleware":
     enabled: true
     fleetbaseHost: https://api.fleetbase.io
-    fleetbaseApiKey: 1234567e
+    # Set FLEETBASE_API_KEY in the environment (see docker-compose.override.yml.example).
+    # Verdaccio does not expand ${VAR} in this file, and the plugin reads the env var first.
+    #fleetbaseApiKey: yourkey
 
 # https://verdaccio.org/docs/logger
 # log settings
-log: { type: stdout, format: pretty, level: debug }
+log: { type: stdout, format: pretty, level: warn }
 #experiments:
 #  # support for npm token command
 #  token: false

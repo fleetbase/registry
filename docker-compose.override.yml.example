@@ -1,0 +1,27 @@
+# Local override for docker-compose.yml. Copy to docker-compose.override.yml (git-ignored) and
+# export the referenced variables, or put them in a .env file next to this file (see .env.example).
+# Never commit real values: this file is the only one that should be tracked.
+services:
+  minio:
+    networks:
+      - fleetbase
+
+  verdaccio:
+    environment:
+      AWS_BUCKET: ${AWS_BUCKET}
+      AWS_KEY_PREFIX: ${AWS_KEY_PREFIX:-fleetbase-extensions}
+      AWS_REGION: ${AWS_REGION:-ap-southeast-1}
+      AWS_ENDPOINT: ${AWS_ENDPOINT:-http://s3.ap-southeast-1.amazonaws.com}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      FLEETBASE_HOST: ${FLEETBASE_HOST:-http://application:8000}
+      FLEETBASE_API_KEY: ${FLEETBASE_API_KEY}
+      # Set to 1 only when Verdaccio and MinIO run together in compose and signed tarball URLs
+      # must resolve from the host machine.
+      DEV_REWRITE_MINIO_HOST: ${DEV_REWRITE_MINIO_HOST:-0}
+    networks:
+      - fleetbase
+
+networks:
+  fleetbase:
+    external: true

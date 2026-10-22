@@ -39,7 +39,15 @@ Welcome to the official source code repository for the Fleetbase Extensions Regi
 
 ### Configuration
 
-Coming soon.
+All credentials come from the environment; nothing secret is committed.
+
+1. Copy `docker-compose.override.yml.example` to `docker-compose.override.yml` (git-ignored) and `.env.example` to `.env` (git-ignored), then fill in the values in `.env`:
+   - `AWS_BUCKET`, `AWS_REGION`, `AWS_ENDPOINT`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` for the tarball bucket (MinIO locally, S3 in production).
+   - `FLEETBASE_HOST` and `FLEETBASE_API_KEY` for the Fleetbase API the auth and composer plugins call.
+   - `DEV_REWRITE_MINIO_HOST=1` only for local compose, so signed tarball URLs point at `localhost` instead of the `minio` service name.
+2. In AWS the same variables are injected by `ssm-parent` from the SSM parameter named in `SSM_PARAMETER` (see `Dockerfile.verdaccio`).
+
+`config/config.yaml` holds no secrets. Every push and pull request runs a gitleaks history scan (`.github/workflows/secret-scan.yml`).
 
 ## Usage
 
