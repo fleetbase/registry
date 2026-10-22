@@ -15,9 +15,12 @@ use Illuminate\Http\Request;
  * The bearer credential resolves to one or more organizations:
  *   - personal token (`flbp_…`) with the `install` scope: the token's organization when it
  *     is pinned to one, otherwise every organization the account belongs to;
- *   - instance token (`flbi_…`): the instance's organization (instances.token_hash).
+ *   - instance token (`flbi_…`): the instance's organization, resolved by
+ *     `Instance::findByToken()` so hashing and revocation live on the model.
  * Access is granted when one of those organizations owns the extension or holds an active,
- * unexpired licence for it. Free extensions never reach this check.
+ * unexpired licence for it. Seats (licence activations) are not checked here: they are
+ * claimed when the instance reports the install (`POST /v1/instances/me/installs`).
+ * Free extensions never reach this check.
  */
 class LicenceGate
 {
@@ -81,14 +84,7 @@ class LicenceGate
             return $token;
         }
 
-        if (str_starts_with($plain, Token::PREFIX_INSTANCE)) {
-            return Instance::query()
-                ->where('token_hash', Token::hash($plain))
-                ->where('status', Instance::STATUS_ACTIVE)
-                ->first();
-        }
-
-        return null;
+        return Instance::findByToken($plain);
     }
 
     /**
