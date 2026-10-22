@@ -33,12 +33,25 @@ class File extends Model
 
     protected $fillable = [
         'uploader_account_uuid', 'subject_type', 'subject_uuid', 'type', 'disk', 'path', 'name',
-        'original_filename', 'size', 'mime', 'checksum', 'meta',
+        'original_filename', 'size', 'mime', 'checksum', 'shasum', 'integrity', 'meta',
     ];
 
     protected $hidden = ['id', 'disk', 'path'];
 
     protected $casts = ['size' => 'integer', 'meta' => 'array'];
+
+    /**
+     * Decoded `package.json` (engine tarballs) or `composer.json` (API tarballs) captured
+     * by `ReleaseStorage` when the archive was stored.
+     */
+    public function manifest(): ?array
+    {
+        return match ($this->type) {
+            self::TYPE_ENGINE_TARBALL => $this->meta['package_json'] ?? null,
+            self::TYPE_API_TARBALL => $this->meta['composer_json'] ?? null,
+            default => null,
+        };
+    }
 
     public function subject(): MorphTo
     {
