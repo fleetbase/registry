@@ -4,6 +4,7 @@ use App\Http\Controllers\Account\AccountController;
 use App\Http\Controllers\Account\TokenController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Catalog\CatalogController;
+use App\Http\Controllers\Packages\ComposerController;
 use App\Http\Controllers\Packages\NpmController;
 use Illuminate\Support\Facades\Route;
 
@@ -60,4 +61,16 @@ Route::prefix('npm')->name('npm.')->middleware('throttle:packages')->group(funct
     Route::match(['PUT', 'POST', 'DELETE', 'PATCH'], '{any}', [NpmController::class, 'readOnly'])
         ->where('any', '.*')
         ->name('read-only');
+});
+
+Route::prefix('composer')->name('composer.')->middleware('throttle:packages')->group(function () {
+    Route::get('packages.json', [ComposerController::class, 'packages'])->name('packages');
+
+    Route::get('p2/{vendor}/{package}.json', [ComposerController::class, 'versions'])
+        ->where(['vendor' => ComposerController::VENDOR_PATTERN, 'package' => ComposerController::PACKAGE_PATTERN.'(?:~dev)?'])
+        ->name('versions');
+
+    Route::get('dist/{vendor}/{package}/{version}.tar', [ComposerController::class, 'dist'])
+        ->where(['vendor' => ComposerController::VENDOR_PATTERN, 'package' => ComposerController::PACKAGE_PATTERN, 'version' => '[A-Za-z0-9.+_-]+'])
+        ->name('dist');
 });
