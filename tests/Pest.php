@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Account;
+use App\Models\Instance;
 use App\Models\Token;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -21,4 +22,16 @@ function actingAsAccount(Account $account, array $scopes = [Token::SCOPE_ALL]): 
     test()->withHeader('Authorization', 'Bearer '.$token->plainTextToken);
 
     return $token;
+}
+
+/**
+ * Issue an instance token and authenticate subsequent requests with it.
+ */
+function actingAsInstance(Instance $instance): string
+{
+    $plain = $instance->issueToken();
+
+    test()->withHeader('Authorization', 'Bearer '.$plain);
+
+    return $plain;
 }

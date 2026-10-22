@@ -34,11 +34,13 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * `auth:token` resolves personal tokens (flbp_…) to accounts.
+     * `auth:token` resolves personal tokens (flbp_…) to accounts;
+     * `auth:instance` resolves instance tokens (flbi_…) to instances.
      */
     protected function registerAuthGuard(): void
     {
-        Auth::viaRequest('registry-token', new TokenGuard);
+        Auth::viaRequest('registry-token', new TokenGuard(TokenGuard::KIND_PERSONAL));
+        Auth::viaRequest('registry-instance-token', new TokenGuard(TokenGuard::KIND_INSTANCE));
     }
 
     /**
@@ -63,6 +65,10 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->uuid ?: $request->ip()));
+
+        RateLimiter::for('instances', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->uuid ?: $request->ip()));
+
+        RateLimiter::for('instance-register', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
 
         RateLimiter::for('catalog', fn (Request $request) => Limit::perMinute(300)->by($request->ip()));
     }
