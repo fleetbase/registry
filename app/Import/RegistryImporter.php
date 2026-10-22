@@ -20,6 +20,7 @@ use App\Models\Price;
 use App\Models\Purchase;
 use App\Models\Release;
 use App\Support\Compat;
+use App\Support\Semver;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -770,7 +771,7 @@ class RegistryImporter
             'extension_uuid' => $extension->uuid,
             'created_by_account_uuid' => ($this->userAccounts[$bundle->created_by_uuid ?? ''] ?? null)?->uuid,
             'version' => $version,
-            'channel' => Compat::normalizeVersion($version) !== null && str_contains($version, '-') ? Release::CHANNEL_BETA : Release::CHANNEL_STABLE,
+            'channel' => Semver::normalize($version) !== null && str_contains($version, '-') ? Release::CHANNEL_BETA : Release::CHANNEL_STABLE,
             'manifest' => array_merge($this->bundleFile($meta, 'extension.json') ?: [], array_filter(['bundle_number' => $bundle->bundle_number ?? null])),
             'compat' => $this->compat($meta),
             'published_at' => $publishedAt,

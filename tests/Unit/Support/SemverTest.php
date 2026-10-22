@@ -27,3 +27,24 @@ it('knows which versions Composer accepts', function () {
         ->and(Semver::isComposerCompatible('2.0.0-RC2'))->toBeTrue()
         ->and(Semver::isComposerCompatible('1.2.0-next.1'))->toBeFalse();
 });
+
+it('normalizes loose versions and compares them with one comparator', function () {
+    expect(Semver::normalize('v1.2'))->toBe('1.2.0')
+        ->and(Semver::normalize('V2'))->toBe('2.0.0')
+        ->and(Semver::normalize('1.2-beta.1'))->toBe('1.2.0-beta.1')
+        ->and(Semver::normalize('1.2.3+build.5'))->toBe('1.2.3+build.5')
+        ->and(Semver::normalize('dev-main'))->toBeNull()
+        ->and(Semver::normalize('1.2.3.4'))->toBeNull()
+        ->and(Semver::normalize(null))->toBeNull()
+        ->and(Semver::compare('v1.2', '1.2.0'))->toBe(0)
+        ->and(Semver::compare('1.10', '1.9.9'))->toBe(1);
+});
+
+it('decides whether a version is newer', function () {
+    expect(Semver::isNewer('1.10.0', '1.9.0'))->toBeTrue()
+        ->and(Semver::isNewer('1.0.0', '1.0.0-beta.1'))->toBeTrue()
+        ->and(Semver::isNewer('1.0.0', '1.0.0'))->toBeFalse()
+        ->and(Semver::isNewer('garbage', '1.0.0'))->toBeFalse()
+        ->and(Semver::isNewer('1.0.0', null))->toBeTrue()
+        ->and(Semver::isNewer('1.0.0', 'dev-main'))->toBeTrue();
+});

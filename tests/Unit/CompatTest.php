@@ -20,10 +20,9 @@ it('evaluates npm and composer style ranges', function (?string $version, ?strin
     'broken range' => ['1.0.0', 'not a range', false],
 ]);
 
-it('orders versions by semver precedence', function () {
-    expect(Compat::isNewer('1.10.0', '1.9.0'))->toBeTrue()
-        ->and(Compat::isNewer('1.0.0', '1.0.0-beta.1'))->toBeTrue()
-        ->and(Compat::isNewer('1.0.0', '1.0.0'))->toBeFalse()
-        ->and(Compat::isNewer('garbage', '1.0.0'))->toBeFalse()
-        ->and(Compat::isNewer('1.0.0', null))->toBeTrue();
+it('checks that ranges parse', function () {
+    expect(Compat::validRange('>=0.7 <1.0'))->toBeTrue()
+        ->and(Compat::validRange('^1.6 || ^2.0'))->toBeTrue()
+        ->and(Compat::validRange(null))->toBeTrue()
+        ->and(Compat::validRange('not a range'))->toBeFalse();
 });

@@ -17,6 +17,7 @@ use App\Models\LicenceActivation;
 use App\Models\Organization;
 use App\Models\Release;
 use App\Support\Compat;
+use App\Support\Semver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -132,7 +133,7 @@ class InstanceController extends Controller
                 'extension' => (new ExtensionReferenceResource($install->extension))->resolve($request),
                 'installed' => $install->release ? (new ReleaseResource($install->release))->resolve($request) : null,
                 'latest' => $latest ? (new ReleaseResource($latest))->resolve($request) : null,
-                'update_available' => $latest !== null && Compat::isNewer($latest->version, $install->release?->version),
+                'update_available' => $latest !== null && Semver::isNewer($latest->version, $install->release?->version),
             ];
         })->values();
 

@@ -3,8 +3,9 @@
 namespace App\Support;
 
 /**
- * Semantic Versioning 2.0.0 parsing and precedence, enough to order releases and pick
- * dist-tags. Ranges and constraints are out of scope.
+ * Semantic Versioning 2.0.0 parsing and precedence: the one version comparator in the
+ * service. Orders releases, picks dist-tags, decides updates and enforces that a new
+ * release is greater than the last one on its channel. Ranges live in `Compat`.
  */
 class Semver
 {
@@ -38,6 +39,21 @@ class Semver
         return self::parse($version) !== null;
     }
 
+    /**
+     * The version as strict SemVer without a leading `v`, padding a missing minor or patch
+     * with zeros (`v1.2` → `1.2.0`), or null when it is not a version at all (`dev-main`).
+     */
+    public static function normalize(?string $version): ?string
+    {
+        $version = ltrim(trim((string) $version), 'vV');
+
+        if (preg_match('/^(\d+)(?:\.(\d+))?(?:\.(\d+))?((?:-|\+).*)?$/', $version, $m) === 1 && ($m[3] ?? '') === '') {
+            $version = $m[1].'.'.(($m[2] ?? '') !== '' ? $m[2] : '0').'.0'.($m[4] ?? '');
+        }
+
+        return self::parse($version) !== null ? $version : null;
+    }
+
     public static function isComposerCompatible(string $version): bool
     {
         return preg_match(self::COMPOSER_PATTERN, $version) === 1;
@@ -49,12 +65,13 @@ class Semver
     }
 
     /**
-     * -1, 0 or 1 by SemVer precedence. Invalid versions sort below valid ones.
+     * -1, 0 or 1 by SemVer precedence, after `normalize()`. Build metadata is ignored.
+     * Invalid versions sort below valid ones.
      */
     public static function compare(string $a, string $b): int
     {
-        $pa = self::parse($a);
-        $pb = self::parse($b);
+        $pa = self::parse(self::normalize($a) ?? $a);
+        $pb = self::parse(self::normalize($b) ?? $b);
 
         if ($pa === null || $pb === null) {
             return ($pa !== null) <=> ($pb !== null) ?: strcmp($a, $b) <=> 0;
@@ -93,6 +110,23 @@ class Semver
         }
 
         return 0;
+    }
+
+    /**
+     * True when the candidate is a version and has higher precedence than the current one;
+     * anything beats no (or an unparseable) current version.
+     */
+    public static function isNewer(?string $candidate, ?string $current): bool
+    {
+        if ($candidate === null || self::normalize($candidate) === null) {
+            return false;
+        }
+
+        if ($current === null || self::normalize($current) === null) {
+            return true;
+        }
+
+        return self::compare($candidate, $current) > 0;
     }
 
     /**
