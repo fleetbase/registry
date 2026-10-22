@@ -51,6 +51,64 @@ jobs:
       - name: Run tests
         run: vendor/bin/pest --ci --colors=always
 
+  package-conformance:
+    name: npm and Composer conformance
+    runs-on: ubuntu-latest
+    needs: tests
+    # .env.example already runs on SQLite (database/database.sqlite) with the local disk;
+    # `artisan serve` reads .env rather than the job environment.
+    env:
+      PHP_CLI_SERVER_WORKERS: 4
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, intl, bcmath, zip, pdo_sqlite, sqlite3, phar, zlib
+          coverage: none
+          tools: composer:v2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-8.3-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-8.3-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare the service
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+          touch database/database.sqlite
+          php artisan migrate --force
+
+      - name: Start the service
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > storage/logs/serve.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8000/up > /dev/null && exit 0; sleep 1; done
+          cat storage/logs/serve.log; exit 1
+
+      - name: Run npm and Composer against seeded releases
+        run: tests/Conformance/packages.sh http://127.0.0.1:8000
+
+      - name: Service logs
+        if: failure()
+        run: |
+          cat storage/logs/serve.log || true
+          cat storage/logs/laravel.log || true
+
   docker:
     name: Docker image builds
     runs-on: ubuntu-latest

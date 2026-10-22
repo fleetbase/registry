@@ -19,7 +19,7 @@ Phase 1, Workstreams A and B:
 | Account auth: register, email verification code, login, logout, personal tokens | done |
 | Public catalog API (`/v1/catalog/*`) with 60 s cache | done |
 | Docker image, compose stack (app, queue, MySQL, MinIO, Mailpit), CI | done |
-| npm packument and tarball endpoints, Composer v2 repository | next |
+| Package store (`ReleaseStorage`), npm packument and tarball endpoints, Composer v2 repository, licence gate, `@fleetbase` namespace protection | done |
 | Releases upload, checks, review; instance API; Stripe | later workstreams |
 
 ## Stack
@@ -59,6 +59,18 @@ Run the tests:
 ```bash
 composer test
 ```
+
+Seed a published free and a paid extension from the fixture tarballs in
+`database/fixtures/packages`, with install tokens for a licensed and an unlicensed
+organization, then drive real npm and Composer clients against them:
+
+```bash
+php artisan registry:seed --seed-release        # add --json for scripts
+php artisan serve &
+tests/Conformance/packages.sh http://127.0.0.1:8000
+```
+
+CI runs the same script in the `package-conformance` job.
 
 ## API overview
 
@@ -101,21 +113,76 @@ match either side), `category=<slug or id>[,…]`, `publisher=<slug>`, `tag=<tag
 Sorts: `popular` (default, by installs), `newest`, `updated`, `name`, `price`.
 Slugs and public ids (`ext_…`, `org_…`) are both accepted where a slug is expected.
 
+### Packages (npm and Composer)
+
+Package routes sit outside `/v1` because the clients treat them as registry roots. Errors
+carry npm's `error` string beside the usual `errors` array.
+
+| Method and path | Returns |
+| --- | --- |
+| `GET /npm/{name}` | Packument from published, non-yanked releases: `versions` (stored `package.json` + `dist.tarball`, `dist.shasum`, `dist.integrity`), `dist-tags` (`latest` = highest stable, `beta` = highest beta; `latest` falls back to the highest beta when nothing is stable), `time`. Scoped names work encoded (`@scope%2fname`) or not. ETag, 304 |
+| `GET /npm/{name}/-/{basename}-{version}.tgz` | The engine tarball. Yanked versions stay downloadable for lockfiles |
+| `PUT`/`POST`/`DELETE`/`PATCH /npm/…` | 405: publish with `flb publish` |
+| `GET /npm/-/ping`, `GET /npm/-/whoami` | `npm ping`, `npm whoami` |
+| `GET /composer/packages.json` | `metadata-url`, `available-packages` (every package with a published release) |
+| `GET /composer/p2/{vendor}/{package}.json` | Every published release, newest first, `composer/2.0` minified, `dist: {type: tar, url, shasum, reference}`. `~dev.json` is always empty. ETag, 304 |
+| `GET /composer/dist/{vendor}/{package}/{version}.tar` | The API archive |
+
+Client setup:
+
+```ini
+# .npmrc
+@acme:registry=https://registry.fleetbase.io/npm/
+//registry.fleetbase.io/npm/:_authToken=flbp_…
+```
+
+```json
+{
+    "repositories": [{"type": "composer", "url": "https://registry.fleetbase.io/composer"}]
+}
+```
+
+with `COMPOSER_AUTH='{"bearer": {"registry.fleetbase.io": "flbp_…"}}'` for paid packages.
+
+**Licence gate.** Free packages are open. For a paid package the packument, tarball, p2
+and dist routes need `Authorization: Bearer` with a personal token carrying the `install`
+scope or an instance token (`flbi_…`). The token's organizations are its pinned
+organization, or every organization of the account when it is not pinned; access is
+granted when one of them owns the extension or holds an active, unexpired licence. 401
+without a usable token, 403 with one. Paid responses are `Cache-Control: private`.
+
+**Package store.** `App\Services\ReleaseStorage` writes objects to the
+`REGISTRY_STORAGE_DISK` disk under `tarballs/`, `dist/`, `icons/` and `screenshots/`,
+one `files` row each with `checksum` (sha256), `shasum` (sha1) and `integrity` (SRI
+sha512). Package tarballs keep their decoded `package.json` or `composer.json` in
+`files.meta`. Set `REGISTRY_PUBLIC_URL` when the service runs behind a proxy so the
+URLs written into metadata use the public host.
+
+**Reserved namespaces.** `@fleetbase/*` and `fleetbase/*` package names can only belong
+to extensions of an organization flagged `is_staff`
+(`php artisan registry:staff <slug> [--revoke]`).
+
 ## Repository layout
 
 ```
 app/
   Auth/TokenGuard.php          bearer-token guard (auth:token)
   Casts/Money.php              minor-unit money cast
+  Console/Commands/            registry:seed, registry:staff
+  Http/Controllers/Packages/   npm and Composer endpoints
   Http/Filter/                 request-driven query filters (ExtensionFilter)
+  Http/Middleware/             scope:…, licence:npm|composer
   Http/Resources/              Fleetbase-style JSON resources
   Models/                      one model per table; Model.php is the base
-  Support/                     Http and Utils helpers
+  Services/                    ReleaseStorage, LicenceGate, Packages/ (packument, Composer metadata)
+  Support/                     Http, Utils, Semver, Tarball helpers
+database/fixtures/packages/    fixture tarballs for registry:seed --seed-release
 database/migrations/           the data model
 database/seeders/              CategorySeeder (41 categories from registry-bridge)
 docker/                        compose helpers
 legacy/                        the Verdaccio registry (v1)
-tests/Feature/{Auth,Catalog}   Pest feature tests (SQLite in memory)
+tests/Feature/{Auth,Catalog,Packages}  Pest feature tests (SQLite in memory)
+tests/Conformance/packages.sh  real npm and Composer clients against a running service
 ```
 
 ## Deployment
