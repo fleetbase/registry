@@ -20,11 +20,9 @@ return [
     // Cache lifetime for public catalog responses, in seconds.
     'catalog_cache_seconds' => (int) env('REGISTRY_CATALOG_CACHE_SECONDS', 60),
 
-    // Package namespaces reserved for the Fleetbase staff organization.
+    // Package namespaces (npm scope / Composer vendor) only an organization flagged
+    // `is_staff` may own. Grant the flag with `php artisan registry:staff <org>`.
     'reserved_scopes' => ['fleetbase'],
-
-    // Slug of the staff organization that may publish reserved scopes and review releases.
-    'staff_organization' => env('REGISTRY_STAFF_ORGANIZATION', 'fleetbase'),
 
     // Maximum uploaded bundle size in bytes (used by release checks in Workstream C).
     'max_bundle_bytes' => (int) env('REGISTRY_MAX_BUNDLE_BYTES', 50 * 1024 * 1024),

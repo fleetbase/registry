@@ -31,8 +31,10 @@ class Organization extends Model
 
     protected $hidden = ['id', 'stripe_connect_id'];
 
+    // `is_staff` is deliberately not fillable; set it with `registry:staff`.
     protected $casts = [
         'is_personal' => 'boolean',
+        'is_staff' => 'boolean',
         'verified_at' => 'datetime',
         'meta' => 'array',
     ];
@@ -68,6 +70,11 @@ class Organization extends Model
     public function licences(): HasMany
     {
         return $this->hasMany(Licence::class, 'organization_uuid', 'uuid');
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->is_staff === true;
     }
 
     public function isVerified(): bool

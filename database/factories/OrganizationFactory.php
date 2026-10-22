@@ -31,6 +31,11 @@ class OrganizationFactory extends Factory
         return $this->state(fn () => ['verified_at' => now()]);
     }
 
+    public function staff(): static
+    {
+        return $this->state(fn () => ['is_staff' => true]);
+    }
+
     public function personal(): static
     {
         return $this->state(fn () => ['is_personal' => true]);

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Exceptions\ReservedPackageNamespaceException;
 use App\Support\Semver;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,9 +28,58 @@ class ExtensionPackage extends Model
 
     protected $hidden = ['id'];
 
+    protected static function booted(): void
+    {
+        static::saving(function (ExtensionPackage $package) {
+            $package->name = strtolower(trim((string) $package->name));
+
+            if ($package->isDirty(['name', 'kind', 'extension_uuid'])) {
+                $package->assertNamespaceAllowed();
+            }
+        });
+    }
+
     public function extension(): BelongsTo
     {
         return $this->belongsTo(Extension::class, 'extension_uuid', 'uuid');
+    }
+
+    /**
+     * The scope or vendor: `fleetbase` for `@fleetbase/x` and `fleetbase/x`; null for an
+     * unscoped npm name.
+     */
+    public static function namespaceOf(string $kind, string $name): ?string
+    {
+        $name = strtolower($name);
+
+        if ($kind === self::KIND_NPM) {
+            return preg_match('#^@([^/]+)/#', $name, $m) ? $m[1] : null;
+        }
+
+        return str_contains($name, '/') ? strstr($name, '/', true) : null;
+    }
+
+    public static function isReservedNamespace(?string $namespace): bool
+    {
+        return $namespace !== null && in_array($namespace, array_map('strtolower', config('registry.reserved_scopes', [])), true);
+    }
+
+    /**
+     * Reserved namespaces may only be owned by an extension of a staff organization.
+     *
+     * @throws ReservedPackageNamespaceException
+     */
+    public function assertNamespaceAllowed(): void
+    {
+        $namespace = static::namespaceOf((string) $this->kind, (string) $this->name);
+        if (! static::isReservedNamespace($namespace)) {
+            return;
+        }
+
+        $owner = Extension::withTrashed()->find($this->extension_uuid)?->organization()->first();
+        if ($owner?->is_staff !== true) {
+            throw ReservedPackageNamespaceException::for($this->name, $this->kind === self::KIND_NPM ? '@'.$namespace : $namespace);
+        }
     }
 
     /**
