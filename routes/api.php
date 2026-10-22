@@ -4,6 +4,7 @@ use App\Http\Controllers\Account\AccountController;
 use App\Http\Controllers\Account\TokenController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Catalog\CatalogController;
+use App\Http\Controllers\Packages\NpmController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -13,8 +14,9 @@ use Illuminate\Support\Facades\Route;
 |
 | Public catalog: no auth.
 | Account routes: Authorization: Bearer flbp_… (personal token).
-| Package (npm, Composer), instance, publisher, admin and Stripe routes
-| are added in later workstreams.
+| Package routes (/npm, /composer) sit outside /v1 because npm and Composer
+| clients address them as registry roots.
+| Instance, publisher, admin and Stripe routes are added in later workstreams.
 |
 */
 
@@ -41,4 +43,21 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('account/tokens', [TokenController::class, 'store'])->name('account.tokens.store');
         Route::delete('account/tokens/{token}', [TokenController::class, 'destroy'])->name('account.tokens.destroy');
     });
+});
+
+Route::prefix('npm')->name('npm.')->middleware('throttle:packages')->group(function () {
+    Route::get('-/ping', [NpmController::class, 'ping'])->name('ping');
+    Route::get('-/whoami', [NpmController::class, 'whoami'])->name('whoami');
+
+    Route::get('{package}/-/{file}', [NpmController::class, 'tarball'])
+        ->where(['package' => NpmController::NAME_PATTERN, 'file' => '[A-Za-z0-9._~+-]+\\.tgz'])
+        ->name('tarball');
+
+    Route::get('{package}', [NpmController::class, 'packument'])
+        ->where('package', NpmController::NAME_PATTERN)
+        ->name('packument');
+
+    Route::match(['PUT', 'POST', 'DELETE', 'PATCH'], '{any}', [NpmController::class, 'readOnly'])
+        ->where('any', '.*')
+        ->name('read-only');
 });

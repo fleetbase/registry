@@ -5,11 +5,6 @@ use App\Models\Release;
 use App\Services\ReleaseStorage;
 use Illuminate\Support\Facades\Storage;
 
-beforeEach(function () {
-    config(['registry.storage.disk' => 'packages']);
-    Storage::fake('packages');
-});
-
 it('stores a tarball under its prefix with all three digests and the manifest', function () {
     $release = Release::factory()->create();
     $source = fixturePackage('hello-engine-1.0.0.tgz');

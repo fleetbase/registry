@@ -26,7 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $isApi = fn (Request $request) => $request->is('v1/*') || $request->is('v1') || $request->expectsJson();
+        $isPackage = fn (Request $request) => $request->is('npm', 'npm/*', 'composer', 'composer/*');
+        $isApi = fn (Request $request) => $request->is('v1/*') || $request->is('v1') || $isPackage($request) || $request->expectsJson();
 
         $exceptions->shouldRenderJsonWhen(fn (Request $request) => $isApi($request));
 
@@ -43,13 +44,23 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        $exceptions->render(function (ModelNotFoundException|NotFoundHttpException $e, Request $request) use ($isApi) {
+        $exceptions->render(function (ModelNotFoundException|NotFoundHttpException $e, Request $request) use ($isApi, $isPackage) {
+            if ($isPackage($request)) {
+                return response()->packageError($e instanceof NotFoundHttpException && $e->getMessage() !== '' ? $e->getMessage() : 'Not found.', 404);
+            }
+
             if ($isApi($request)) {
                 return response()->error('Resource not found.', 404);
             }
         });
 
-        $exceptions->render(function (HttpExceptionInterface $e, Request $request) use ($isApi) {
+        $exceptions->render(function (HttpExceptionInterface $e, Request $request) use ($isApi, $isPackage) {
+            if ($isPackage($request)) {
+                $message = $e->getMessage() ?: (Response::$statusTexts[$e->getStatusCode()] ?? 'Request failed.');
+
+                return response()->packageError($message, $e->getStatusCode(), $e->getHeaders());
+            }
+
             if ($isApi($request)) {
                 $message = $e->getMessage() ?: (Response::$statusTexts[$e->getStatusCode()] ?? 'Request failed.');
 

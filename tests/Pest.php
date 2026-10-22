@@ -1,8 +1,14 @@
 <?php
 
 use App\Models\Account;
+use App\Models\Extension;
+use App\Models\ExtensionPackage;
+use App\Models\File;
+use App\Models\Release;
 use App\Models\Token;
+use App\Services\ReleaseStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)
@@ -10,6 +16,12 @@ pest()->extend(TestCase::class)
     ->in('Feature');
 
 pest()->extend(TestCase::class)->in('Unit');
+
+// Package tests run against a fake registry disk.
+pest()->beforeEach(function () {
+    config(['registry.storage.disk' => 'packages']);
+    Storage::fake('packages');
+})->in('Feature/Packages');
 
 /**
  * Issue a token for the account and authenticate subsequent requests with it.
@@ -59,4 +71,45 @@ function makeTarball(array $files, bool $gzip = true): string
 function fixturePackage(string $file): string
 {
     return base_path('database/fixtures/packages/'.$file);
+}
+
+/**
+ * A published listing owning one package of the given kind.
+ */
+function makePackage(string $kind, string $name, bool $paid = false, array $extension = []): ExtensionPackage
+{
+    $factory = Extension::factory()->published()->state($extension);
+    $factory = $paid ? $factory->paid() : $factory->free();
+
+    return $factory->create()->packages()->create(['kind' => $kind, 'name' => $name])->load('extension.price');
+}
+
+/**
+ * A release of the package's extension whose archive holds a generated manifest. A second
+ * call for the same version attaches the other kind's archive to the existing release.
+ */
+function makeRelease(ExtensionPackage $package, string $version, string $channel = Release::CHANNEL_STABLE, string $status = Release::STATUS_PUBLISHED, array $manifest = [], ?string $publishedAt = null): Release
+{
+    $npm = $package->kind === ExtensionPackage::KIND_NPM;
+    $manifest = array_merge(['name' => $package->name], $npm ? ['version' => $version] : [], $manifest);
+    $archive = makeTarball(['package/'.($npm ? 'package.json' : 'composer.json') => json_encode($manifest)]);
+
+    $release = Release::query()->firstOrCreate(
+        ['extension_uuid' => $package->extension_uuid, 'version' => $version],
+        Release::factory()->raw([
+            'extension_uuid' => $package->extension_uuid,
+            'version' => $version,
+            'channel' => $channel,
+            'status' => $status,
+            'published_at' => $publishedAt ?? now(),
+            'yanked_at' => $status === Release::STATUS_YANKED ? now() : null,
+        ]),
+    );
+
+    $file = app(ReleaseStorage::class)->store($archive, $npm ? File::TYPE_ENGINE_TARBALL : File::TYPE_API_TARBALL, $release, [
+        'name' => $npm ? basename($package->name).'-'.$version.'.tgz' : str_replace('/', '-', $package->name).'-'.$version.'.tar',
+    ]);
+    $release->forceFill([$npm ? 'engine_tarball_file_uuid' : 'api_tarball_file_uuid' => $file->uuid])->save();
+
+    return $release;
 }
