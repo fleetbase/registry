@@ -44,7 +44,7 @@ Route::middleware('auth:web')->group(function () {
 
     Route::get('studio', [StudioPageController::class, 'index'])->name('studio');
     Route::get('studio/new', [StudioPageController::class, 'create'])->name('studio.create');
-    Route::get('studio/insights', [StudioPageController::class, 'insights'])->name('studio.insights');
+    Route::get('studio/insights/{slug?}', [StudioPageController::class, 'insights'])->name('studio.insights');
     Route::get('studio/payouts/{slug?}', [StudioPageController::class, 'payouts'])->name('studio.payouts');
     Route::get('studio/{slug}', [StudioPageController::class, 'editor'])->name('studio.editor');
     Route::get('studio/{slug}/releases', [StudioPageController::class, 'releases'])->name('studio.releases');

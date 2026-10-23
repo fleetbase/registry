@@ -5,17 +5,21 @@ namespace App\Http\Controllers\Web;
 use App\Commerce\Stripe;
 use App\Http\Controllers\Catalog\CatalogController;
 use App\Http\Controllers\Organization\PayoutController;
+use App\Http\Controllers\Organization\StatsController as OrganizationStatsController;
 use App\Http\Controllers\Organization\StripeConnectController;
 use App\Http\Controllers\Publisher\ExtensionController;
 use App\Http\Controllers\Publisher\ReleaseController;
+use App\Http\Controllers\Publisher\StatsController;
+use App\Models\Membership;
 use App\Models\Release;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
  * Publisher Studio: my extensions, create, the listing editor, releases with live checks,
- * review status, history, payouts and the coming-soon insights.
+ * review status, history, payouts and insights.
  */
 class StudioPageController extends WebController
 {
@@ -113,9 +117,45 @@ class StudioPageController extends WebController
         ]);
     }
 
-    public function insights(): Response
+    /**
+     * GET /studio/insights[/{organization}][?extension=&from=&to=&group=] — analytics for one of the
+     * organization's listings, or all of them together, over a date range.
+     */
+    public function insights(Request $request, ?string $slug = null): Response
     {
-        return Inertia::render('Studio/Insights');
+        [$organizations, $organization] = $this->billingOrganizations($request, $slug, Membership::PUBLISHING_ROLES);
+        $filters = $this->only($request, ['from', 'to', 'group']);
+        $extensions = [];
+        $selected = $request->query('extension');
+        $stats = $error = null;
+
+        if ($organization) {
+            $extensions = collect($this->api($request, '/v1/publisher/extensions', [], ExtensionController::class, 'index'))
+                ->filter(fn (array $extension) => ($extension['organization']['slug'] ?? null) === $organization['slug'])
+                ->map(fn (array $extension) => array_intersect_key($extension, array_flip(['id', 'slug', 'name', 'status', 'icon_url', 'fa_icon'])))
+                ->values()
+                ->all();
+
+            abort_if($selected !== null && ! collect($extensions)->contains('slug', $selected), 404);
+
+            try {
+                $stats = $selected !== null
+                    ? $this->api($request, "/v1/publisher/extensions/{$selected}/stats", $filters, StatsController::class, 'show', ['slug' => $selected])
+                    : $this->api($request, "/v1/organizations/{$organization['slug']}/stats", $filters, OrganizationStatsController::class, 'show', ['slug' => $organization['slug']]);
+            } catch (ValidationException $e) {
+                $error = collect($e->errors())->flatten()->first();
+            }
+        }
+
+        return Inertia::render('Studio/Insights', [
+            'organizations' => $organizations,
+            'organization' => $organization,
+            'extensions' => $extensions,
+            'extension' => $selected,
+            'stats' => $stats,
+            'filters' => $filters,
+            'error' => $error,
+        ]);
     }
 
     /**

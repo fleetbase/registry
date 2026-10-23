@@ -84,6 +84,7 @@ code, kbd, .mono { font-family: var(--mono); font-size: 0.88em; }
 .ink2 { color: var(--ink-2); }
 .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .num { font-variant-numeric: tabular-nums; }
+.nowrap { white-space: nowrap; }
 
 /* Layout */
 .wrap { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 40px; }

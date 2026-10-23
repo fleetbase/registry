@@ -2,8 +2,10 @@
 
 use App\Models\Extension;
 use App\Models\ExtensionPackage;
+use App\Models\Membership;
 use App\Models\Release;
 use App\Releases\ReleasePipeline;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -167,11 +169,60 @@ it('renders the history with each release’s reviews', function () {
             ->where('releases.1.reviews', fn ($reviews) => collect($reviews)->pluck('action')->intersect(['upload', 'submit', 'reject'])->count() === 3));
 });
 
-it('renders the coming-soon insights', function () {
-    [$account] = publisher();
+it('renders insights for all of the organization\'s listings, then for one', function () {
+    $this->travelTo(Carbon::parse('2026-10-23 12:00:00'));
+    [$account, $organization, $listing, [$v1]] = statsListing();
+    statsInstall($listing, $v1, '2026-10-20 10:00:00');
     actingOnWebsite($account);
 
-    $this->get('/studio/insights')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Studio/Insights'));
+    $this->get('/studio/insights')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Studio/Insights')
+            ->where('organization.slug', $organization->slug)
+            ->where('extensions', [['id' => $listing->public_id, 'slug' => $listing->slug, 'name' => $listing->name, 'status' => 'published', 'fa_icon' => $listing->fa_icon, 'icon_url' => null]])
+            ->where('extension', null)
+            ->where('stats.organization.slug', $organization->slug)
+            ->where('stats.range.from', '2026-09-24')
+            ->where('stats.totals.installs', 1)
+            ->where('stats.extensions.0.extension.slug', $listing->slug)
+            ->missing('stats.versions'));
+
+    $this->get("/studio/insights/{$organization->slug}?extension={$listing->slug}&from=2026-10-01&to=2026-10-23&group=week")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Studio/Insights')
+            ->where('extension', $listing->slug)
+            ->where('filters', ['from' => '2026-10-01', 'to' => '2026-10-23', 'group' => 'week'])
+            ->where('stats.extension.slug', $listing->slug)
+            ->where('stats.range.group', 'week')
+            ->where('stats.versions.0.version', '1.0.0')
+            ->where('stats.events.data.0.type', 'install'));
+});
+
+it('shows why a range was refused instead of failing the page', function () {
+    [$account, $organization] = statsListing();
+    actingOnWebsite($account);
+
+    $this->get("/studio/insights/{$organization->slug}?from=2026-10-10&to=2026-10-01")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('stats', null)->where('error', 'The start of the range must be on or before its end.'));
+});
+
+it('answers 404 on insights for a listing or organization that is not the publisher\'s', function () {
+    [$account, $organization] = statsListing();
+    [, $theirs, $listing] = statsListing();
+    actingOnWebsite($account);
+
+    $this->get("/studio/insights/{$organization->slug}?extension={$listing->slug}")->assertNotFound();
+    $this->get("/studio/insights/{$theirs->slug}")->assertNotFound();
+});
+
+it('leaves out organizations where the account is only a billing member', function () {
+    [$account, $organization] = statsListing(Membership::ROLE_BILLING);
+    actingOnWebsite($account);
+
+    $this->get('/studio/insights')->assertOk()->assertInertia(fn (Assert $page) => $page->where('organizations', [])->where('organization', null)->where('stats', null));
 });
 
 it('answers 404 for another publisher’s listing and release', function () {

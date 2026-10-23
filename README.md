@@ -26,6 +26,7 @@ Phase 1, Workstreams A to C, and Phase 2 Workstream E:
 | Website backend (Workstream F): cookie sessions, organizations and members, listing media and pricing, staff downloads and review items | done |
 | Website (Workstream F): Inertia (React) catalog, account, Studio and review console, light and dark | done |
 | Commerce (Phase 4, K to M): Stripe Connect Express, prices mirrored to Stripe, Checkout from instances and the website, webhooks, payouts and billing APIs and pages, staff finance and refunds | done |
+| Publisher analytics: listing and organization stats APIs with CSV, Studio Insights | done |
 | CLI v2 (G), staff finance view | later workstreams |
 
 ## Stack
@@ -135,7 +136,8 @@ a website page (unknown paths render the website's 404).
 | `/auth/github`, `/auth/github/callback` | Sign in with GitHub (redirects; see below) |
 | `/account/profile`, `/account/organizations/{slug?}`, `/account/tokens` | Account |
 | `/account/billing/{slug?}[?handoff=]` | Billing: purchases, receipts, licences and their instances; Finalizing after a website checkout |
-| `/studio`, `/studio/new`, `/studio/{slug}` (listing), `/studio/{slug}/releases[/{id}]`, `/studio/{slug}/review`, `/studio/{slug}/history`, `/studio/insights` | Publisher Studio |
+| `/studio`, `/studio/new`, `/studio/{slug}` (listing), `/studio/{slug}/releases[/{id}]`, `/studio/{slug}/review`, `/studio/{slug}/history` | Publisher Studio |
+| `/studio/insights/{organization?}[?extension=&from=&to=&group=]` | Insights: installs, uninstalls, active instances, purchases and net revenue against the previous period, a trend chart, active installs by version, recent events, CSV (see Publisher analytics) |
 | `/studio/payouts/{slug?}` | Payouts: Stripe onboarding and account management (Connect.js), balance, schedule, sales and CSV |
 | `/review`, `/review/publish`, `/review/releases/{id}`, `/review/finance` | Staff review console (finance: fee revenue, refunds, disputes, per-publisher totals, refunds) |
 
@@ -288,6 +290,7 @@ releases answer 404.
 | `PATCH /v1/publisher/extensions/{slug}/screenshots` | `order`: every screenshot id once, cover first. `DELETE …/screenshots/{id}` removes one |
 | `PUT /v1/publisher/extensions/{slug}/price` | `model` (`free`, `one_time`), `amount` (minor units), `currency`, optional `sale_amount` (below `amount`) and `on_sale`. Paid prices need the organization's Stripe account (see Commerce). Saving mirrors the price to Stripe first (a refused price is not saved, 502); a price change sends the next release to review |
 | `GET /v1/publisher/extensions/{slug}/releases` | Every release with its checks |
+| `GET /v1/publisher/extensions/{slug}/stats?from=&to=&group=` | The listing's analytics (see Publisher analytics); `stats.csv` with the same query is the series as CSV |
 | `POST /v1/publisher/extensions/{slug}/releases` | Multipart: `manifest` (extension.json), `engine` (npm tarball, gzipped) and/or `api` (Composer tar or tar.gz), optional `dist` (the `<name>/` folder from ember-core's `fleetbase-build-engine-release`, tarred), optional `channel` (`stable`, `beta`; default from the manifest), `notes`, `submit` (submit as soon as the checks pass). Returns the release (201) |
 | `GET /v1/publisher/releases/{id}` | Files, checks, submission state, review policy outcome, the review timeline with reasons and items |
 | `PATCH /v1/publisher/releases/{id}` | `notes` (nullable, up to 20,000 characters, as on upload). Any status but `yanked` (422). No review; a published release's notes show in the catalog at once |
@@ -410,6 +413,9 @@ Install rules:
 - One `installs` row per attempt: `installing` opens it, `installed` or `failed` closes it.
   When a release is installed, earlier `installed` rows for that extension become
   `uninstalled`, so each instance counts once in the catalog's install counts.
+- Each row records its lifecycle for analytics: `installed_at` when it succeeds, then
+  `replaced_at` when a newer install on the instance takes over (that row gets
+  `previous_release_uuid`: an update) or `uninstalled_at` when the instance removes it.
 - `installing` and `installed` claim a licence seat (seat = instance) and return the
   activation. Free extensions get an automatic `free` licence for the instance's organization
   on first install, with unlimited seats (`max_activations` null). Paid extensions need an
@@ -589,6 +595,62 @@ instance token (`Authorization: Bearer flbi_…`).
    The webhook usually lands within seconds. If it has not after about a minute, tell the
    operator the purchase will appear once Stripe confirms it; the licence arrives by webhook even
    if the console tab is closed, and `GET /v1/instances/me` lists it.
+
+## Publisher analytics
+
+Studio Insights and the stats APIs report, for a date range against the period of the same
+length just before it: installs, updates, uninstalls, active instances, purchases and revenue,
+a series per day, week (Monday to Sunday) or month, active installs per version (one listing)
+or a row per listing (an organization), and the latest 25 events. Days are UTC.
+
+| Method and path | Who | Returns |
+| --- | --- | --- |
+| `GET /v1/publisher/extensions/{slug}/stats?from=&to=&group=day\|week\|month` | owners, admins, publishers (`publish` scope) | `extension`, `range`, `previous`, `as_of`, `totals`, `previous_totals`, `series`, `versions`, `events: {data, total}` |
+| `GET /v1/organizations/{slug}/stats?from=&to=&group=` | owners, admins, publishers, billing | `organization`, the same report across every listing (deleted listings included while they have figures in the range), `extensions` (a row per listing) instead of `versions` |
+| `GET …/stats.csv` (both) | as above | The series as CSV: `period, installs, updates, uninstalls, purchases`, then `gross_`, `fee_`, `net_` per currency (major units) |
+
+`from` and `to` are `YYYY-MM-DD`, inclusive, at most 731 days apart; without them, the last
+30 days. Without `group`: days up to 92 days, weeks up to a year, else months. Reports are
+cached for `REGISTRY_ANALYTICS_CACHE_SECONDS` (60); `as_of` says when one was built.
+
+What counts:
+
+- **Installs** are installs that succeeded (`installed_at`) on an instance that did not have the
+  listing; **updates** replaced the instance's previous install (`previous_release_uuid`,
+  including a reinstall of the same version); **uninstalls** removed one that had been installed
+  (`uninstalled_at`). Failed attempts count nowhere.
+- **Active instances** are installed rows at the end of the range, the same count as the
+  catalog's `installs_count` when the range reaches today; for a past range, rows installed by
+  then and not yet uninstalled or replaced. `installs_count` stays derived from `installs`; there
+  is no counter column.
+- **Revenue** per currency, minor units, by the date of the sale, as staff Finance counts it:
+  `gross`, `refunded`, `fee` (Fleetbase's fee after refunds) and `net` (the publisher's share after
+  refunds), so a refund changes the range its sale fell in. Refund events list on the date Stripe
+  reported them.
+
+**Why no rollup table.** The report reads `installs` and `purchases` directly: two grouped
+range scans for the series, one count for active instances, one for versions, and four
+`LIMIT 25` reads for events, each on an index: `installs (extension_uuid, installed_at,
+previous_release_uuid)`, `(extension_uuid, uninstalled_at, installed_at)`, `(extension_uuid,
+status, release_uuid)` and `purchases (extension_uuid, created_at)`. The two lifecycle indexes
+carry the other column their query reads, so the series never touches the table, and active
+instances for a past range are walked back from today's count instead of scanning history.
+Measured on SQLite with 230,000 installs on one listing (about 280 a day for two years,
+196,000 still active), on a heavily loaded machine, so read these as upper bounds:
+
+| Report | Time |
+| --- | --- |
+| One listing, 30 days by day | 0.23 s |
+| One listing, a year by week | 0.7 s |
+| One listing, two years by month | 0.9 s |
+| An organization of 50 listings, 30 days to two years | 0.4 to 0.8 s |
+
+Most of that is counting the active installs, which the catalog's `installs_count` already does
+for every listing it shows. The registry expects tens of listings with installs in the hundreds,
+so a daily rollup table and its scheduled command would be one more thing to keep correct
+(late reports, refunds, deleted listings) with nothing to gain yet. Add one (per listing, day
+and version, rebuilt nightly for the last few days) when a listing's report runs past a few
+hundred milliseconds in production.
 
 ## Importing from Fleetbase Cloud
 
