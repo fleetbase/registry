@@ -4,6 +4,7 @@ use App\Http\Controllers\Account\AccountController;
 use App\Http\Controllers\Account\GithubController as AccountGithubController;
 use App\Http\Controllers\Account\InstanceCodeController;
 use App\Http\Controllers\Account\TokenController;
+use App\Http\Controllers\Admin\FacilitatorFeeController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
@@ -11,12 +12,18 @@ use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Catalog\CatalogController;
 use App\Http\Controllers\Instance\InstallController;
 use App\Http\Controllers\Instance\InstanceController;
+use App\Http\Controllers\Instance\PurchaseController;
+use App\Http\Controllers\Organization\BillingController;
 use App\Http\Controllers\Organization\OrganizationController;
+use App\Http\Controllers\Organization\PayoutController;
+use App\Http\Controllers\Organization\StripeConnectController;
 use App\Http\Controllers\Packages\ComposerController;
 use App\Http\Controllers\Packages\NpmController;
 use App\Http\Controllers\Publisher\ExtensionController as PublisherExtensionController;
 use App\Http\Controllers\Publisher\ListingMediaController;
 use App\Http\Controllers\Publisher\ReleaseController as PublisherReleaseController;
+use App\Http\Controllers\Purchase\CheckoutController;
+use App\Http\Controllers\Webhook\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -35,7 +42,9 @@ use Illuminate\Support\Facades\Route;
 | owner, admin or publisher role in the listing's organization.
 | Admin routes: personal token (or website session) with the `review` scope, member of an
 | `is_staff` organization.
-| Stripe routes are added in a later workstream.
+| Commerce: organization Stripe Connect, payouts and billing take a personal token or the
+| website session; checkout runs from an instance (flbi_) or the website; Stripe posts signed
+| webhooks to `webhooks/stripe` (no session, no CSRF, no token).
 |
 */
 
@@ -88,6 +97,18 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::post('organizations/{slug}/members', [OrganizationController::class, 'addMember'])->name('organizations.members.store');
         Route::patch('organizations/{slug}/members/{member}', [OrganizationController::class, 'updateMember'])->name('organizations.members.update');
         Route::delete('organizations/{slug}/members/{member}', [OrganizationController::class, 'removeMember'])->name('organizations.members.destroy');
+
+        Route::get('organizations/{slug}/stripe', [StripeConnectController::class, 'show'])->name('organizations.stripe.show');
+        Route::post('organizations/{slug}/stripe/account', [StripeConnectController::class, 'store'])->name('organizations.stripe.account');
+        Route::post('organizations/{slug}/stripe/account-session', [StripeConnectController::class, 'session'])->name('organizations.stripe.session');
+        Route::get('organizations/{slug}/payouts', [PayoutController::class, 'summary'])->name('organizations.payouts');
+        Route::get('organizations/{slug}/payouts/transactions', [PayoutController::class, 'transactions'])->name('organizations.payouts.transactions');
+        Route::get('organizations/{slug}/payouts/transactions.csv', [PayoutController::class, 'export'])->name('organizations.payouts.export');
+        Route::get('organizations/{slug}/billing/purchases', [BillingController::class, 'purchases'])->name('organizations.billing.purchases');
+        Route::get('organizations/{slug}/billing/licences', [BillingController::class, 'licences'])->name('organizations.billing.licences');
+
+        Route::post('purchases/checkout', [CheckoutController::class, 'checkout'])->name('purchases.checkout');
+        Route::get('purchases/{handoff}', [CheckoutController::class, 'show'])->name('purchases.show');
     });
 
     Route::prefix('publisher')->name('publisher.')->middleware(['auth:token,web', 'throttle:publish', 'scope:publish'])->group(function () {
@@ -122,6 +143,8 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::post('releases/{release}/publish', [ReviewController::class, 'publish'])->name('releases.publish');
         Route::post('extensions/{slug}/suspend', [ReviewController::class, 'suspend'])->name('extensions.suspend');
         Route::post('extensions/{slug}/unsuspend', [ReviewController::class, 'unsuspend'])->name('extensions.unsuspend');
+        Route::get('facilitator-fees', [FacilitatorFeeController::class, 'index'])->name('facilitator-fees.index');
+        Route::post('facilitator-fees', [FacilitatorFeeController::class, 'store'])->name('facilitator-fees.store');
     });
 
     // Instances authenticate with flbi_ tokens only: never a session or CSRF.
@@ -133,8 +156,13 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
             Route::get('me/updates', [InstanceController::class, 'updates'])->name('me.updates');
             Route::post('me/installs', [InstallController::class, 'store'])->name('me.installs.store');
             Route::delete('me/installs/{extension}', [InstallController::class, 'destroy'])->where('extension', '.+')->name('me.installs.destroy');
+            Route::post('me/purchases/checkout', [PurchaseController::class, 'checkout'])->name('me.purchases.checkout');
+            Route::get('me/purchases/{handoff}', [PurchaseController::class, 'show'])->name('me.purchases.show');
         });
     });
+
+    // Signed by Stripe; never a session, CSRF or token.
+    Route::post('webhooks/stripe', StripeWebhookController::class)->withoutMiddleware('stateful')->middleware('throttle:webhooks')->name('webhooks.stripe');
 });
 
 Route::prefix('npm')->name('npm.')->middleware('throttle:packages')->group(function () {

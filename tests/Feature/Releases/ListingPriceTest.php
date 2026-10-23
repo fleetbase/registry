@@ -8,13 +8,13 @@ use App\Releases\ReviewPolicy;
 use Illuminate\Support\Facades\Mail;
 
 it('keeps paid pricing closed until the organization has Stripe Connect', function () {
-    [$account, , $listing] = publisher();
+    [$account, $organization, $listing] = publisher();
     actingAsAccount($account, [Token::SCOPE_PUBLISH]);
     $path = '/v1/publisher/extensions/'.$listing->slug.'/price';
 
     $this->putJson($path, ['model' => 'one_time', 'amount' => 4900, 'currency' => 'usd'])
         ->assertStatus(422)
-        ->assertExactJson(['errors' => ['Paid pricing opens when Stripe Connect payouts ship (Phase 4).']]);
+        ->assertExactJson(['errors' => ["Set up payouts for {$organization->name} before charging for an extension."]]);
 
     $this->putJson($path, ['model' => 'free'])
         ->assertOk()
@@ -25,6 +25,7 @@ it('keeps paid pricing closed until the organization has Stripe Connect', functi
 });
 
 it('sets a one-time price for an organization with Stripe Connect', function () {
+    fakeStripe();
     [$account, $organization, $listing] = publisher();
     $organization->forceFill(['stripe_connect_id' => 'acct_123'])->save();
     actingAsAccount($account, [Token::SCOPE_PUBLISH]);
@@ -47,6 +48,7 @@ it('sets a one-time price for an organization with Stripe Connect', function () 
 
 it('sends the next release to review after a price change', function () {
     Mail::fake();
+    fakeStripe();
     [$account, $organization, $listing] = publisher();
     $organization->forceFill(['stripe_connect_id' => 'acct_123'])->save();
     publishedRelease($account, $listing, '1.0.0');

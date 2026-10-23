@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 /**
  * A catalog listing. Listing fields are independent of releases; only releases go through review.
@@ -171,6 +172,28 @@ class Extension extends Model
     public function scopePublished(Builder $query): Builder
     {
         return $query->where('status', self::STATUS_PUBLISHED);
+    }
+
+    /**
+     * An extension by slug, public id, uuid, or one of its npm or Composer package names (what
+     * an instance knows from its installed packages).
+     */
+    public static function findByIdentifier(string $identifier): ?static
+    {
+        $identifier = urldecode($identifier);
+
+        $extension = static::query()
+            ->where(fn ($q) => $q->where('slug', $identifier)->orWhere('public_id', $identifier))
+            ->when(Str::isUuid($identifier), fn ($q) => $q->orWhere('uuid', $identifier))
+            ->first();
+
+        if ($extension) {
+            return $extension;
+        }
+
+        $package = ExtensionPackage::query()->where('name', $identifier)->first();
+
+        return $package ? static::find($package->extension_uuid) : null;
     }
 
     public function isPaid(): bool

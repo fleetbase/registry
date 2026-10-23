@@ -10,14 +10,12 @@ use App\Http\Resources\InstallResource;
 use App\Http\Resources\LicenceActivationResource;
 use App\Models\Event;
 use App\Models\Extension;
-use App\Models\ExtensionPackage;
 use App\Models\Install;
 use App\Models\Instance;
 use App\Models\Release;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Install telemetry from instances. One `installs` row per install attempt:
@@ -39,7 +37,7 @@ class InstallController extends Controller
         $instance = $request->user();
         $status = $request->input('status');
 
-        $extension = $this->resolveExtension($request->input('extension'));
+        $extension = Extension::findByIdentifier($request->input('extension'));
         if (! $extension) {
             return response()->error('Extension not found.', 404);
         }
@@ -125,7 +123,7 @@ class InstallController extends Controller
         /** @var Instance $instance */
         $instance = $request->user();
 
-        $model = $this->resolveExtension($extension);
+        $model = Extension::findByIdentifier($extension);
         if (! $model) {
             return response()->error('Extension not found.', 404);
         }
@@ -155,28 +153,6 @@ class InstallController extends Controller
             'install' => (new InstallResource($install))->resolve($request),
             'deactivated' => $deactivated,
         ]);
-    }
-
-    /**
-     * Extensions are addressed by slug, public id, uuid, or one of their npm or
-     * Composer package names (what an instance knows from its installed packages).
-     */
-    protected function resolveExtension(string $identifier): ?Extension
-    {
-        $identifier = urldecode($identifier);
-
-        $extension = Extension::query()
-            ->where(fn ($q) => $q->where('slug', $identifier)->orWhere('public_id', $identifier))
-            ->when(Str::isUuid($identifier), fn ($q) => $q->orWhere('uuid', $identifier))
-            ->first();
-
-        if ($extension) {
-            return $extension;
-        }
-
-        $package = ExtensionPackage::query()->where('name', $identifier)->first();
-
-        return $package ? Extension::find($package->extension_uuid) : null;
     }
 
     /**

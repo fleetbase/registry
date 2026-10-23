@@ -14,6 +14,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Stripe\Exception\ApiErrorException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -68,6 +69,15 @@ return Application::configure(basePath: dirname(__DIR__))
 
             if ($isApi($request)) {
                 return response()->error('Resource not found.', 404);
+            }
+        });
+
+        // Stripe refused or could not be reached: a bad gateway, with Stripe's message.
+        $exceptions->render(function (ApiErrorException $e, Request $request) use ($isApi) {
+            if ($isApi($request)) {
+                report($e);
+
+                return response()->error('Stripe could not complete the request: '.$e->getMessage(), 502);
             }
         });
 

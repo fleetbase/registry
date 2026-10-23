@@ -14,8 +14,8 @@ class PriceResource extends FleetbaseResource
             'model' => $this->model,
             'amount' => (int) $this->amount,
             'currency' => $this->currency,
-            'on_sale' => (bool) $this->on_sale,
-            'sale_amount' => $this->sale_amount !== null ? (int) $this->sale_amount : null,
+            'on_sale' => $this->resource->isOnSale(),
+            'sale_amount' => $this->resource->hasSaleAmount() ? (int) $this->sale_amount : null,
             'effective_amount' => $this->effective_amount,
         ];
     }

@@ -15,6 +15,8 @@ use Tests\TestCase;
 require_once __DIR__.'/Helpers/releases.php';
 require_once __DIR__.'/Helpers/website.php';
 require_once __DIR__.'/Helpers/session.php';
+require_once __DIR__.'/Helpers/stripe.php';
+require_once __DIR__.'/Helpers/commerce.php';
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
@@ -26,6 +28,11 @@ pest()->extend(TestCase::class)->in('Unit');
 pest()->beforeEach(function () {
     config(['session.driver' => 'database']);
 })->in('Feature/Auth', 'Feature/Organizations');
+
+// Commerce tests answer Stripe from fixtures; nothing reaches the network.
+pest()->beforeEach(function () {
+    fakeStripe();
+})->in('Feature/Commerce');
 
 // Package and release tests run against a fake registry disk.
 pest()->beforeEach(function () {

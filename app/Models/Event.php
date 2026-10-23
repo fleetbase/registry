@@ -23,7 +23,7 @@ class Event extends EloquentModel
 
     public $incrementing = false;
 
-    protected $fillable = ['subject_type', 'subject_uuid', 'actor_type', 'actor_uuid', 'kind', 'payload', 'ip_address'];
+    protected $fillable = ['subject_type', 'subject_uuid', 'actor_type', 'actor_uuid', 'kind', 'external_id', 'payload', 'ip_address'];
 
     protected $hidden = ['id'];
 

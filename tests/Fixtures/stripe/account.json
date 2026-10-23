@@ -1,0 +1,31 @@
+{
+  "id": "acct_1QfLmTPublisher01",
+  "object": "account",
+  "business_profile": { "name": "Acme Fleet Tools", "url": "https://acme.example", "mcc": null, "support_email": null },
+  "business_type": "company",
+  "capabilities": { "card_payments": "active", "transfers": "active" },
+  "charges_enabled": true,
+  "controller": {
+    "fees": { "payer": "application" },
+    "is_controller": true,
+    "losses": { "payments": "application" },
+    "requirement_collection": "stripe",
+    "stripe_dashboard": { "type": "express" },
+    "type": "application"
+  },
+  "country": "US",
+  "created": 1792700000,
+  "default_currency": "usd",
+  "details_submitted": true,
+  "email": "owner@acme.example",
+  "external_accounts": { "object": "list", "data": [], "has_more": false, "total_count": 0, "url": "/v1/accounts/acct_1QfLmTPublisher01/external_accounts" },
+  "future_requirements": { "alternatives": [], "current_deadline": null, "currently_due": [], "disabled_reason": null, "errors": [], "eventually_due": [], "past_due": [], "pending_verification": [] },
+  "metadata": {},
+  "payouts_enabled": true,
+  "requirements": { "alternatives": [], "current_deadline": null, "currently_due": [], "disabled_reason": null, "errors": [], "eventually_due": [], "past_due": [], "pending_verification": [] },
+  "settings": {
+    "payouts": { "debit_negative_balances": true, "schedule": { "delay_days": 2, "interval": "weekly", "weekly_anchor": "friday" }, "statement_descriptor": null }
+  },
+  "tos_acceptance": { "date": 1792700500 },
+  "type": "express"
+}

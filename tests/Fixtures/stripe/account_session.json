@@ -1,0 +1,15 @@
+{
+  "object": "account_session",
+  "account": "acct_1QfLmTPublisher01",
+  "client_secret": "accs_secret__QfLmTdYxGvZ1kRk6S5bdlFJxXyZ",
+  "components": {
+    "account_management": { "enabled": true, "features": { "external_account_collection": true } },
+    "account_onboarding": { "enabled": true, "features": { "external_account_collection": true } },
+    "notification_banner": { "enabled": true, "features": { "external_account_collection": true } },
+    "payouts": { "enabled": true, "features": { "edit_payout_schedule": false, "instant_payouts": false, "standard_payouts": false } },
+    "tax_registrations": { "enabled": true, "features": {} },
+    "tax_settings": { "enabled": true, "features": {} }
+  },
+  "expires_at": 1792801800,
+  "livemode": false
+}

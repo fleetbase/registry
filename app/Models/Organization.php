@@ -24,6 +24,15 @@ class Organization extends Model
 
     protected string $publicIdType = 'org';
 
+    /** `payout_status` values, set from Stripe's `account.updated`. */
+    public const PAYOUT_PENDING = 'pending';
+
+    public const PAYOUT_RESTRICTED = 'restricted';
+
+    public const PAYOUT_ENABLED = 'enabled';
+
+    public const PAYOUT_REJECTED = 'rejected';
+
     protected $fillable = [
         'slug', 'name', 'website', 'bio', 'avatar_url', 'is_personal', 'verified_at',
         'stripe_connect_id', 'payout_status', 'meta',
@@ -80,5 +89,30 @@ class Organization extends Model
     public function isVerified(): bool
     {
         return $this->verified_at !== null;
+    }
+
+    public function hasStripeAccount(): bool
+    {
+        return filled($this->stripe_connect_id);
+    }
+
+    /**
+     * What `account.updated` last said about the connected account (charges, payouts,
+     * transfers capability, requirements), or an empty array.
+     */
+    public function stripeState(): array
+    {
+        return (array) ($this->meta['stripe'] ?? []);
+    }
+
+    /**
+     * Destination charges can be paid out to this organization: its connected account's
+     * `transfers` capability is active.
+     */
+    public function canReceivePayments(): bool
+    {
+        return $this->hasStripeAccount()
+            && ($this->stripeState()['transfers'] ?? null) === 'active'
+            && $this->payout_status !== self::PAYOUT_REJECTED;
     }
 }

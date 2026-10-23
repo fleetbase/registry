@@ -54,6 +54,11 @@ class Purchase extends Model
         return $this->belongsTo(Organization::class, 'buyer_organization_uuid', 'uuid');
     }
 
+    public function buyerAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'buyer_account_uuid', 'uuid');
+    }
+
     public function licence(): HasOne
     {
         return $this->hasOne(Licence::class, 'purchase_uuid', 'uuid');
