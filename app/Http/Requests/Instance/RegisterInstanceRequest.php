@@ -22,6 +22,7 @@ class RegisterInstanceRequest extends FormRequest
             'kind' => ['required', 'string', Rule::in(Instance::KINDS)],
             'console_version' => ['nullable', 'string', 'max:64'],
             'api_version' => ['nullable', 'string', 'max:64'],
+            'previous_token' => ['nullable', 'string', 'max:128'],
         ];
     }
 }
