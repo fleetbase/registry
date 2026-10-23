@@ -50,12 +50,15 @@ export function queueAge(release, now = new Date()) {
 
 /**
  * A first release has no live version before it. The admin API says so with
- * `previous_version` (null for a first release, also once it is published); without that
- * field, a release whose listing is not live yet counts as first.
+ * `previous_version`; without one, an unpublished release on a live listing updates it (its
+ * earlier releases were yanked), while a published release is the one that made the listing live.
  */
 export function isFirstRelease(release) {
-    if (release && 'previous_version' in release) {
-        return !release.previous_version;
+    if (release?.previous_version) {
+        return false;
+    }
+    if (release?.status === 'published') {
+        return true;
     }
     return (release?.extension?.status ?? null) !== 'published';
 }
