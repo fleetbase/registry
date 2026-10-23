@@ -3,7 +3,8 @@
 namespace App\Support;
 
 /**
- * Minimal streaming reader for tar and tar.gz archives (ustar, GNU long names, pax paths).
+ * Minimal streaming reader for tar and tar.gz archives (ustar, GNU long names, pax paths),
+ * and a writer for small generated archives (`registry:seed-website`).
  *
  * Used to pull `package.json` / `composer.json` out of uploaded package archives without
  * extracting them to disk or going through PharData. Entries are never written anywhere,
@@ -122,6 +123,33 @@ class Tarball
         $decoded = json_decode(reset($candidates), true);
 
         return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * Write a ustar archive of regular files (`path => contents`, paths up to 100 bytes),
+     * gzipped unless `$gzip` is false, and return its bytes.
+     */
+    public static function create(array $files, bool $gzip = true): string
+    {
+        $tar = '';
+        foreach ($files as $name => $contents) {
+            if (strlen($name) > 100) {
+                throw new \InvalidArgumentException("Entry name [{$name}] is longer than 100 bytes.");
+            }
+
+            $header = str_pad($name, 100, "\0")
+                .str_pad('0000644', 8, "\0").str_pad('0000000', 8, "\0").str_pad('0000000', 8, "\0")
+                .str_pad(decoct(strlen($contents)), 11, '0', STR_PAD_LEFT)."\0"
+                .str_pad(decoct(0), 11, '0', STR_PAD_LEFT)."\0"
+                .'        '.'0'.str_repeat("\0", 100)."ustar\0".'00'.str_repeat("\0", 32 + 32 + 8 + 8 + 155 + 12);
+            $checksum = array_sum(array_map('ord', str_split($header)));
+            $header = substr_replace($header, str_pad(decoct($checksum), 6, '0', STR_PAD_LEFT)."\0 ", 148, 8);
+
+            $tar .= $header.$contents.str_repeat("\0", (self::BLOCK - strlen($contents) % self::BLOCK) % self::BLOCK);
+        }
+        $tar .= str_repeat("\0", self::BLOCK * 2);
+
+        return $gzip ? gzencode($tar, 9) : $tar;
     }
 
     /**

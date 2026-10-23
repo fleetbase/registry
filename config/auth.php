@@ -10,9 +10,11 @@ return [
     | Authentication Defaults
     |--------------------------------------------------------------------------
     |
-    | Every API request authenticates with a bearer token. The `token` guard
-    | resolves personal tokens (flbp_) and the `instance` guard resolves
-    | instance tokens (flbi_), both through App\Auth\TokenGuard.
+    | API clients authenticate with a bearer token. The `token` guard resolves
+    | personal tokens (flbp_) and the `instance` guard resolves instance tokens
+    | (flbi_), both through App\Auth\TokenGuard. The `web` guard resolves the
+    | publisher website's cookie session to its `flbs_` session token through
+    | App\Auth\SessionGuard (see App\Http\Middleware\StatefulSession).
     |
     */
 
@@ -29,6 +31,10 @@ return [
         'instance' => [
             'driver' => 'registry-instance-token',
             'provider' => 'instances',
+        ],
+        'web' => [
+            'driver' => 'registry-session',
+            'provider' => 'accounts',
         ],
     ],
 

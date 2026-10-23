@@ -15,11 +15,12 @@ use App\Models\Token;
 use App\Models\VerificationCode;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
+    use ChecksCredentials;
+
     /**
      * POST /v1/auth/register
      */
@@ -83,20 +84,9 @@ class AuthController extends Controller
      */
     public function login(LoginRequest $request): JsonResponse
     {
-        $account = Account::where('email', Str::lower($request->input('email')))->first();
-
-        if (! $account || ! $account->password || ! Hash::check($request->input('password'), $account->password)) {
-            Event::record('account.login_failed', $account, null, ['email' => Str::lower($request->input('email'))], $request->ip());
-
-            return response()->error('Invalid email or password.', 401);
-        }
-
-        if (! $account->hasVerifiedEmail()) {
-            return response()->error('Email address is not verified.', 403, ['code' => 'email_unverified']);
-        }
-
-        if (! $account->isActive()) {
-            return response()->error('This account is '.$account->status.'.', 403, ['code' => 'account_'.$account->status]);
+        $account = $this->attempt($request);
+        if ($account instanceof JsonResponse) {
+            return $account;
         }
 
         $token = Token::issue(

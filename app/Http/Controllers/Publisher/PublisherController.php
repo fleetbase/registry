@@ -107,11 +107,14 @@ abstract class PublisherController extends Controller
         return in_array($organizationUuid, $this->publishableOrganizations($request), true);
     }
 
+    /** The listing relations the release detail resource shows (the staff listing preview). */
+    public const RELEASE_LISTING = ['extension.organization', 'extension.category', 'extension.price', 'extension.icon', 'extension.screenshots'];
+
     /**
      * Relations the release detail resource reads.
      */
     public static function releaseDetail(Release $release): Release
     {
-        return $release->load(['extension.organization', 'engineTarball', 'apiTarball', 'engineDist', 'checks', 'reviews.reviewer']);
+        return $release->load(array_merge(self::RELEASE_LISTING, ['engineTarball', 'apiTarball', 'engineDist', 'checks', 'reviews.reviewer']));
     }
 }

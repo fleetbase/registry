@@ -405,6 +405,37 @@ class ReleasePipeline
         return $extension;
     }
 
+    /**
+     * Lift a suspension: back to the status `suspend` recorded, else `published` when the
+     * listing has a published release, else `draft`. The suspension stays in the audit log.
+     */
+    public function unsuspend(Extension $extension, Account $staff, ?string $reason = null): Extension
+    {
+        if ($extension->status !== Extension::STATUS_SUSPENDED) {
+            throw new ConflictHttpException('The extension is not suspended.');
+        }
+
+        $meta = $extension->meta ?? [];
+        $suspension = $meta['suspension'] ?? [];
+        unset($meta['suspension']);
+
+        $previous = $suspension['previous_status'] ?? null;
+        if (! in_array($previous, Extension::STATUSES, true) || $previous === Extension::STATUS_SUSPENDED) {
+            $previous = $extension->publishedReleases()->exists() ? Extension::STATUS_PUBLISHED : Extension::STATUS_DRAFT;
+        }
+
+        $extension->forceFill([
+            'status' => $previous,
+            'meta' => $meta ?: null,
+            'published_at' => $previous === Extension::STATUS_PUBLISHED ? ($extension->published_at ?? now()) : $extension->published_at,
+        ])->save();
+
+        Event::record('extension.unsuspended', $extension, $staff, ['reason' => $reason, 'status' => $previous, 'suspension' => $suspension]);
+        CatalogCache::flush();
+
+        return $extension;
+    }
+
     // ---------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------

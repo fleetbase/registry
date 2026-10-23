@@ -8,7 +8,9 @@ use App\Support\Http;
 
 /**
  * A release as its publisher and the review console see it: files, checks, submission state,
- * the D6 policy outcome and the review timeline.
+ * the D6 policy outcome, the review timeline and, under `extension`, the listing as the
+ * catalog would show it (the staff listing preview; fields whose relations were not loaded
+ * are left out).
  */
 class ReleaseDetailResource extends FleetbaseResource
 {
@@ -27,15 +29,7 @@ class ReleaseDetailResource extends FleetbaseResource
 
         return [
             'id' => $this->when(Http::isInternalRequest(), $this->id, $this->public_id),
-            'extension' => $this->whenLoaded('extension', fn () => [
-                'id' => $this->extension->public_id,
-                'slug' => $this->extension->slug,
-                'name' => $this->extension->name,
-                'status' => $this->extension->status,
-                'organization' => $this->extension->relationLoaded('organization') && $this->extension->organization
-                    ? ['id' => $this->extension->organization->public_id, 'slug' => $this->extension->organization->slug, 'name' => $this->extension->organization->name]
-                    : null,
-            ]),
+            'extension' => $this->whenLoaded('extension', fn () => $this->extensionPreview($request)),
             'version' => $this->version,
             'channel' => $this->channel,
             'status' => $this->status,
@@ -67,5 +61,49 @@ class ReleaseDetailResource extends FleetbaseResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
+    }
+
+    protected function extensionPreview($request): array
+    {
+        $extension = $this->extension;
+        $loaded = fn (string $relation) => $extension->relationLoaded($relation);
+
+        $preview = [
+            'id' => $extension->public_id,
+            'slug' => $extension->slug,
+            'name' => $extension->name,
+            'status' => $extension->status,
+            'organization' => $loaded('organization') && $extension->organization
+                ? ['id' => $extension->organization->public_id, 'slug' => $extension->organization->slug, 'name' => $extension->organization->name, 'is_verified' => $extension->organization->verified_at !== null]
+                : null,
+            'subtitle' => $extension->subtitle,
+            'description' => $extension->description,
+            'promotional_text' => $extension->promotional_text,
+            'tags' => $extension->tags ?? [],
+            'languages' => $extension->languages ?? [],
+            'hosting' => $extension->hosting,
+            'fa_icon' => $extension->fa_icon,
+            'website_url' => $extension->website_url,
+            'repo_url' => $extension->repo_url,
+            'support_url' => $extension->support_url,
+            'privacy_url' => $extension->privacy_url,
+            'tos_url' => $extension->tos_url,
+            'copyright' => $extension->copyright,
+        ];
+
+        if ($loaded('icon')) {
+            $preview['icon_url'] = $extension->icon?->url;
+        }
+        if ($loaded('screenshots')) {
+            $preview['screenshots'] = ExtensionResource::screenshotList($extension);
+        }
+        if ($loaded('category')) {
+            $preview['category'] = $extension->category ? ['id' => $extension->category->public_id, 'slug' => $extension->category->slug, 'name' => $extension->category->name] : null;
+        }
+        if ($loaded('price')) {
+            $preview['price'] = (new PriceResource($extension->price))->resolve($request);
+        }
+
+        return $preview;
     }
 }

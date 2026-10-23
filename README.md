@@ -23,7 +23,8 @@ Phase 1, Workstreams A to C, and Phase 2 Workstream E:
 | Instance API: registration codes, register, me, updates, installs, licence seats | done |
 | `registry:import` from the cloud registry-bridge tables (dry run, anomaly report, tarball copy) | done |
 | Releases pipeline: publisher API, upload, queued checks, state machine, D6 review policy, staff review API, publishing | done |
-| Publisher website (Workstream F), CLI v2 (G), Stripe (Phase 4) | later workstreams |
+| Website backend (Workstream F): cookie sessions, organizations and members, listing media and pricing, staff downloads and review items, SPA fallback | done; the website itself is in progress |
+| CLI v2 (G), Stripe (Phase 4) | later workstreams |
 
 ## Stack
 
@@ -66,6 +67,11 @@ Run the tests:
 composer test
 ```
 
+`php artisan registry:seed-website [--json]` (never in production) adds what the website's
+smoke test needs on top of that: `staff@registry.test` in a staff organization and
+`publisher@registry.test` owning `acme`, both with password `password123`, a submitted release
+in the review queue and a draft listing.
+
 Seed a published free and a paid extension from the fixture tarballs in
 `database/fixtures/packages`, with install tokens for a licensed and an unlicensed
 organization, then drive real npm and Composer clients against them:
@@ -93,11 +99,32 @@ validation failures add a `fields` map. Resources are returned unwrapped; paged 
 | `POST /v1/auth/verify/resend` | email. Sends a new code for unverified accounts |
 | `POST /v1/auth/login` | email + password (+ token_name, scopes, expires_in_days). Returns a personal token once |
 | `POST /v1/auth/logout` | Revokes the token used for the request |
-| `GET /v1/account` | The caller's account with organizations and roles |
+| `GET /v1/auth/session` | The website's session: `{authenticated, account}`. Always 200; sets the session and `XSRF-TOKEN` cookies |
+| `POST /v1/auth/session` | email + password. Signs the website in with a cookie session (same errors as `login`); 400 with a Bearer header |
+| `DELETE /v1/auth/session` | Signs the website out: revokes the session token and invalidates the session |
+| `GET /v1/account` | The caller's account with organizations, roles and `is_staff` |
+| `PATCH /v1/account` | name, username, timezone |
+| `POST /v1/account/password` | current_password, password, password_confirmation. Also ends the account's other website sessions |
 | `GET /v1/account/tokens` | The caller's tokens, masked (`flbp_…a1b2`) |
 | `POST /v1/account/tokens` | name, scopes (`read`, `publish`, `install`, `instance:register`, `review`, `*`), expires_in_days (max 365), optional organization. Plaintext returned once |
 | `DELETE /v1/account/tokens/{id}` | Revoke |
+| `GET /v1/organizations` | The caller's organizations with role and member count |
+| `POST /v1/organizations` | name, optional slug, website, bio. The caller becomes owner |
+| `GET /v1/organizations/{slug}` | Profile and members (members only) |
+| `PATCH /v1/organizations/{slug}` | name, website, bio, avatar_url (owner or admin; the slug never changes) |
+| `POST /v1/organizations/{slug}/members` | email + role. The email must belong to a registry account; personal organizations have one member |
+| `PATCH /v1/organizations/{slug}/members/{account}` | role. Only owners grant or change the owner role |
+| `DELETE /v1/organizations/{slug}/members/{account}` | Owner or admin, or a member leaving. The last owner cannot be removed or demoted |
 | `POST /v1/account/instance-codes` | Optional organization (slug or id). Mints a single-use instance registration code (`XXXX-XXXX-XXXX-XXXX`) valid 15 minutes. Needs the `instance:register` scope and the owner or admin role; defaults to the token's organization, else the personal one |
+
+**Website sessions.** Every account, organization, publisher and admin route takes either a
+Bearer `flbp_` token or the website's session cookie (`auth:token,web`). Signing in through
+`POST /v1/auth/session` issues an `flbs_` token row that never leaves the server; the session
+holds its id, it expires with `SESSION_LIFETIME` and slides forward while used, and it is
+revoked on sign-out. Requests without a Bearer header that carry the session or `XSRF-TOKEN`
+cookie (and `/v1/auth/session` itself) run through Laravel's session and CSRF middleware, so
+POST, PUT, PATCH and DELETE need `X-XSRF-TOKEN` (419 otherwise). Bearer clients, the catalog and
+the instance API never get cookies. Set `SESSION_SECURE_COOKIE=true` behind HTTPS.
 
 Tokens are `flbp_` + 40 random characters, stored as SHA-256, expiring, scoped and revocable.
 Send them as `Authorization: Bearer flbp_…`. Passwords are bcrypt hashes checked with
@@ -181,6 +208,10 @@ releases answer 404.
 | `POST /v1/publisher/extensions` | name, `packages: {npm, composer}` (one or both), optional slug, organization and listing fields. Creates a draft listing with a free price (201). Idempotent on package names: names that already belong to one of the caller's listings return it (200) and add any package kind it lacks; a different name for a kind it has, names spread over two listings, or names of another publisher answer 409 |
 | `GET /v1/publisher/extensions/{slug}` | Listing with its releases |
 | `PATCH /v1/publisher/extensions/{slug}` | Listing fields (name, subtitle, description, promotional_text, category, tags, languages, hosting, website/repo/support/privacy/tos URLs, copyright, fa_icon). No review |
+| `POST`/`DELETE /v1/publisher/extensions/{slug}/icon` | Multipart `icon` (PNG, JPG or WebP, up to 1 MB) replaces the icon; DELETE removes it |
+| `POST /v1/publisher/extensions/{slug}/screenshots` | Multipart `screenshot` (PNG, JPG or WebP, up to 5 MB), optional `caption`; at most 8 |
+| `PATCH /v1/publisher/extensions/{slug}/screenshots` | `order`: every screenshot id once, cover first. `DELETE …/screenshots/{id}` removes one |
+| `PUT /v1/publisher/extensions/{slug}/price` | `model` (`free`, `one_time`), `amount` (minor units), `currency`. Paid prices need the organization's Stripe Connect account (Phase 4); a price change sends the next release to review |
 | `GET /v1/publisher/extensions/{slug}/releases` | Every release with its checks |
 | `POST /v1/publisher/extensions/{slug}/releases` | Multipart: `manifest` (extension.json), `engine` (npm tarball, gzipped) and/or `api` (Composer tar or tar.gz), optional `dist` (the `<name>/` folder from ember-core's `fleetbase-build-engine-release`, tarred), optional `channel` (`stable`, `beta`; default from the manifest), `notes`, `submit` (submit as soon as the checks pass). Returns the release (201) |
 | `GET /v1/publisher/releases/{id}` | Files, checks, submission state, review policy outcome, the review timeline with reasons and items |
@@ -269,6 +300,9 @@ checks are emailed too.
 | `POST /v1/admin/releases/{id}/reject` | Required `reason` and `items: [{code, passed, note?}]` (at least one) |
 | `POST /v1/admin/releases/{id}/publish` | An approved release |
 | `POST /v1/admin/extensions/{slug}/suspend` | Required `reason`. The listing leaves the catalog and the package endpoints; uploads and publishing stop |
+| `POST /v1/admin/extensions/{slug}/unsuspend` | Optional `reason`. Restores the status saved at suspension |
+| `GET /v1/admin/releases/{id}/files/{engine,api,dist}` | Downloads an archive for review; recorded as `release.downloaded` |
+| `GET /v1/admin/review-items` | The review requirements R1 to R6 (`registry.review.items`); approve and reject accept only these codes |
 
 ### Instance API (instance token)
 

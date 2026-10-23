@@ -35,6 +35,8 @@ class PublisherExtensionResource extends FleetbaseResource
             'tos_url' => $this->tos_url,
             'copyright' => $this->copyright,
             'fa_icon' => $this->fa_icon,
+            'icon_url' => $this->whenLoaded('icon', fn () => $this->icon?->url, null),
+            'screenshots' => $this->whenLoaded('screenshots', fn () => ExtensionResource::screenshotList($this->resource), []),
             'packages' => $this->whenLoaded('packages', fn () => $this->packages->map(fn ($package) => ['kind' => $package->kind, 'name' => $package->name])->values()->all()),
             'price' => $this->whenLoaded('price', fn () => (new PriceResource($this->price))->resolve($request)),
             'readiness' => ['ready' => $missing === [], 'missing' => $missing],

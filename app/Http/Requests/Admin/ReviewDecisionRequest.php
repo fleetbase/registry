@@ -3,10 +3,11 @@
 namespace App\Http\Requests\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 /**
  * Approve or reject. `items` are the review requirement results shown to the developer:
- * `[{code, passed, note}]` (codes such as R1–R6). Reject needs a reason and at least one item.
+ * `[{code, passed, note}]`, codes from `registry.review.items` (R1–R6). Reject needs a reason and at least one item.
  */
 class ReviewDecisionRequest extends FormRequest
 {
@@ -23,7 +24,7 @@ class ReviewDecisionRequest extends FormRequest
             'reason' => [$rejecting ? 'required' : 'nullable', 'string', 'min:3', 'max:5000'],
             'items' => [$rejecting ? 'required' : 'nullable', 'array', $rejecting ? 'min:1' : 'min:0', 'max:50'],
             'items.*' => ['array:code,passed,note'],
-            'items.*.code' => ['required', 'string', 'max:32'],
+            'items.*.code' => ['required', 'string', 'max:32', Rule::in(array_column(config('registry.review.items', []), 'code'))],
             'items.*.passed' => ['required', 'boolean'],
             'items.*.note' => ['nullable', 'string', 'max:2000'],
             'publish' => ['nullable', 'boolean'],

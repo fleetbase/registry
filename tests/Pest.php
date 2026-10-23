@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 require_once __DIR__.'/Helpers/releases.php';
+require_once __DIR__.'/Helpers/session.php';
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
@@ -20,16 +21,21 @@ pest()->extend(TestCase::class)
 
 pest()->extend(TestCase::class)->in('Unit');
 
+// Website sessions use the database store, as deployed (the `sessions` table).
+pest()->beforeEach(function () {
+    config(['session.driver' => 'database']);
+})->in('Feature/Auth', 'Feature/Organizations');
+
 // Package and release tests run against a fake registry disk.
 pest()->beforeEach(function () {
     config(['registry.storage.disk' => 'packages']);
     Storage::fake('packages');
-})->in('Feature/Packages', 'Feature/Releases');
+})->in('Feature/Packages', 'Feature/Releases', 'Feature/Website');
 
 // Release checks never depend on a gitleaks binary on the machine running the tests.
 pest()->beforeEach(function () {
     config(['registry.releases.gitleaks_binary' => '']);
-})->in('Feature/Releases');
+})->in('Feature/Releases', 'Feature/Website');
 
 /**
  * Issue a token for the account and authenticate subsequent requests with it.

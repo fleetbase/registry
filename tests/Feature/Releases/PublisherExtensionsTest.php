@@ -6,6 +6,7 @@ use App\Models\Extension;
 use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\Price;
+use App\Models\Release;
 use App\Models\Token;
 use Illuminate\Support\Str;
 
@@ -154,7 +155,14 @@ it('lists, shows and edits the caller\'s listings only', function () {
     [, , $foreign] = publisher();
     actingAsAccount($account, [Token::SCOPE_PUBLISH]);
 
-    $this->getJson('/v1/publisher/extensions')->assertOk()->assertJsonCount(1)->assertJsonPath('0.slug', $extension->slug);
+    $this->getJson('/v1/publisher/extensions')->assertOk()->assertJsonCount(1)->assertJsonPath('0.slug', $extension->slug)->assertJsonPath('0.releases', []);
+
+    // The list carries each listing's releases, for the website's status pipeline.
+    $release = Release::factory()->create(['extension_uuid' => $extension->uuid, 'version' => '1.2.0', 'status' => Release::STATUS_SUBMITTED]);
+    $this->getJson('/v1/publisher/extensions')->assertOk()
+        ->assertJsonPath('0.releases.0.id', $release->public_id)
+        ->assertJsonPath('0.releases.0.status', Release::STATUS_SUBMITTED);
+    $release->delete();
     $this->getJson('/v1/publisher/extensions/'.$extension->public_id)->assertOk()->assertJsonPath('readiness.ready', true)->assertJsonPath('releases', []);
     $this->getJson('/v1/publisher/extensions/'.$foreign->slug)->assertNotFound();
 

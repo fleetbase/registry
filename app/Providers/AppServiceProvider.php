@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Auth\SessionGuard;
 use App\Auth\TokenGuard;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
@@ -42,12 +43,14 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * `auth:token` resolves personal tokens (flbp_…) to accounts;
-     * `auth:instance` resolves instance tokens (flbi_…) to instances.
+     * `auth:instance` resolves instance tokens (flbi_…) to instances;
+     * `auth:web` resolves the website's cookie session to its session token (flbs_…).
      */
     protected function registerAuthGuard(): void
     {
         Auth::viaRequest('registry-token', new TokenGuard(TokenGuard::KIND_PERSONAL));
         Auth::viaRequest('registry-instance-token', new TokenGuard(TokenGuard::KIND_INSTANCE));
+        Auth::viaRequest('registry-session', new SessionGuard);
     }
 
     /**

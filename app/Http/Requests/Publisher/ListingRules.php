@@ -15,7 +15,7 @@ trait ListingRules
         return [
             'subtitle' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:20000'],
-            'promotional_text' => ['nullable', 'string', 'max:1000'],
+            'promotional_text' => ['nullable', 'string', 'max:20000'],
             'category' => ['nullable', 'string', 'max:191'],
             'tags' => ['nullable', 'array', 'max:20'],
             'tags.*' => ['string', 'min:1', 'max:64'],

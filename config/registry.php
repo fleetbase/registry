@@ -54,6 +54,19 @@ return [
         'checks_queue' => env('REGISTRY_CHECKS_QUEUE'),
     ],
 
+    'review' => [
+        // Review requirements staff mark on approve and reject (`items: [{code, passed, note}]`);
+        // `items.*.code` must be one of these codes. Served by GET /v1/admin/review-items.
+        'items' => [
+            ['code' => 'R1', 'label' => 'Manifest is valid'],
+            ['code' => 'R2', 'label' => 'Installs on a clean instance'],
+            ['code' => 'R3', 'label' => 'Listing is complete'],
+            ['code' => 'R4', 'label' => 'No secrets or credentials'],
+            ['code' => 'R5', 'label' => 'Permissions go through the auth schema'],
+            ['code' => 'R6', 'label' => 'Pricing matches Stripe Connect'],
+        ],
+    ],
+
     'import' => [
         // Disk holding the cloud `files` objects (bundles, icons) that `registry:import` copies.
         'source_disk' => env('REGISTRY_IMPORT_SOURCE_DISK', 'import_source'),
