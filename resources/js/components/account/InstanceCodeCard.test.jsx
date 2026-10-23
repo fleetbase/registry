@@ -1,20 +1,17 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import InstanceCodeCard from './InstanceCodeCard';
-import { ToastProvider } from '../Toasts';
-import { api } from '../../lib/api';
+import { ApiError, api } from '../../lib/api';
 
-vi.mock('@inertiajs/react', () => ({ usePage: () => ({ props: { flash: null } }) }));
-vi.mock('../../lib/api', () => ({ api: { post: vi.fn() } }));
+vi.mock('../../lib/api', async () => {
+    const actual = await vi.importActual('../../lib/api');
+    return { ApiError: actual.ApiError, api: { post: vi.fn() } };
+});
 
 const organization = { id: 'org_acme', slug: 'acme', name: 'Acme Logistics', role: 'owner' };
 
 function renderCard() {
-    return render(
-        <ToastProvider>
-            <InstanceCodeCard organization={organization} />
-        </ToastProvider>,
-    );
+    return render(<InstanceCodeCard organization={organization} />);
 }
 
 describe('InstanceCodeCard', () => {
@@ -35,12 +32,12 @@ describe('InstanceCodeCard', () => {
 
     it('shows the service refusal', async () => {
         const user = userEvent.setup();
-        api.post.mockRejectedValue(new Error('Only organization owners and admins can register instances.'));
+        api.post.mockRejectedValue(new ApiError(403, { errors: ['Only organization owners and admins can register instances.'] }));
         renderCard();
 
         await user.click(screen.getByRole('button', { name: /Create registration code/ }));
 
-        expect(await screen.findByText('Only organization owners and admins can register instances.')).toBeInTheDocument();
+        expect(await screen.findByRole('alert')).toHaveTextContent('Only organization owners and admins can register instances.');
         expect(screen.queryByText(/flb instance register/)).not.toBeInTheDocument();
     });
 });
