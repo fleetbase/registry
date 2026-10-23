@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import CopyCommand from '../CopyCommand';
 import Icon from '../Icon';
-import { useToast } from '../Toasts';
 import { Note } from '../Ui';
 import { api } from '../../lib/api';
 import { dateTime } from '../../lib/format';
@@ -12,16 +11,18 @@ import { dateTime } from '../../lib/format';
  * console's registry settings, or pass it to `flb instance register`.
  */
 export default function InstanceCodeCard({ organization }) {
-    const toast = useToast();
     const [code, setCode] = useState(null);
+    const [error, setError] = useState(null);
     const [busy, setBusy] = useState(false);
 
     async function mint() {
         setBusy(true);
+        setError(null);
         try {
             setCode(await api.post('account/instance-codes', { organization: organization.slug }));
-        } catch (error) {
-            toast(error.message, { type: 'error' });
+        } catch (failure) {
+            setCode(null);
+            setError(failure.message);
         } finally {
             setBusy(false);
         }
@@ -42,6 +43,11 @@ export default function InstanceCodeCard({ organization }) {
                 <p className="small ink2">
                     Register a Fleetbase console with {organization.name} so it can install, update and buy extensions with this organization’s licences.
                 </p>
+                {error && (
+                    <Note tone="fail" role="alert">
+                        {error}
+                    </Note>
+                )}
                 {code ? (
                     <div className="stack" data-instance-code>
                         <CopyCommand value={code.code} prompt={null} label="registration code" />
