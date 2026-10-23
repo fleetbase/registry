@@ -72,7 +72,7 @@ class CatalogController extends Controller
     {
         return $this->cached($request, function () use ($request, $slug) {
             $extension = $this->listingQuery()
-                ->with(['screenshots', 'publishedReleases'])
+                ->with(['screenshots', 'publishedReleases.engineDist'])
                 ->withCount('publishedReleases')
                 ->where(fn (Builder $q) => $q->where('slug', $slug)->orWhere('public_id', $slug))
                 ->firstOrFail();
@@ -96,6 +96,7 @@ class CatalogController extends Controller
                 ->when($request->filled('channel'), fn ($q) => $q->where('channel', $request->input('channel')))
                 ->orderByDesc('published_at')
                 ->orderByDesc('id')
+                ->with('engineDist')
                 ->get();
 
             return [
@@ -154,7 +155,7 @@ class CatalogController extends Controller
     protected function listingScopes(Builder|Relation $query)
     {
         return $query
-            ->with(['organization', 'category', 'icon', 'price', 'packages', 'latestRelease'])
+            ->with(['organization', 'category', 'icon', 'price', 'packages', 'latestRelease.engineDist'])
             ->withCount(['installs' => fn ($q) => $q->where('status', Install::STATUS_INSTALLED)]);
     }
 

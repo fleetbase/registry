@@ -27,6 +27,7 @@ class ExtensionResource extends ExtensionSummaryResource
                 'version' => $release->version,
                 'channel' => $release->channel,
                 'published_at' => $release->published_at,
+                'dist' => $release->relationLoaded('engineDist') ? ReleaseResource::dist($release) : null,
             ])->all()),
             'versions_count' => $this->whenCounted('publishedReleases'),
             'publisher' => $this->whenLoaded('organization', fn () => (new PublisherResource($this->organization))->resolve($request)),
