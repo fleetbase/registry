@@ -53,10 +53,10 @@ describe('filterReleases', () => {
         expect(isFirstRelease(update)).toBe(false);
     });
 
-    it('trusts previous_version from the admin API, also after a first release goes live', () => {
-        expect(isFirstRelease(release({ previous_version: null }))).toBe(true);
-        expect(updateLabel(release({ previous_version: null }))).toBe('First release');
-        expect(isFirstRelease(release({ previous_version: '0.1.0', extension: { status: 'draft' } }))).toBe(false);
+    it('keeps a first release first once it is published and the listing is live', () => {
+        expect(isFirstRelease(release({ previous_version: null, status: 'published' }))).toBe(true);
+        expect(updateLabel(release({ previous_version: null, status: 'published' }))).toBe('First release');
+        expect(isFirstRelease(release({ previous_version: '0.1.0', status: 'published' }))).toBe(false);
     });
 
     it('filters first releases, updates, failed checks and paid', () => {

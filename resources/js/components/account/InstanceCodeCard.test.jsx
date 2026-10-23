@@ -4,6 +4,7 @@ import InstanceCodeCard from './InstanceCodeCard';
 import { ToastProvider } from '../Toasts';
 import { api } from '../../lib/api';
 
+vi.mock('@inertiajs/react', () => ({ usePage: () => ({ props: { flash: null } }) }));
 vi.mock('../../lib/api', () => ({ api: { post: vi.fn() } }));
 
 const organization = { id: 'org_acme', slug: 'acme', name: 'Acme Logistics', role: 'owner' };
