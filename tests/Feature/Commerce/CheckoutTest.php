@@ -225,6 +225,12 @@ it('polls a hand-off from the instance until the purchase lands', function () {
         ->assertJsonPath('purchase.licence.kind', 'paid')
         ->assertJsonPath('purchase.licence.max_activations', 5);
 
+    // The licence carries the receipt, so a console keeps it after re-registering or clearing its cache.
+    $this->getJson('/v1/instances/me')
+        ->assertOk()
+        ->assertJsonPath('licences.0.kind', 'paid')
+        ->assertJsonPath('licences.0.receipt_url', 'https://pay.stripe.com/receipts/payment/CAcaFwoVYWNjdF8xUWZMbVQ');
+
     // Another organization's instance cannot see it.
     [, $other] = buyerOrganization();
     actingAsInstance(buyerInstance($other));
