@@ -113,7 +113,7 @@ class InstanceController extends Controller
         $installs = Install::query()
             ->where('instance_uuid', $instance->uuid)
             ->where('status', Install::STATUS_INSTALLED)
-            ->with(['extension', 'release'])
+            ->with(['extension', 'release.engineDist'])
             ->orderBy('created_at')
             ->get()
             ->filter(fn (Install $install) => $install->extension !== null);
@@ -122,6 +122,7 @@ class InstanceController extends Controller
             ->published()
             ->whereIn('extension_uuid', $installs->pluck('extension_uuid')->unique())
             ->whereIn('channel', $channels)
+            ->with('engineDist')
             ->get()
             ->groupBy('extension_uuid');
 
