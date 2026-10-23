@@ -211,18 +211,15 @@ class StripeWebhooks
             'meta' => $meta + ['refunded_at' => now()->toIso8601String()],
         ])->save();
 
-        $purchase->licence()->where('status', Licence::STATUS_ACTIVE)->get()->each(function (Licence $licence) {
-            $licence->forceFill([
-                'status' => Licence::STATUS_REVOKED,
-                'meta' => array_merge((array) $licence->meta, ['revoked_reason' => 'refunded', 'revoked_at' => now()->toIso8601String()]),
-            ])->save();
-        });
+        $this->revoke($purchase, 'refunded');
 
         Event::record('purchase.refunded', $purchase, null, ['amount_refunded' => (int) $charge->amount_refunded]);
     }
 
     /**
-     * A dispute flags the purchase (the licence stays active while it is open) and tells staff.
+     * A dispute flags the purchase and revokes its licence at once (disputes are a common way to
+     * try to keep an extension for free), and tells staff. Staff reinstate the licence if the
+     * dispute is won (POST /v1/admin/licences/{id}/reinstate).
      */
     protected function disputed(Dispute $dispute): void
     {
@@ -244,11 +241,26 @@ class StripeWebhooks
             ]),
         ])->save();
 
+        $this->revoke($purchase, 'disputed');
         Event::record('purchase.disputed', $purchase, null, ['dispute' => $dispute->id, 'reason' => $dispute->reason]);
 
         foreach ((array) config('registry.commerce.notify', []) as $to) {
             $this->mail[] = [$to, new DisputeOpenedMail($purchase)];
         }
+    }
+
+    /**
+     * Revoke the purchase's active licence: new installs and updates stop; running instances keep
+     * their seat.
+     */
+    protected function revoke(Purchase $purchase, string $reason): void
+    {
+        $purchase->licence()->where('status', Licence::STATUS_ACTIVE)->get()->each(function (Licence $licence) use ($reason) {
+            $licence->forceFill([
+                'status' => Licence::STATUS_REVOKED,
+                'meta' => array_merge((array) $licence->meta, ['revoked_reason' => $reason, 'revoked_at' => now()->toIso8601String()]),
+            ])->save();
+        });
     }
 
     protected function accountUpdated(StripeAccount $account): void

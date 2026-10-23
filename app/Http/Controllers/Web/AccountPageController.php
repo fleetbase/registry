@@ -92,7 +92,8 @@ class AccountPageController extends WebController
      */
     public function billing(Request $request, ?string $slug = null): Response
     {
-        [$organizations, $organization] = $this->billingOrganizations($request, $slug);
+        [$organizations, $organization] = $this->billingOrganizations($request, $slug, null);
+        $billing = $organization && in_array($organization['role'] ?? null, OrganizationController::BILLING_ROLES, true);
         $checkout = null;
 
         if ($organization && $request->filled('handoff')) {
@@ -102,7 +103,8 @@ class AccountPageController extends WebController
         return Inertia::render('Account/Billing', [
             'organizations' => $organizations,
             'organization' => $organization,
-            'purchases' => $organization ? $this->api($request, "/v1/organizations/{$organization['slug']}/billing/purchases", [], BillingController::class, 'purchases', ['slug' => $organization['slug']]) : [],
+            // Purchases and receipts are for owners, admins and billing members; licences for everyone.
+            'purchases' => $billing ? $this->api($request, "/v1/organizations/{$organization['slug']}/billing/purchases", [], BillingController::class, 'purchases', ['slug' => $organization['slug']]) : null,
             'licences' => $organization ? $this->api($request, "/v1/organizations/{$organization['slug']}/billing/licences", [], BillingController::class, 'licences', ['slug' => $organization['slug']]) : [],
             'checkout' => $checkout,
         ]);

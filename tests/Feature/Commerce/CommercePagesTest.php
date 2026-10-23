@@ -41,7 +41,7 @@ it('shows the Connect status when Stripe refuses the balance', function () {
             ->where('error', 'Stripe could not complete the request: Account not found.'));
 });
 
-it('lists only organizations where the account sees money', function () {
+it('lists only organizations where the account sees money on Payouts, and every organization on Billing', function () {
     $account = Account::factory()->create();
     [, $organization] = buyerOrganization();
     $account->organizations()->attach($organization->uuid, ['role' => Membership::ROLE_PUBLISHER]);
@@ -49,7 +49,12 @@ it('lists only organizations where the account sees money', function () {
 
     $this->get('/studio/payouts')->assertOk()->assertInertia(fn (Assert $page) => $page->where('organizations', [])->where('organization', null));
     $this->get("/studio/payouts/{$organization->slug}")->assertNotFound();
-    $this->get('/account/billing')->assertOk()->assertInertia(fn (Assert $page) => $page->component('Account/Billing')->where('organization', null));
+    // Billing shows its licences, not its purchases.
+    $this->get("/account/billing/{$organization->slug}")->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->component('Account/Billing')
+        ->where('organization.slug', $organization->slug)
+        ->where('purchases', null)
+        ->where('licences', []));
 });
 
 it('renders account billing with purchases, licences and the returning hand-off', function () {
