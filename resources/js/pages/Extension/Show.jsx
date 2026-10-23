@@ -7,7 +7,7 @@ import Icon from '../../components/Icon';
 import { StatusChip } from '../../components/Status';
 import { Reviewed, Verified } from '../../components/Trust';
 import { Note, SafeHtml, Segmented } from '../../components/Ui';
-import { bytes, initials, isPaid, money, priceLabel, shortDate } from '../../lib/format';
+import { bytes, initials, isPaid, money, plural, priceLabel, shortDate } from '../../lib/format';
 import { HOSTINGS } from '../../lib/statuses';
 
 /**
@@ -145,7 +145,7 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                 <h2 id="h-ver" className="h3">
                                     Versions
                                 </h2>
-                                <span className="small muted">{releases.length} releases</span>
+                                <span className="small muted">{plural(releases.length, 'release')}</span>
                             </div>
                             <div className="card-body tl" data-versions>
                                 {releases.length === 0 && <p className="small muted">No published versions.</p>}
