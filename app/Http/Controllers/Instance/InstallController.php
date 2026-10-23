@@ -21,7 +21,9 @@ use Illuminate\Support\Facades\DB;
  * Install telemetry from instances. One `installs` row per install attempt:
  * `installing` opens a row, `installed` or `failed` closes it. Once a release is
  * installed, earlier installed rows for the same extension become `uninstalled`, so an
- * instance counts once per extension in the catalog's install counts.
+ * instance counts once per extension in the catalog's install counts. Analytics tell the
+ * two apart: a replaced row gets `replaced_at` and the new row `previous_release_uuid`
+ * (an update); an uninstall sets `uninstalled_at`.
  */
 class InstallController extends Controller
 {
@@ -82,21 +84,33 @@ class InstallController extends Controller
             ]);
             $created = ! $install->exists;
 
+            $replaced = $status === Install::STATUS_INSTALLED
+                ? Install::query()
+                    ->where('instance_uuid', $instance->uuid)
+                    ->where('extension_uuid', $extension->uuid)
+                    ->where('status', Install::STATUS_INSTALLED)
+                    ->when($install->exists, fn ($q) => $q->whereKeyNot($install->getKey()))
+                    ->orderByDesc('id')
+                    ->get(['uuid', 'release_uuid'])
+                : collect();
+
             $install->fill([
                 'release_uuid' => $release->uuid,
                 'status' => $status,
                 'installed_by' => $request->input('installed_by', $install->installed_by),
                 'error' => $status === Install::STATUS_FAILED ? $request->input('error') : null,
                 'finished_at' => $status === Install::STATUS_INSTALLING ? null : now(),
+                'installed_at' => $status === Install::STATUS_INSTALLED ? now() : null,
+                'previous_release_uuid' => $replaced->first()?->release_uuid,
             ])->save();
 
-            if ($status === Install::STATUS_INSTALLED) {
-                Install::query()
-                    ->where('instance_uuid', $instance->uuid)
-                    ->where('extension_uuid', $extension->uuid)
-                    ->where('status', Install::STATUS_INSTALLED)
-                    ->whereKeyNot($install->getKey())
-                    ->update(['status' => Install::STATUS_UNINSTALLED, 'finished_at' => now(), 'updated_at' => now()]);
+            if ($replaced->isNotEmpty()) {
+                Install::query()->whereKey($replaced->modelKeys())->update([
+                    'status' => Install::STATUS_UNINSTALLED,
+                    'finished_at' => now(),
+                    'replaced_at' => now(),
+                    'updated_at' => now(),
+                ]);
             }
 
             return [$install, $created];
@@ -142,6 +156,7 @@ class InstallController extends Controller
         Install::query()->whereKey($installs->modelKeys())->update([
             'status' => Install::STATUS_UNINSTALLED,
             'finished_at' => now(),
+            'uninstalled_at' => now(),
             'updated_at' => now(),
         ]);
         $deactivated = $deactivate($instance, $model);
