@@ -128,8 +128,8 @@ it('serves the prebuilt dist of a release, verified by the sha256 catalog releas
     expect(hash('sha256', $response->streamedContent()))->toBe($file->checksum)
         ->and($response->headers->get('Cache-Control'))->toContain('immutable');
 
-    $this->withHeader('If-None-Match', '"'.$file->checksum.'"')->get('/npm/@acme/route-optimizer-engine/-/dist/1.0.0')->assertStatus(304);
     $this->get('/npm/@acme%2froute-optimizer-engine/-/dist/1.0.0')->assertOk();
+    $this->withHeader('If-None-Match', '"'.$file->checksum.'"')->get('/npm/@acme/route-optimizer-engine/-/dist/1.0.0')->assertStatus(304);
 });
 
 it('keeps the dist of a yanked release downloadable and 404s releases without one', function () {
