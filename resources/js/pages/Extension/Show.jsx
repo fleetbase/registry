@@ -232,7 +232,7 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                 {method === 'cli' && (
                                     <div className="col" style={{ gap: 10 }} data-install="cli">
                                         <span className="small ink2">On the server that runs your Fleetbase instance:</span>
-                                        {paid && <CopyCommand value={`flb set-auth flbp_… --registry ${registry.url}`} label="set-auth command" />}
+                                        {paid && <CopyCommand value={`flb login --token flbp_… --registry ${registry.url}`} label="login command" />}
                                         <CopyCommand value={`flb install ${extension.slug}`} label="install command" />
                                         {paid && (
                                             <span className="xs muted">

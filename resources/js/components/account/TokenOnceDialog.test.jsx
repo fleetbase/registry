@@ -84,7 +84,7 @@ describe('TokenOnceDialog', () => {
         expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it('hides and reveals the token and copies it and the set-auth command', async () => {
+    it('hides and reveals the token and copies it and the login command', async () => {
         const user = userEvent.setup();
         const writeText = vi.spyOn(navigator.clipboard, 'writeText');
         render(<TokenOnceDialog created={created} registryUrl="https://registry.example.test" onClose={() => {}} />);
@@ -93,7 +93,7 @@ describe('TokenOnceDialog', () => {
         const code = screen.getByLabelText('Your new token');
         expect(code).not.toHaveTextContent(PLAINTEXT);
         expect(code.textContent.endsWith('a1b2')).toBe(true);
-        expect(screen.getByText(/flb set-auth flbp_7Kq2…a1b2 --registry/)).toBeInTheDocument();
+        expect(screen.getByText(/flb login --token flbp_7Kq2…a1b2 --registry/)).toBeInTheDocument();
         expect(screen.getByText('All your organizations')).toBeInTheDocument();
 
         await user.click(screen.getByRole('button', { name: 'Show token' }));
@@ -101,8 +101,8 @@ describe('TokenOnceDialog', () => {
 
         await user.click(screen.getByRole('button', { name: /Copy token/ }));
         expect(writeText).toHaveBeenCalledWith(PLAINTEXT);
-        await user.click(screen.getByRole('button', { name: 'Copy set-auth command' }));
-        expect(writeText).toHaveBeenLastCalledWith(`flb set-auth ${PLAINTEXT} --registry https://registry.example.test`);
+        await user.click(screen.getByRole('button', { name: 'Copy login command' }));
+        expect(writeText).toHaveBeenLastCalledWith(`flb login --token ${PLAINTEXT} --registry https://registry.example.test`);
     });
 });
 

@@ -40,7 +40,7 @@ export default function TokenOnceDialog({ created, organizationName, registryUrl
 
     const token = created.token;
     const details = created.token_details ?? {};
-    const command = `flb set-auth ${token} --registry ${registryUrl}`;
+    const command = `flb login --token ${token} --registry ${registryUrl}`;
 
     async function copy(what, value) {
         try {
@@ -121,9 +121,9 @@ export default function TokenOnceDialog({ created, organizationName, registryUrl
                         $
                     </span>
                     <code style={{ minWidth: 0, flex: '1 1 auto', overflowWrap: 'anywhere' }}>
-                        flb set-auth {revealed ? token : maskToken(token)} --registry {registryUrl}
+                        flb login --token {revealed ? token : maskToken(token)} --registry {registryUrl}
                     </code>
-                    <button type="button" className={`copy ${copied === 'command' ? 'done' : ''}`} onClick={() => copy('command', command)} aria-label={copied === 'command' ? 'Copied set-auth command' : 'Copy set-auth command'} data-token-copy-command>
+                    <button type="button" className={`copy ${copied === 'command' ? 'done' : ''}`} onClick={() => copy('command', command)} aria-label={copied === 'command' ? 'Copied login command' : 'Copy login command'} data-token-copy-command>
                         <Icon name={copied === 'command' ? 'check' : 'copy'} size={14} />
                         <span aria-live="polite">{copied === 'command' ? 'Copied' : 'Copy'}</span>
                     </button>
