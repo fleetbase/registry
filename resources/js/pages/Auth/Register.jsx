@@ -1,33 +1,11 @@
 import { useState } from 'react';
 import { Link, router } from '@inertiajs/react';
 import AuthShell from '../../components/account/AuthShell';
+import GithubButton from '../../components/account/GithubButton';
+import { PasswordMeter, passwordHelp, passwordStrength } from '../../components/account/password';
 import Icon from '../../components/Icon';
 import { Field, Note } from '../../components/Ui';
 import { api } from '../../lib/api';
-
-/**
- * How far a password meets the registry's rule (8+ characters with letters and numbers) and
- * beyond it: 0 empty, 1 too short or missing letters/numbers, 2 acceptable, 3 good, 4 strong.
- */
-export function passwordStrength(password) {
-    const value = String(password ?? '');
-    if (!value) {
-        return { score: 0, label: '' };
-    }
-    const letters = /[a-z]/i.test(value);
-    const numbers = /\d/.test(value);
-    if (value.length < 8 || !letters || !numbers) {
-        return { score: 1, label: 'Too weak: needs 8 characters with letters and numbers.' };
-    }
-    let score = 2;
-    if (value.length >= 12) {
-        score++;
-    }
-    if (/[^a-z0-9]/i.test(value) || (/[a-z]/.test(value) && /[A-Z]/.test(value))) {
-        score++;
-    }
-    return { score: Math.min(score, 4), label: ['', '', 'Acceptable.', 'Good.', 'Strong.'][Math.min(score, 4)] };
-}
 
 /** Create an account (POST /v1/auth/register), then enter the emailed code. */
 export default function Register() {
@@ -117,15 +95,11 @@ export default function Register() {
             >
                 {(id, aria) => <input id={id} {...aria} className={`input mono ${errors.username ? 'is-error' : ''}`} autoComplete="username" autoCapitalize="none" spellCheck={false} value={form.username} onChange={set('username')} />}
             </Field>
-            <Field label="Password" error={errors.password} help={strength.label ? `At least 8 characters with letters and numbers. ${strength.score > 1 ? strength.label : ''}`.trim() : 'At least 8 characters with letters and numbers.'}>
+            <Field label="Password" error={errors.password} help={passwordHelp(strength)}>
                 {(id, aria) => (
                     <>
                         <input id={id} {...aria} className={`input ${errors.password ? 'is-error' : ''}`} type="password" autoComplete="new-password" value={form.password} onChange={set('password')} required />
-                        {form.password && (
-                            <div className="meter" aria-hidden="true">
-                                <span style={{ width: `${strength.score * 25}%`, background: strength.score < 2 ? 'var(--fail)' : undefined }} />
-                            </div>
-                        )}
+                        <PasswordMeter strength={strength} />
                     </>
                 )}
             </Field>
@@ -133,6 +107,7 @@ export default function Register() {
                 {busy && <Icon name="spinner" spin />}
                 Create account
             </button>
+            <GithubButton />
             <p className="small muted" style={{ textAlign: 'center' }}>
                 Already have an account? <Link href="/sign-in">Sign in</Link>
             </p>

@@ -1,4 +1,4 @@
-import { autoPassed, canDecide, decisionItems, decisionState, initialMarks, toggleMark } from './decision';
+import { autoPassed, canApprove, canDecide, canRequestChanges, decisionItems, decisionState, initialMarks, toggleMark } from './decision';
 
 const ITEMS = ['R1', 'R2', 'R3', 'R4', 'R5', 'R6'].map((code) => ({ code, label: `Item ${code}` }));
 
@@ -62,11 +62,46 @@ describe('decisionItems', () => {
     });
 });
 
-describe('canDecide', () => {
-    it('only lets reviewers decide submitted and in-review releases', () => {
-        expect(canDecide('submitted')).toBe(true);
+describe('status rules', () => {
+    it('approves only submitted and in-review releases', () => {
+        expect(canApprove('submitted')).toBe(true);
+        expect(canApprove('in_review')).toBe(true);
+        expect(canApprove('approved')).toBe(false);
+        expect(canApprove('published')).toBe(false);
+    });
+
+    it('requests changes up to publication, approved included', () => {
+        expect(['submitted', 'in_review', 'approved'].map(canRequestChanges)).toEqual([true, true, true]);
+        expect(['uploaded', 'failed_checks', 'rejected', 'published', 'yanked'].map(canRequestChanges)).toEqual([false, false, false, false, false]);
+    });
+
+    it('has a decision to take until the release is published or rejected', () => {
         expect(canDecide('in_review')).toBe(true);
-        expect(canDecide('approved')).toBe(false);
+        expect(canDecide('approved')).toBe(true);
         expect(canDecide('published')).toBe(false);
+        expect(canDecide('rejected')).toBe(false);
+    });
+});
+
+describe('decisionState on an approved release', () => {
+    const allPass = Object.fromEntries(ITEMS.map((item) => [item.code, 'pass']));
+
+    it('never allows approve again', () => {
+        expect(decisionState({ items: ITEMS, marks: allPass, status: 'approved' })).toMatchObject({ canApprove: false, canReject: false, hint: 'Fail the requirements that need work to request changes.' });
+    });
+
+    it('requests changes with a failed requirement and a required message', () => {
+        const failed = { R3: 'fail' };
+        expect(decisionState({ items: ITEMS, marks: failed, reason: '', status: 'approved' })).toMatchObject({ canReject: false, reasonHint: 'required', hint: 'Add a message to request changes.', progress: '1 failed' });
+        expect(decisionState({ items: ITEMS, marks: failed, reason: 'The support link 404s.', status: 'approved' })).toMatchObject({ canReject: true, canApprove: false, rejectLabel: 'Request changes (1)' });
+    });
+
+    it('allows nothing once published', () => {
+        expect(decisionState({ items: ITEMS, marks: { R3: 'fail' }, reason: 'Too late', status: 'published' })).toMatchObject({ canReject: false, canApprove: false, hint: 'This release has been decided.' });
+    });
+
+    it('keeps the in-review rules for submitted and in-review releases', () => {
+        expect(decisionState({ items: ITEMS, marks: allPass, status: 'in_review' }).canApprove).toBe(true);
+        expect(decisionState({ items: ITEMS, marks: { R1: 'fail' }, reason: 'x', status: 'submitted' })).toMatchObject({ canReject: true, reasonHint: 'required to reject' });
     });
 });

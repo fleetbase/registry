@@ -79,7 +79,7 @@ export default function UploadForm({ extension }) {
     const general = error && !Object.keys(error.fields ?? {}).length ? error.message : null;
 
     return (
-        <form className="card" aria-labelledby="h-upload" onSubmit={upload} noValidate data-upload-form>
+        <form method="post" className="card" aria-labelledby="h-upload" onSubmit={upload} noValidate data-upload-form>
             <div className="card-head">
                 <h2 id="h-upload" className="h3">
                     Upload a release

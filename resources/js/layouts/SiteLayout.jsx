@@ -20,6 +20,12 @@ export default function SiteLayout({ title, section = 'public', children, wide =
     const [palette, setPalette] = useState(false);
     const url = usePage().url;
 
+    // Marks the page interactive: with server rendering the markup arrives before React has
+    // hydrated it, and the end-to-end tests wait for this before clicking.
+    useEffect(() => {
+        document.documentElement.dataset.ready = 'true';
+    }, []);
+
     useEffect(() => {
         function onKey(event) {
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {

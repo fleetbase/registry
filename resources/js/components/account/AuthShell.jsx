@@ -18,7 +18,7 @@ export default function AuthShell({ title, labelledBy, onSubmit, children }) {
                         </Link>
                         <span className="small muted">One account for publishing, tokens and organizations.</span>
                     </div>
-                    <form className="card auth-card" aria-labelledby={labelledBy} onSubmit={onSubmit} noValidate>
+                    <form method="post" className="card auth-card" aria-labelledby={labelledBy} onSubmit={onSubmit} noValidate>
                         {children}
                     </form>
                 </div>

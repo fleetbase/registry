@@ -47,9 +47,23 @@ export function queueAge(release, now = new Date()) {
     return { label, state, text, percent, business };
 }
 
-/** A first release is one whose listing is not live yet. */
+/**
+ * A first release has no live version before it. The admin API says so with
+ * `previous_version`; without it, a release whose listing is not live yet counts as first.
+ */
 export function isFirstRelease(release) {
+    if (release?.previous_version) {
+        return false;
+    }
     return (release?.extension?.status ?? null) !== 'published';
+}
+
+/** The queue tag and header label: `Update from v0.2.1`, `First release`, or `Update`. */
+export function updateLabel(release) {
+    if (release?.previous_version) {
+        return `Update from v${release.previous_version}`;
+    }
+    return isFirstRelease(release) ? 'First release' : 'Update';
 }
 
 export function checksFailed(release) {

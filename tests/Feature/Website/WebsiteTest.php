@@ -4,10 +4,11 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 it('renders Discover with the catalog, filters and compatibility for the visitor’s console', function () {
     $fits = makePackage('npm', '@acme/fits-engine', extension: ['name' => 'Fits', 'slug' => 'fits']);
-    makeRelease($fits, '1.0.0', manifest: ['compat' => ['console' => '>=0.7.60']])->forceFill(['compat' => ['console' => '>=0.7.60']])->save();
+    makeRelease($fits, '1.0.0')->forceFill(['compat' => ['console' => '>=0.7.60']])->save();
     $old = makePackage('npm', '@acme/old-engine', extension: ['name' => 'Old', 'slug' => 'old']);
     makeRelease($old, '1.0.0')->forceFill(['compat' => ['console' => '<0.7.0']])->save();
 
+    // A known console version keeps only listings with a release for it, across the catalog.
     $this->withUnencryptedCookie('registry_console', '0.7.69')
         ->get('/?sort=name')
         ->assertOk()
@@ -15,12 +16,24 @@ it('renders Discover with the catalog, filters and compatibility for the visitor
             ->component('Discover/Index')
             ->where('filters', ['sort' => 'name'])
             ->where('console', '0.7.69')
-            ->has('results.data', 2)
+            ->has('results.data', 1)
+            ->where('results.meta.total', 1)
             ->where('results.data.0.slug', 'fits')
             ->where('results.data.0.compatible', true)
-            ->where('results.data.1.compatible', false)
             ->has('categories')
             ->where('auth.account', null));
+
+    $this->withUnencryptedCookie('registry_console', '0.7.69')
+        ->get('/?sort=name&compat=any')
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('filters', ['sort' => 'name', 'compat' => 'any'])
+            ->has('results.data', 2)
+            ->where('results.data.1.slug', 'old')
+            ->where('results.data.1.compatible', false));
+
+    // No console version: everything, without compatibility flags.
+    $this->unencryptedCookies = [];
+    $this->get('/?sort=name')->assertInertia(fn (Assert $page) => $page->has('results.data', 2)->where('results.data.0.compatible', null));
 });
 
 it('renders an extension with its releases and checks another console version on request', function () {

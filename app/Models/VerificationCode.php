@@ -7,7 +7,9 @@ use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
- * Short-lived numeric codes for email verification (and later password reset).
+ * Short-lived six-digit codes, one live code per subject and purpose (`for`): email
+ * verification and password reset. A code of one purpose never consumes as another. A code
+ * expires after LIFETIME_MINUTES and stops working after MAX_ATTEMPTS wrong guesses.
  */
 class VerificationCode extends EloquentModel
 {
@@ -15,7 +17,12 @@ class VerificationCode extends EloquentModel
 
     public const FOR_EMAIL_VERIFICATION = 'email_verification';
 
+    public const FOR_PASSWORD_RESET = 'password_reset';
+
     public const LIFETIME_MINUTES = 30;
+
+    /** Wrong guesses a live code survives; the next correct one is refused too. */
+    public const MAX_ATTEMPTS = 5;
 
     protected $table = 'verification_codes';
 
@@ -25,9 +32,9 @@ class VerificationCode extends EloquentModel
 
     public $incrementing = false;
 
-    protected $fillable = ['subject_uuid', 'subject_type', 'for', 'code', 'expires_at', 'used_at'];
+    protected $fillable = ['subject_uuid', 'subject_type', 'for', 'code', 'attempts', 'expires_at', 'used_at'];
 
-    protected $casts = ['expires_at' => 'datetime', 'used_at' => 'datetime'];
+    protected $casts = ['attempts' => 'integer', 'expires_at' => 'datetime', 'used_at' => 'datetime'];
 
     public function subject(): MorphTo
     {
@@ -48,17 +55,28 @@ class VerificationCode extends EloquentModel
         ]);
     }
 
+    /**
+     * Use the subject's live code for the purpose. A wrong code counts against the live one,
+     * which stops working after MAX_ATTEMPTS wrong guesses.
+     */
     public static function consume(EloquentModel $subject, string $code, string $for = self::FOR_EMAIL_VERIFICATION): bool
     {
         $record = static::query()
             ->where('subject_uuid', $subject->getKey())
             ->where('for', $for)
-            ->where('code', $code)
             ->whereNull('used_at')
             ->where('expires_at', '>', now())
+            ->where('attempts', '<', static::MAX_ATTEMPTS)
+            ->latest('created_at')
             ->first();
 
         if (! $record) {
+            return false;
+        }
+
+        if (! hash_equals((string) $record->code, $code)) {
+            $record->increment('attempts');
+
             return false;
         }
 

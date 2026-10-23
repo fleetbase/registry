@@ -6,9 +6,11 @@ import CopyCommand from '../../components/CopyCommand';
 import Checks, { checkRows, checksSummary } from '../../components/Checks';
 import Route, { releaseStops } from '../../components/Route';
 import { ReleaseStatus, StatusChip } from '../../components/Status';
-import { Note, SafeHtml } from '../../components/Ui';
+import { Note } from '../../components/Ui';
 import { StudioHeader } from '../../components/studio/StudioChrome';
+import ReleaseNotes from '../../components/studio/ReleaseNotes';
 import ReleaseActionDialog, { releaseActions } from '../../components/studio/ReleaseActionDialog';
+import { withSubmissionDates } from '../../components/studio/submitted';
 import { bytes, shortDate } from '../../lib/format';
 
 const FILES = [
@@ -39,7 +41,7 @@ export default function StudioRelease({ extension, release }) {
     const summary = checksSummary(release);
     const failed = checkRows(release).filter((row) => row.state === 'fail');
     const passed = release.status === 'uploaded';
-    const stops = releaseStops(release, { submittedAt: shortDate(release.submission?.submitted_at) });
+    const stops = withSubmissionDates(releaseStops(release), release, { format: shortDate });
     const reviewHref = `/studio/${extension.slug}/review`;
 
     return (
@@ -141,10 +143,7 @@ export default function StudioRelease({ extension, release }) {
                                     </div>
                                 ))}
                             </section>
-                            <section className="card card-pad stack">
-                                <h2 className="h4">Release notes</h2>
-                                {release.notes ? <SafeHtml html={release.notes} className="small ink2" /> : <p className="small muted">No notes for this release.</p>}
-                            </section>
+                            <ReleaseNotes release={release} />
                             {checking && (
                                 <Note tone="info">
                                     <span className="small">You can leave this page. Checks keep running and the result waits for you in Studio.</span>

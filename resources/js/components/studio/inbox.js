@@ -1,5 +1,6 @@
 import { liveRelease, openRelease } from '../../lib/statuses';
 import { plural } from '../../lib/format';
+import { daysAgo, submittedAgo } from './submitted';
 
 /** Studio URLs for a listing. */
 export const studioUrl = {
@@ -41,7 +42,7 @@ export function listingState(extension) {
  * a draft listing that still needs something) and "With Fleetbase" (submitted, in review,
  * approved). One entry per listing, the most urgent.
  */
-export function groupInbox(extensions = []) {
+export function groupInbox(extensions = [], now = new Date()) {
     const yours = [];
     const fleetbase = [];
 
@@ -61,7 +62,10 @@ export function groupInbox(extensions = []) {
             yours.push({ ...base, kind: 'ready', title: `${name} ${version} is ready to submit`, detail: 'Checks passed and the listing is complete.', href: studioUrl.review(extension) });
         } else if (open && WITH_FLEETBASE.includes(open.status)) {
             const title = { submitted: `${name} ${version} is waiting for review`, in_review: `${name} ${version} is in review`, approved: `${name} ${version} is approved` }[open.status];
-            const detail = open.status === 'approved' ? 'It goes live when Fleetbase publishes it.' : 'Reviews usually take a few business days.';
+            const detail =
+                open.status === 'approved'
+                    ? [open.decided_at && `Approved ${daysAgo(open.decided_at, now)}.`, 'It goes live when Fleetbase publishes it.'].filter(Boolean).join(' ')
+                    : [submittedAgo(open, now) && `${submittedAgo(open, now)}.`, 'Reviews usually take a few business days.'].filter(Boolean).join(' ');
             fleetbase.push({ ...base, kind: open.status, title, detail, href: studioUrl.review(extension) });
         } else if (incomplete) {
             yours.push({ ...base, kind: 'incomplete', title: `${name}: listing needs ${plural(missing.length, 'thing')}`, detail: summarizeMissing(missing), href: studioUrl.editor(extension) });

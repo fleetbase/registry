@@ -5,6 +5,7 @@ import ExtensionIcon from '../../components/ExtensionIcon';
 import Route from '../../components/Route';
 import { Field, Note, Segmented } from '../../components/Ui';
 import { publishingOrganizations } from '../../components/studio/StudioChrome';
+import { AvailabilityChip, AvailabilityLine, usePackageAvailability } from '../../components/studio/availability';
 import { api } from '../../lib/api';
 import '../../components/studio/studio.css';
 
@@ -50,6 +51,8 @@ export default function StudioCreate({ categories = [] }) {
     const packages = editing ? names : suggested;
     const categoryName = categories.find((c) => c.slug === category)?.name;
     const tooShort = name.trim().length < 2;
+    // Suggested names follow the extension name, so check them once there is one.
+    const availability = usePackageAvailability(organization?.slug, packages, { enabled: editing || !tooShort });
 
     function startEditing() {
         setNames(suggested);
@@ -89,7 +92,7 @@ export default function StudioCreate({ categories = [] }) {
         <SiteLayout title="New extension" section="studio">
             <div className="wrap" style={{ paddingTop: 40, paddingBottom: 80 }}>
                 <div className="split">
-                    <form className="main" aria-labelledby="h-create" onSubmit={submit} noValidate>
+                    <form method="post" className="main" aria-labelledby="h-create" onSubmit={submit} noValidate>
                         <div className="col" style={{ gap: 8 }}>
                             <span className="eyebrow">New extension · 1 of 3</span>
                             <h1 id="h-create" className="h1">
@@ -141,27 +144,43 @@ export default function StudioCreate({ categories = [] }) {
                             </span>
                             {editing ? (
                                 <div className="grid2">
-                                    <Field label="npm engine" error={fieldError('packages.npm')}>
-                                        {(id, aria) => <input id={id} {...aria} className="input mono" value={names.npm} onChange={(e) => setNames({ ...names, npm: e.target.value })} spellCheck={false} autoComplete="off" />}
-                                    </Field>
-                                    <Field label="Composer API" error={fieldError('packages.composer')}>
-                                        {(id, aria) => <input id={id} {...aria} className="input mono" value={names.composer} onChange={(e) => setNames({ ...names, composer: e.target.value })} spellCheck={false} autoComplete="off" />}
-                                    </Field>
+                                    <div className="stack" style={{ gap: 8 }}>
+                                        <Field label="npm engine" error={fieldError('packages.npm')}>
+                                            {(id, aria) => <input id={id} {...aria} className="input mono" value={names.npm} onChange={(e) => setNames({ ...names, npm: e.target.value })} spellCheck={false} autoComplete="off" />}
+                                        </Field>
+                                        <AvailabilityLine result={availability.npm} data-availability-for="npm" />
+                                    </div>
+                                    <div className="stack" style={{ gap: 8 }}>
+                                        <Field label="Composer API" error={fieldError('packages.composer')}>
+                                            {(id, aria) => <input id={id} {...aria} className="input mono" value={names.composer} onChange={(e) => setNames({ ...names, composer: e.target.value })} spellCheck={false} autoComplete="off" />}
+                                        </Field>
+                                        <AvailabilityLine result={availability.composer} data-availability-for="composer" />
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="stack" aria-labelledby="pkg-label" data-packages>
-                                    <div className="sd-pkg">
-                                        <span className="k">npm engine</span>
-                                        <span className="grow" data-package="npm">
-                                            {suggested.npm}
-                                        </span>
-                                    </div>
-                                    <div className="sd-pkg">
-                                        <span className="k">Composer API</span>
-                                        <span className="grow" data-package="composer">
-                                            {suggested.composer}
-                                        </span>
-                                    </div>
+                                    {[
+                                        ['npm', 'npm engine'],
+                                        ['composer', 'Composer API'],
+                                    ].map(([kind, label]) => (
+                                        <div key={kind} className="col" style={{ gap: 4 }}>
+                                            <div className="sd-pkg">
+                                                <span className="k">{label}</span>
+                                                <span className="grow" data-package={kind}>
+                                                    {suggested[kind]}
+                                                </span>
+                                                <span aria-live="polite" data-availability-for={kind}>
+                                                    <AvailabilityChip result={availability[kind]} />
+                                                    {availability[kind].state === 'taken' && availability[kind].reason && <span className="sr-only">{availability[kind].reason}</span>}
+                                                </span>
+                                            </div>
+                                            {availability[kind].state === 'taken' && availability[kind].reason && (
+                                                <span className="small ink2" aria-hidden="true" data-availability-reason={kind}>
+                                                    {availability[kind].reason}
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                             <span className="help">

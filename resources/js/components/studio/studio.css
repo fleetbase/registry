@@ -42,6 +42,14 @@
 .sd-shot-tile .cap { position: relative; z-index: 1; padding: 2px 6px; border-radius: 6px; background: var(--surface); }
 .sd-mini-btn { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
 .sd-mini-btn:disabled { opacity: .45; cursor: not-allowed; }
+.sd-mini-btn[aria-disabled='true'] { cursor: progress; }
+.sd-shot-tile[draggable='true'] { cursor: grab; }
+.sd-shot-tile[data-dragging] { opacity: .5; }
+.sd-shot-tile[data-drop]::after { content: ''; position: absolute; top: 0; bottom: 0; width: 4px; background: var(--accent); z-index: 2; }
+.sd-shot-tile[data-drop='before']::after { left: 0; }
+.sd-shot-tile[data-drop='after']::after { right: 0; }
+.sd-grip { position: absolute; right: 6px; bottom: 6px; z-index: 1; width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); display: grid; place-items: center; touch-action: none; cursor: grab; }
+@media (hover: hover) and (pointer: fine) { .sd-grip { display: none; } }
 .sd-add-tile { height: 120px; border-radius: 12px; border: 2px dashed var(--line-strong); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--muted); font-size: 13px; background: transparent; cursor: pointer; font-family: inherit; text-align: center; padding: 8px; }
 .sd-add-tile[data-over='true'] { border-color: var(--accent); background: var(--accent-soft); }
 .sd-toolbar { display: flex; gap: 4px; flex-wrap: wrap; padding: 8px; border-bottom: 1px solid var(--line); }

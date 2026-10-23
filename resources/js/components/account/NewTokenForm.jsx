@@ -67,7 +67,7 @@ export default function NewTokenForm({ organizations = [], isStaff = false, init
     }
 
     return (
-        <form className="card" aria-labelledby="h-new-token" style={{ boxShadow: 'var(--e2)' }} onSubmit={submit} noValidate data-new-token-form>
+        <form method="post" className="card" aria-labelledby="h-new-token" style={{ boxShadow: 'var(--e2)' }} onSubmit={submit} noValidate data-new-token-form>
             <div className="card-head">
                 <h2 id="h-new-token" className="h3">
                     New token

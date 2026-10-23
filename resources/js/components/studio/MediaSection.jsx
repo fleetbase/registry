@@ -7,6 +7,7 @@ import { Field } from '../Ui';
 import { useToast } from '../Toasts';
 import { api } from '../../lib/api';
 import { initials } from '../../lib/format';
+import { dropInto, moveAnnouncement, moveItem, slotAt } from './reorder';
 
 export const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 export const ICON_MAX = 1024 * 1024;
@@ -39,9 +40,14 @@ export default function MediaSection({ extension, faIcon, onFaIcon, faIconError 
     const [confirm, setConfirm] = useState(null);
     const [uploads, setUploads] = useState([]);
     const [moving, setMoving] = useState(false);
+    const [pendingOrder, setPendingOrder] = useState(null);
+    const [drag, setDrag] = useState(null);
+    const [announcement, setAnnouncement] = useState('');
     const [over, setOver] = useState(false);
     const [naming, setNaming] = useState(Boolean(faIcon));
     const remaining = MAX_SCREENSHOTS - screenshots.length - uploads.filter((u) => !u.error).length;
+    // While a new order saves, the grid shows it.
+    const ordered = pendingOrder ? pendingOrder.map((id) => screenshots.find((s) => s.id === id)).filter(Boolean) : screenshots;
 
     const reload = () => new Promise((resolve) => router.reload({ only: ['extension'], onFinish: resolve }));
 
@@ -92,22 +98,79 @@ export default function MediaSection({ extension, faIcon, onFaIcon, faIconError 
         }
     }
 
-    async function move(index, delta) {
-        const order = screenshots.map((s) => s.id);
-        const target = index + delta;
-        if (target < 0 || target >= order.length) {
-            return;
-        }
-        [order[index], order[target]] = [order[target], order[index]];
+    /** Save a new screenshot order (one PATCH), then announce where `shot` landed. */
+    async function saveOrder(next, shot, label) {
+        const order = next.map((s) => s.id);
+        const to = order.indexOf(shot.id);
+        setPendingOrder(order);
         setMoving(true);
         try {
             await api.patch(`/publisher/extensions/${slug}/screenshots`, { order });
             await reload();
+            setAnnouncement(moveAnnouncement(label, to, order.length));
         } catch (e) {
             toast(e.message, { type: 'error' });
+            setAnnouncement('The screenshot order was not saved.');
         } finally {
+            setPendingOrder(null);
             setMoving(false);
         }
+    }
+
+    const shotLabel = (shot, index) => (shot.caption ? `Screenshot “${shot.caption}”` : `Screenshot ${index + 1}`);
+
+    function move(index, delta) {
+        const target = index + delta;
+        if (moving || target < 0 || target >= ordered.length) {
+            return;
+        }
+        saveOrder(moveItem(ordered, index, target), ordered[index], shotLabel(ordered[index], index));
+    }
+
+    function hover(index, element, x) {
+        const side = slotAt(index, element.getBoundingClientRect(), x) === index ? 'before' : 'after';
+        setDrag((current) => (current && (current.over?.index !== index || current.over?.side !== side) ? { ...current, over: { index, side } } : current));
+    }
+
+    function drop() {
+        const current = drag;
+        setDrag(null);
+        if (!current?.over || moving) {
+            return;
+        }
+        const slot = current.over.side === 'before' ? current.over.index : current.over.index + 1;
+        const next = dropInto(ordered, current.from, slot);
+        if (next) {
+            saveOrder(next, ordered[current.from], shotLabel(ordered[current.from], current.from));
+        }
+    }
+
+    // Touch and pen drag from the grip (mouse drags use native drag and drop on the tile).
+    function pointerDown(event, index) {
+        if (event.pointerType === 'mouse' || moving) {
+            return;
+        }
+        event.preventDefault();
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        setDrag({ from: index, over: null, pointer: true });
+    }
+
+    function pointerMove(event) {
+        if (!drag?.pointer) {
+            return;
+        }
+        const tile = document.elementFromPoint?.(event.clientX, event.clientY)?.closest('[data-screenshot-index]');
+        if (tile) {
+            hover(Number(tile.dataset.screenshotIndex), tile, event.clientX);
+        }
+    }
+
+    function dropIndicator(index) {
+        if (!drag?.over || drag.over.index !== index) {
+            return undefined;
+        }
+        const slot = drag.over.side === 'before' ? index : index + 1;
+        return dropInto(ordered, drag.from, slot) ? drag.over.side : undefined;
     }
 
     async function confirmRemove() {
@@ -187,19 +250,56 @@ export default function MediaSection({ extension, faIcon, onFaIcon, faIconError 
                 </div>
 
                 <ul className="grid4" style={{ gap: 12, listStyle: 'none', margin: 0, padding: 0 }} aria-label="Screenshots">
-                    {screenshots.map((shot, index) => (
-                        <li key={shot.id} className="sd-shot-tile" data-screenshot={shot.id}>
-                            <img src={shot.url} alt={shot.caption || `Screenshot ${index + 1}`} />
+                    {ordered.map((shot, index) => (
+                        <li
+                            key={shot.id}
+                            className="sd-shot-tile"
+                            data-screenshot={shot.id}
+                            data-screenshot-index={index}
+                            data-dragging={drag?.from === index || undefined}
+                            data-drop={dropIndicator(index)}
+                            draggable={!moving}
+                            onDragStart={(e) => {
+                                if (moving) {
+                                    e.preventDefault();
+                                    return;
+                                }
+                                e.dataTransfer.effectAllowed = 'move';
+                                e.dataTransfer.setData('text/plain', shot.id);
+                                setDrag({ from: index, over: null });
+                            }}
+                            onDragOver={(e) => {
+                                if (!drag) {
+                                    return;
+                                }
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = 'move';
+                                hover(index, e.currentTarget, e.clientX);
+                            }}
+                            onDragLeave={(e) => {
+                                if (drag?.over?.index === index && !e.currentTarget.contains(e.relatedTarget)) {
+                                    setDrag({ ...drag, over: null });
+                                }
+                            }}
+                            onDrop={(e) => {
+                                if (drag) {
+                                    e.preventDefault();
+                                    drop();
+                                }
+                            }}
+                            onDragEnd={() => setDrag(null)}
+                        >
+                            <img src={shot.url} alt={shot.caption || `Screenshot ${index + 1}`} draggable={false} />
                             {index === 0 && (
                                 <StatusChip tone="ok" className="cover">
                                     Cover
                                 </StatusChip>
                             )}
                             <span className="tools">
-                                <button type="button" className="sd-mini-btn" aria-label={`Move screenshot ${index + 1} earlier`} disabled={moving || index === 0} onClick={() => move(index, -1)}>
+                                <button type="button" className="sd-mini-btn" aria-label={`Move screenshot ${index + 1} earlier`} aria-disabled={moving || undefined} disabled={index === 0} onClick={() => move(index, -1)}>
                                     <Icon name="arrowLeft" size={16} />
                                 </button>
-                                <button type="button" className="sd-mini-btn" aria-label={`Move screenshot ${index + 1} later`} disabled={moving || index === screenshots.length - 1} onClick={() => move(index, 1)}>
+                                <button type="button" className="sd-mini-btn" aria-label={`Move screenshot ${index + 1} later`} aria-disabled={moving || undefined} disabled={index === ordered.length - 1} onClick={() => move(index, 1)}>
                                     <Icon name="arrowRight" size={16} />
                                 </button>
                                 <button type="button" className="sd-mini-btn" aria-label={`Remove screenshot ${index + 1}`} onClick={() => setConfirm({ kind: 'screenshot', id: shot.id, index })}>
@@ -207,6 +307,11 @@ export default function MediaSection({ extension, faIcon, onFaIcon, faIconError 
                                 </button>
                             </span>
                             {shot.caption && <span className="cap">{shot.caption}</span>}
+                            {ordered.length > 1 && (
+                                <span className="sd-grip" aria-hidden="true" onPointerDown={(e) => pointerDown(e, index)} onPointerMove={pointerMove} onPointerUp={drop} onPointerCancel={() => setDrag(null)}>
+                                    <Icon name="menu" size={16} />
+                                </span>
+                            )}
                         </li>
                     ))}
                     {uploads.map((upload) => (
@@ -235,7 +340,7 @@ export default function MediaSection({ extension, faIcon, onFaIcon, faIconError 
                                 onClick={() => shotInput.current?.click()}
                                 onDragOver={(e) => {
                                     e.preventDefault();
-                                    setOver(true);
+                                    setOver(!drag);
                                 }}
                                 onDragLeave={() => setOver(false)}
                                 onDrop={(e) => {
@@ -263,7 +368,10 @@ export default function MediaSection({ extension, faIcon, onFaIcon, faIconError 
                         e.target.value = '';
                     }}
                 />
-                <span className="help">Use the arrow buttons to reorder. Screenshots change without review.</span>
+                <span className="help">Drag to reorder, or use the arrow buttons. Screenshots change without review.</span>
+                <p className="sr-only" aria-live="polite" data-reorder-status>
+                    {announcement}
+                </p>
             </div>
 
             <Dialog

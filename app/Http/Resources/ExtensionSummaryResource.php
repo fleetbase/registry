@@ -39,6 +39,8 @@ class ExtensionSummaryResource extends FleetbaseResource
             'latest_release' => $this->whenLoaded('latestRelease', fn () => $this->latestRelease ? (new ReleaseResource($this->latestRelease))->resolve($request) : null),
             'latest_version' => $this->whenLoaded('latestRelease', fn () => $this->latestRelease?->version),
             'compat' => $this->whenLoaded('latestRelease', fn () => $this->latestRelease?->compat ?? []),
+            // Only with ?console= on the catalog list: {console, compatible, newest_compatible}.
+            'compatibility' => $this->when(array_key_exists('compatibility', $this->resource->getAttributes()), fn () => $this->resource->getAttributes()['compatibility']),
             'packages' => $this->whenLoaded('packages', fn () => $this->packages->mapWithKeys(fn ($package) => [$package->kind => $package->name])->all()),
             'price' => (new PriceResource($this->whenLoaded('price', fn () => $this->price, null)))->resolve($request),
             'is_paid' => $this->whenLoaded('price', fn () => $this->price !== null && ! $this->price->isFree(), false),

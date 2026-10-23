@@ -2,6 +2,8 @@
 
 namespace App\Auth;
 
+use App\Models\Account;
+use App\Models\Event;
 use App\Models\Token;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
@@ -52,6 +54,35 @@ class SessionGuard
         }
 
         return Token::query()->active()->where('uuid', $uuid)->where('prefix', Token::PREFIX_SESSION)->first();
+    }
+
+    /**
+     * Sign the account in on the request's session: revoke the session's previous token,
+     * issue a `flbs_` token (plaintext discarded), regenerate the session id and store the
+     * token's uuid. Used by POST /v1/auth/session and Sign in with GitHub.
+     */
+    public static function signIn(Request $request, Account $account, string $via = 'session'): Token
+    {
+        // Signing in over an existing session replaces its token.
+        static::token($request)?->revoke();
+
+        $token = Token::issue(
+            $account,
+            'web session '.now()->toDateString(),
+            [Token::SCOPE_ALL],
+            now()->addMinutes(static::lifetimeMinutes()),
+            null,
+            Token::PREFIX_SESSION,
+        );
+        $token->plainTextToken = null;
+
+        $request->session()->regenerate();
+        $request->session()->put(self::SESSION_KEY, $token->uuid);
+
+        $account->forceFill(['last_login_at' => now(), 'last_login_ip' => $request->ip()])->save();
+        Event::record('account.login', $account, $account, ['token' => $token->public_id, 'via' => $via], $request->ip());
+
+        return $token;
     }
 
     public static function lifetimeMinutes(): int

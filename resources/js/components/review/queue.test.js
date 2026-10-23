@@ -1,4 +1,4 @@
-import { businessDaysSince, filterReleases, isFirstRelease, queueAge, reasonTags, sortOldestFirst } from './queue';
+import { businessDaysSince, filterReleases, isFirstRelease, queueAge, reasonTags, sortOldestFirst, updateLabel } from './queue';
 
 // Thursday 22 Oct 2026, 12:00 local time.
 const NOW = new Date(2026, 9, 22, 12, 0, 0);
@@ -72,5 +72,18 @@ describe('sortOldestFirst and reasonTags', () => {
     it('turns policy reasons into tags', () => {
         expect(reasonTags(release({ review: { reasons: { first_release: '…', pricing: '…' } } }))).toEqual(['Price changed']);
         expect(reasonTags(release({ review: { reasons: [] } }))).toEqual([]);
+    });
+});
+
+describe('updateLabel', () => {
+    it('names the live version an update replaces', () => {
+        expect(updateLabel(release({ previous_version: '0.2.1' }))).toBe('Update from v0.2.1');
+        expect(isFirstRelease(release({ previous_version: '0.2.1', extension: { status: 'draft' } }))).toBe(false);
+    });
+
+    it('falls back to the listing status without a previous version', () => {
+        expect(updateLabel(release({ previous_version: null, extension: { status: 'draft' } }))).toBe('First release');
+        // Every earlier release was yanked: still an update of a live listing.
+        expect(updateLabel(release({ previous_version: null }))).toBe('Update');
     });
 });

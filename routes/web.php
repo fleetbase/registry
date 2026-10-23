@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\GithubSignInController;
 use App\Http\Controllers\Web\AccountPageController;
 use App\Http\Controllers\Web\CatalogPageController;
 use App\Http\Controllers\Web\ReviewPageController;
@@ -26,6 +27,13 @@ Route::post('console', [CatalogPageController::class, 'console'])->name('console
 Route::get('sign-in', [AccountPageController::class, 'signIn'])->name('login');
 Route::get('register', [AccountPageController::class, 'register'])->name('register');
 Route::get('verify', [AccountPageController::class, 'verify'])->name('verify');
+Route::get('forgot-password', [AccountPageController::class, 'forgotPassword'])->name('password.request');
+
+// Sign in with GitHub (also connects GitHub to the signed-in account).
+Route::middleware('throttle:auth')->group(function () {
+    Route::get('auth/github', [GithubSignInController::class, 'redirect'])->name('auth.github');
+    Route::get('auth/github/callback', [GithubSignInController::class, 'callback'])->name('auth.github.callback');
+});
 
 Route::middleware('auth:web')->group(function () {
     Route::redirect('account', '/account/organizations')->name('account');

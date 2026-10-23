@@ -130,3 +130,40 @@ it('renders a publisher’s public profile with its extensions', function () {
 
     $this->get('/publishers/nobody-here')->assertNotFound();
 });
+
+it('renders forgot password to visitors, opening the code step from the reset email', function () {
+    $this->get('/forgot-password')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('Auth/ForgotPassword')->where('email', null)->where('sent', false));
+
+    $this->get('/forgot-password?email=pat@example.test&sent=1')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('Auth/ForgotPassword')->where('email', 'pat@example.test')->where('sent', true));
+
+    expect(route('password.request', absolute: false))->toBe('/forgot-password');
+
+    // After a reset the page sends the visitor to sign in with `reset`.
+    $this->get('/sign-in?email=pat@example.test&reset=1')
+        ->assertInertia(fn (Assert $page) => $page->component('Auth/SignIn')->where('reset', true)->where('verified', false));
+});
+
+it('shares whether Sign in with GitHub is set up', function () {
+    config(['services.github.client_id' => null, 'services.github.client_secret' => null]);
+    $this->get('/register')->assertInertia(fn (Assert $page) => $page->where('auth.providers.github', false));
+
+    config(['services.github.client_id' => 'github-client', 'services.github.client_secret' => 'github-secret']);
+    $this->get('/register')->assertInertia(fn (Assert $page) => $page->where('auth.providers.github', true));
+});
+
+it('gives the profile page the GitHub connection and whether the account has a password', function () {
+    $account = Account::factory()->create(['github_id' => '4242', 'github_login' => 'patdev', 'password' => null]);
+    actingOnWebsite($account);
+
+    $this->get('/account/profile')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Account/Profile')
+            ->where('auth.account.github_login', 'patdev')
+            ->where('auth.account.has_password', false)
+            ->missing('auth.account.github_id'));
+});

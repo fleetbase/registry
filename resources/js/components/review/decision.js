@@ -8,11 +8,28 @@
 /** Requirements the automated checks already answer: code → the check that decides it. */
 export const AUTO_ITEMS = { R1: 'manifest', R4: 'secrets_scan' };
 
-/** Statuses a reviewer can approve or reject from. */
-export const DECIDABLE_STATUSES = ['submitted', 'in_review'];
+/** Statuses a reviewer can approve from. */
+export const APPROVABLE_STATUSES = ['submitted', 'in_review'];
 
+/**
+ * Statuses a reviewer can request changes from (POST …/reject): also an approved release that
+ * is not live yet. Once published it can only be yanked by its publisher.
+ */
+export const CHANGEABLE_STATUSES = [...APPROVABLE_STATUSES, 'approved'];
+
+/** Whether the release can be approved. */
+export function canApprove(status) {
+    return APPROVABLE_STATUSES.includes(status);
+}
+
+/** Whether changes can be requested on the release. */
+export function canRequestChanges(status) {
+    return CHANGEABLE_STATUSES.includes(status);
+}
+
+/** Whether a reviewer has any decision to take on the release (approve or request changes). */
 export function canDecide(status) {
-    return DECIDABLE_STATUSES.includes(status);
+    return canApprove(status) || canRequestChanges(status);
 }
 
 /** The requirement codes prefilled from passing checks (shown as “from checks”). */
@@ -35,22 +52,30 @@ export function toggleMark(marks, code, value) {
 }
 
 /**
- * What the decision rail shows and allows for the current marks and message.
+ * What the decision rail shows and allows for the current marks and message. Pass the
+ * release's `status` to apply the status rules: an approved release can only have changes
+ * requested (its message is always required), and a decided one allows nothing.
  */
-export function decisionState({ items = [], marks = {}, reason = '', publishNow = true }) {
+export function decisionState({ items = [], marks = {}, reason = '', publishNow = true, status = null }) {
+    const approvable = status === null || canApprove(status);
+    const changeable = status === null || canRequestChanges(status);
     const failed = items.filter((item) => marks[item.code] === 'fail').length;
     const unset = items.filter((item) => !marks[item.code]).length;
     const hasReason = String(reason ?? '').trim().length > 0;
-    const canReject = failed > 0 && hasReason;
-    const canApprove = items.length > 0 && failed === 0 && unset === 0;
+    const canReject = changeable && failed > 0 && hasReason;
+    const canApproveNow = approvable && items.length > 0 && failed === 0 && unset === 0;
 
     let hint;
     if (canReject) {
         hint = 'The publisher sees the message and every failed item.';
-    } else if (canApprove) {
+    } else if (canApproveNow) {
         hint = 'Everything passes.';
+    } else if (!changeable) {
+        hint = 'This release has been decided.';
     } else if (failed) {
         hint = 'Add a message to request changes.';
+    } else if (!approvable) {
+        hint = 'Fail the requirements that need work to request changes.';
     } else {
         hint = 'Mark every requirement to approve.';
     }
@@ -59,10 +84,10 @@ export function decisionState({ items = [], marks = {}, reason = '', publishNow 
         failed,
         unset,
         canReject,
-        canApprove,
+        canApprove: canApproveNow,
         hint,
-        progress: `${failed} failed · ${unset} to check`,
-        reasonHint: failed ? 'required to reject' : 'optional',
+        progress: approvable ? `${failed} failed · ${unset} to check` : `${failed} failed`,
+        reasonHint: !approvable ? 'required' : failed ? 'required to reject' : 'optional',
         rejectLabel: failed ? `Request changes (${failed})` : 'Request changes',
         approveLabel: publishNow ? 'Approve and publish' : 'Approve',
     };

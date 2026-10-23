@@ -2,8 +2,9 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { vi } from 'vitest';
 import Release from '../../pages/Review/Release';
 import Queue from '../../pages/Review/Queue';
+import Pending from '../../pages/Review/Pending';
 
-const { post, reload } = vi.hoisted(() => ({ post: vi.fn(), reload: vi.fn() }));
+const { post, reload, page } = vi.hoisted(() => ({ post: vi.fn(), reload: vi.fn(), page: { url: '/review' } }));
 
 vi.mock('../../lib/api', () => ({
     api: { post },
@@ -11,7 +12,7 @@ vi.mock('../../lib/api', () => ({
 }));
 
 vi.mock('@inertiajs/react', () => ({
-    usePage: () => ({ props: { auth: { account: { id: 'acc_me', is_staff: true } }, flash: null }, url: '/review' }),
+    usePage: () => ({ props: { auth: { account: { id: 'acc_me', is_staff: true } }, flash: null }, url: page.url }),
     Link: ({ href, children, ...rest }) => (
         <a href={href} {...rest}>
             {children}
@@ -56,7 +57,24 @@ function makeRelease(overrides = {}) {
 beforeEach(() => {
     post.mockReset();
     reload.mockReset();
+    page.url = '/review';
 });
+
+const APPROVAL = { action: 'approve', actor: 'staff', by: { id: 'acc_x', name: 'Sam Reviewer' }, items: [], created_at: new Date().toISOString() };
+
+function update(overrides = {}) {
+    return makeRelease({
+        version: '0.3.0',
+        compat: { console: '>=0.8.0' },
+        size_bytes: 2400000,
+        manifest: { name: 'geotab-bridge', version: '0.3.0', permissions: ['read orders', 'write orders'] },
+        previous_version: '0.2.1',
+        previous: { id: 'rel_0', version: '0.2.1', published_at: '2026-10-12T14:02:00Z', size_bytes: 2100000, compat: { console: '>=0.7.60' }, manifest: { name: 'geotab-bridge', version: '0.2.1', permissions: ['read orders'] } },
+        review: { required: true, reasons: { permissions: 'The manifest’s permissions changed.' } },
+        extension: { slug: 'geotab-bridge', name: 'Geotab Bridge', status: 'published', organization: { slug: 'nw', name: 'Northwind Labs', is_verified: false }, price: { model: 'free', amount: 0 }, tags: [] },
+        ...overrides,
+    });
+}
 
 describe('Review/Release decision rail', () => {
     it('prefills R1 and R4 from checks and enables approve only when every item passes', async () => {
@@ -126,6 +144,71 @@ describe('Review/Release decision rail', () => {
         expect(screen.getAllByRole('button', { name: /Publish/ }).length).toBeGreaterThan(0);
     });
 
+    it('offers Publish and Request changes on an approved release, with the reject request', async () => {
+        post.mockResolvedValue({ status: 'rejected' });
+        render(<Release release={update({ status: 'approved', reviews: [APPROVAL] })} reviewItems={ITEMS} />);
+
+        const decided = document.querySelector('[data-decided]');
+        expect(within(decided).getByRole('button', { name: /Publish/ })).toBeInTheDocument();
+        expect(screen.queryByRole('region', { name: 'Request changes' })).not.toBeInTheDocument();
+
+        fireEvent.click(within(decided).getByRole('button', { name: 'Request changes' }));
+        const card = screen.getByRole('region', { name: 'Request changes' });
+        expect(card).toHaveAttribute('data-decision', 'changes');
+        expect(within(card).queryByRole('button', { name: /Approve/ })).not.toBeInTheDocument();
+        expect(within(card).queryByRole('checkbox')).not.toBeInTheDocument();
+        expect(within(decided).queryByRole('button', { name: 'Request changes' })).not.toBeInTheDocument();
+
+        fireEvent.click(within(within(card).getByRole('group', { name: 'R3 result' })).getByRole('button', { name: 'Fail' }));
+        const reject = within(card).getByRole('button', { name: 'Request changes (1)' });
+        expect(reject).toHaveAttribute('aria-disabled', 'true');
+        fireEvent.change(within(card).getByRole('textbox', { name: /Message to the publisher/ }), { target: { value: 'The support link 404s.' } });
+        expect(reject).toHaveAttribute('aria-disabled', 'false');
+
+        fireEvent.click(reject);
+        expect(screen.getByText(/Its approval is withdrawn/)).toBeInTheDocument();
+        fireEvent.click(document.querySelector('[data-confirm-reject]'));
+        await waitFor(() => expect(post).toHaveBeenCalledWith('/admin/releases/rel_1/reject', {
+            reason: 'The support link 404s.',
+            items: [
+                { code: 'R1', passed: true },
+                { code: 'R3', passed: false },
+                { code: 'R4', passed: true },
+            ],
+        }));
+        expect(post).not.toHaveBeenCalledWith(expect.stringContaining('/approve'), expect.anything());
+
+        fireEvent.click(within(card).getByRole('button', { name: 'Cancel' }));
+        expect(screen.queryByRole('region', { name: 'Request changes' })).not.toBeInTheDocument();
+    }, 15000);
+
+    it('opens Request changes straight away from To publish', () => {
+        page.url = '/review/releases/rel_1?changes=1';
+        render(<Release release={update({ status: 'approved', reviews: [APPROVAL] })} reviewItems={ITEMS} />);
+        expect(screen.getByRole('region', { name: 'Request changes' })).toBeInTheDocument();
+    });
+
+    it('does not offer Request changes once published', () => {
+        page.url = '/review/releases/rel_1?changes=1';
+        render(<Release release={update({ status: 'published', reviews: [APPROVAL] })} reviewItems={ITEMS} />);
+        expect(screen.queryByRole('button', { name: 'Request changes' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('region', { name: 'Request changes' })).not.toBeInTheDocument();
+    });
+
+    it('says what changed since the live version', () => {
+        render(<Release release={update()} reviewItems={ITEMS} />);
+        expect(document.querySelector('[data-update]')).toHaveTextContent('Update from v0.2.1');
+
+        const changes = screen.getByRole('region', { name: 'Since v0.2.1' });
+        expect(within(changes).getByText(/>=0.7.60 → >=0.8.0/)).toBeInTheDocument();
+        expect(changes.querySelector('[data-change="manifest"]')).toHaveTextContent('1 field changed (permissions)');
+
+        fireEvent.click(screen.getByRole('tab', { name: 'Manifest' }));
+        const manifest = screen.getByRole('region', { name: 'Changed since v0.2.1' });
+        expect(within(manifest).getByRole('columnheader', { name: 'v0.2.1' })).toBeInTheDocument();
+        expect(manifest.querySelector('[data-field="permissions"]')).toHaveTextContent('["read orders"]');
+    });
+
     it('asks for a reason before suspending the listing', async () => {
         post.mockResolvedValue({});
         render(<Release release={makeRelease()} reviewItems={ITEMS} />);
@@ -177,8 +260,23 @@ describe('Review/Queue', () => {
         expect(document.activeElement).toBe(rows[0]);
     });
 
+    it('tags an update with the live version it replaces', () => {
+        render(<Queue tab="waiting" releases={{ data: [update({ id: 'rel_up' })], meta: { total: 1 } }} counts={{}} />);
+        expect(document.querySelector('[data-release="rel_up"] [data-update]')).toHaveTextContent('Update from v0.2.1');
+    });
+
     it('shows an empty state per tab', () => {
         render(<Queue tab="failed" releases={{ data: [], meta: { total: 0 } }} counts={{}} />);
         expect(screen.getByText('No releases with failed checks')).toBeInTheDocument();
+    });
+});
+
+describe('Review/Pending', () => {
+    it('links each approved release to Request changes', () => {
+        render(<Pending releases={{ data: [update({ id: 'rel_ok', status: 'approved' })] }} approvers={{ rel_ok: { name: 'Sam Reviewer' } }} counts={{ publish: 1 }} />);
+        const row = document.querySelector('[data-approved="rel_ok"]');
+        expect(within(row).getByRole('link', { name: /^Request changes/ })).toHaveAttribute('href', '/review/releases/rel_ok?changes=1');
+        expect(within(row).getByText(/update from v0\.2\.1/)).toBeInTheDocument();
+        expect(within(row).getByRole('button', { name: /^Publish/ })).toBeInTheDocument();
     });
 });

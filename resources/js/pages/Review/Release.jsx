@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import SiteLayout from '../../layouts/SiteLayout';
 import Checks from '../../components/Checks';
@@ -10,8 +10,9 @@ import { Verified } from '../../components/Trust';
 import { Note, SafeHtml, Segmented } from '../../components/Ui';
 import { DecidedCard, DecisionBar, DecisionCard, DecisionDialogs, useDecision } from '../../components/review/DecisionRail';
 import { LiftDialog, PublishDialog, SuspendDialog, useAction } from '../../components/review/Parts';
-import { canDecide } from '../../components/review/decision';
-import { isFirstRelease } from '../../components/review/queue';
+import { releaseChanges, preview } from '../../components/review/changes';
+import { canApprove, canRequestChanges } from '../../components/review/decision';
+import { updateLabel } from '../../components/review/queue';
 import { api } from '../../lib/api';
 import { bytes, dateTime, isPaid, priceLabel, timeAgo } from '../../lib/format';
 import { HOSTINGS } from '../../lib/statuses';
@@ -31,27 +32,50 @@ const ARCHIVES = [
 
 /**
  * One release under review: the evidence (checks and archives, manifest, listing preview,
- * timeline) and the decision rail (R-items, message, approve / request changes).
+ * timeline, and what changed since the live version it updates) and the decision rail (R-items,
+ * message, approve / request changes). An approved release that is not live yet offers Publish
+ * and Request changes; `?changes=1` opens the Request changes card straight away.
  */
 export default function ReviewRelease({ release, reviewItems = [], suspension = null }) {
     return <ReviewBody key={release.id} release={release} reviewItems={reviewItems} suspension={suspension} />;
 }
 
+/** Whether the page was opened to request changes (`?changes=1`, from To publish). */
+function wantsChanges(url) {
+    const query = String(url ?? '').split('?')[1]?.split('#')[0] ?? '';
+    return new URLSearchParams(query).get('changes') === '1';
+}
+
 function ReviewBody({ release, reviewItems, suspension }) {
-    const { auth } = usePage().props;
+    const page = usePage();
+    const { auth } = page.props;
     const extension = release.extension ?? {};
     const organization = extension.organization;
     const [tab, setTab] = useState('checks');
     const [dialog, setDialog] = useState(null);
     const decision = useDecision(release, reviewItems);
     const { run, busy } = useAction();
-    const decidable = canDecide(release.status);
+    const approvable = canApprove(release.status);
+    const changeable = canRequestChanges(release.status);
+    const [changing, setChanging] = useState(() => wantsChanges(page.url));
+    const showChanges = changeable && !approvable && changing;
+    const changes = releaseChanges(release);
     const suspended = extension.status === 'suspended';
     const itemLabels = Object.fromEntries(reviewItems.map((item) => [item.code, item.label]));
     const claim = [...(release.reviews ?? [])].reverse().find((entry) => entry.action === 'claim');
     const mine = claim?.by?.id && claim.by.id === auth?.account?.id;
     const reasons = Object.values(Array.isArray(release.review?.reasons) ? {} : (release.review?.reasons ?? {}));
     const submittedAt = release.submission?.submitted_at;
+
+    // Bring the Request changes card into view and move focus to it when it opens.
+    useEffect(() => {
+        if (!showChanges) {
+            return;
+        }
+        const card = decision.cardRef.current;
+        card?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+        card?.querySelector('#decision-title')?.focus?.({ preventScroll: true });
+    }, [showChanges, decision.cardRef]);
 
     function startReview() {
         if (busy) {
@@ -97,7 +121,7 @@ function ReviewBody({ release, reviewItems, suspension }) {
                                         {organization.is_verified ? <Verified short /> : <span>· not verified</span>}
                                     </span>
                                 )}
-                                <span>{isFirstRelease(release) ? 'First release' : 'Update'}</span>
+                                <span data-update>{updateLabel(release)}</span>
                                 <span>{isPaid(extension.price) ? `${priceLabel(extension.price)} one-time` : 'Free'}</span>
                                 {release.channel && release.channel !== 'stable' && <span>{release.channel} channel</span>}
                                 {submittedAt ? <span title={dateTime(submittedAt)}>Submitted {timeAgo(submittedAt)}</span> : <span>Uploaded {timeAgo(release.created_at)}</span>}
@@ -156,8 +180,8 @@ function ReviewBody({ release, reviewItems, suspension }) {
                         <div className="main" style={{ gap: 16 }}>
                             <Segmented options={TABS} value={tab} onChange={setTab} label="Evidence" className="self-start" />
                             <div role="tabpanel" aria-label={TABS.find((t) => t.value === tab)?.label} className="stack">
-                                {tab === 'checks' && <ChecksTab release={release} />}
-                                {tab === 'manifest' && <ManifestTab release={release} />}
+                                {tab === 'checks' && <ChecksTab release={release} changes={changes} />}
+                                {tab === 'manifest' && <ManifestTab release={release} changes={changes} />}
                                 {tab === 'listing' && <ListingTab extension={extension} />}
                                 {tab === 'timeline' && (
                                     <section className="card card-pad" aria-label="Timeline">
@@ -168,14 +192,19 @@ function ReviewBody({ release, reviewItems, suspension }) {
                         </div>
 
                         <aside className="rail rail-first" style={{ flexBasis: 400 }} aria-label="Decision">
-                            {decidable ? <DecisionCard decision={decision} /> : <DecidedCard release={release} itemLabels={itemLabels} onPublish={() => setDialog('publish')} />}
+                            {approvable ? (
+                                <DecisionCard decision={decision} />
+                            ) : (
+                                <DecidedCard release={release} itemLabels={itemLabels} onPublish={() => setDialog('publish')} onRequestChanges={changeable && !changing ? () => setChanging(true) : null} />
+                            )}
+                            {showChanges && <DecisionCard decision={decision} onCancel={() => setChanging(false)} />}
                         </aside>
                     </div>
                 </div>
             </div>
 
-            {decidable && <DecisionBar decision={decision} />}
-            {decidable && <DecisionDialogs decision={decision} />}
+            {changeable && <DecisionBar decision={decision} onPublish={() => setDialog('publish')} onRequestChanges={showChanges ? null : () => setChanging(true)} />}
+            {changeable && <DecisionDialogs decision={decision} />}
             <PublishDialog open={dialog === 'publish'} release={release} onClose={() => setDialog(null)} />
             {extension.slug && <SuspendDialog open={dialog === 'suspend'} extension={extension} onClose={() => setDialog(null)} />}
             {extension.slug && <LiftDialog open={dialog === 'lift'} extension={extension} onClose={() => setDialog(null)} />}
@@ -183,7 +212,7 @@ function ReviewBody({ release, reviewItems, suspension }) {
     );
 }
 
-function ChecksTab({ release }) {
+function ChecksTab({ release, changes }) {
     const files = release.files ?? {};
     const archives = ARCHIVES.filter(([kind]) => files[kind]);
     return (
@@ -193,6 +222,7 @@ function ChecksTab({ release }) {
                     <Checks release={release} />
                 </div>
             </section>
+            {changes && <ChangesCard changes={changes} />}
             <section className="card card-pad stack" aria-labelledby="archives-title">
                 <h2 id="archives-title" className="h4">
                     Archives
@@ -232,15 +262,104 @@ function ChecksTab({ release }) {
     );
 }
 
-function ManifestTab({ release }) {
+/** What changed since the live version: compatibility, size and manifest fields. */
+function ChangesCard({ changes }) {
+    const fields = changes.manifest.map((field) => field.key);
+    return (
+        <section className="card card-pad stack" aria-labelledby="changes-title" data-changes>
+            <div className="col" style={{ gap: 2 }}>
+                <h2 id="changes-title" className="h4">
+                    Since v{changes.version}
+                </h2>
+                <span className="small muted">
+                    The live version{changes.publishedAt ? `, published ${dateTime(changes.publishedAt)}` : ''}.
+                </span>
+            </div>
+            <ul className="col small" style={{ gap: 6, margin: 0, paddingLeft: 18 }}>
+                <li data-change="compat">
+                    Compatibility:{' '}
+                    {changes.compat.length
+                        ? changes.compat.map((change, index) => (
+                              <span key={change.key}>
+                                  {index ? '; ' : ''}
+                                  <span className="mono">{change.key}</span> {change.before ?? 'any'} → {change.after ?? 'any'}
+                              </span>
+                          ))
+                        : 'unchanged'}
+                </li>
+                {changes.sizeBefore !== null && changes.sizeAfter !== null && (
+                    <li data-change="size">
+                        Size: {bytes(changes.sizeBefore)} → {bytes(changes.sizeAfter)}
+                    </li>
+                )}
+                <li data-change="manifest">
+                    Manifest:{' '}
+                    {fields.length ? (
+                        <>
+                            {fields.length === 1 ? '1 field changed' : `${fields.length} fields changed`} ({fields.join(', ')}). See the Manifest tab.
+                        </>
+                    ) : (
+                        'no other changes'
+                    )}
+                </li>
+            </ul>
+        </section>
+    );
+}
+
+const CHANGE_WORDS = { added: 'Added', removed: 'Removed', changed: 'Changed' };
+
+function ManifestTab({ release, changes }) {
     const manifest = release.manifest ?? {};
     if (!Object.keys(manifest).length) {
         return <p className="small muted">No manifest was read from this release.</p>;
     }
     return (
-        <pre className="pre" aria-label="extension.json" tabIndex={0}>
-            {JSON.stringify(manifest, null, 2)}
-        </pre>
+        <>
+            {changes && (
+                <section className="card card-pad stack" aria-labelledby="manifest-changes-title" data-manifest-changes>
+                    <h2 id="manifest-changes-title" className="h4">
+                        Changed since v{changes.version}
+                    </h2>
+                    {changes.manifest.length ? (
+                        <div className="tbl-wrap">
+                            <table className="tbl small">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Field</th>
+                                        <th scope="col">v{changes.version}</th>
+                                        <th scope="col">This release</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {changes.manifest.map((field) => (
+                                        <tr key={field.key} data-field={field.key}>
+                                            <th scope="row" style={{ color: 'var(--ink)', verticalAlign: 'top' }}>
+                                                <span className="mono">{field.key}</span>
+                                                <span className="xs muted" style={{ display: 'block', fontWeight: 400 }}>
+                                                    {CHANGE_WORDS[field.change]}
+                                                </span>
+                                            </th>
+                                            <td className="mono xs" style={{ overflowWrap: 'anywhere', verticalAlign: 'top' }}>
+                                                {preview(field.before)}
+                                            </td>
+                                            <td className="mono xs" style={{ overflowWrap: 'anywhere', verticalAlign: 'top' }}>
+                                                {preview(field.after)}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <p className="small muted">Only the version changed.</p>
+                    )}
+                </section>
+            )}
+            <pre className="pre" aria-label="extension.json" tabIndex={0}>
+                {JSON.stringify(manifest, null, 2)}
+            </pre>
+        </>
     );
 }
 

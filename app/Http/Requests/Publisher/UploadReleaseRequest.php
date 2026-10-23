@@ -16,6 +16,9 @@ use Illuminate\Validation\Validator;
  */
 class UploadReleaseRequest extends FormRequest
 {
+    /** Release notes, here and in `PATCH /v1/publisher/releases/{id}`. */
+    public const NOTES = ['nullable', 'string', 'max:20000'];
+
     protected ?array $decodedManifest = null;
 
     public function authorize(): bool
@@ -34,7 +37,7 @@ class UploadReleaseRequest extends FormRequest
             'api' => ['nullable', 'required_without:engine', 'file', 'max:'.$bundleKb],
             'dist' => ['nullable', 'file', 'max:'.$distKb],
             'channel' => ['nullable', Rule::in(Release::CHANNELS)],
-            'notes' => ['nullable', 'string', 'max:20000'],
+            'notes' => self::NOTES,
             'submit' => ['nullable', 'boolean'],
         ];
     }

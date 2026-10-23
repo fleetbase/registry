@@ -291,12 +291,12 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                     <dd style={{ margin: 0 }}>{HOSTINGS[extension.hosting]}</dd>
                                 </div>
                             </dl>
-                            <form className="field" onSubmit={checkVersion}>
+                            <form className="field" method="get" onSubmit={checkVersion}>
                                 <label className="label" htmlFor="check-version">
                                     Check a console version
                                 </label>
                                 <div className="row">
-                                    <input id="check-version" className="input mono" placeholder="0.7.69" value={check} onChange={(event) => setCheck(event.target.value)} />
+                                    <input id="check-version" name="check" className="input mono" placeholder="0.7.69" value={check} onChange={(event) => setCheck(event.target.value)} />
                                     <button type="submit" className="btn btn-sm">
                                         Check
                                     </button>

@@ -9,6 +9,7 @@ import { ListingStatus, StatusChip } from '../../components/Status';
 import { Note } from '../../components/Ui';
 import { StudioNav, publishingOrganizations } from '../../components/studio/StudioChrome';
 import { groupInbox, listingState, studioUrl } from '../../components/studio/inbox';
+import { submittedAgo, withSubmissionDates } from '../../components/studio/submitted';
 import { initials, plural, priceLabel, shortDate } from '../../lib/format';
 import { releaseStatus } from '../../lib/statuses';
 
@@ -228,7 +229,7 @@ function ExtensionRow({ extension }) {
 
     let stops = null;
     if (open) {
-        stops = releaseStops(open);
+        stops = withSubmissionDates(releaseStops(open), open);
         stops[0] = { ...stops[0], label: `v${open.version}`, sub: 'uploaded' };
         if (incomplete) {
             stops = [{ label: 'Listing', sub: `${missing.length} to fix`, state: 'you' }, ...stops];
@@ -241,7 +242,8 @@ function ExtensionRow({ extension }) {
             { label: 'Live', state: 'todo' },
         ];
     }
-    const routeLabel = open ? `v${open.version}: ${status.label}${incomplete ? `; listing needs ${missing.length} more` : ''}` : `Listing needs ${missing.length} more`;
+    const submitted = open && ['submitted', 'in_review', 'approved', 'rejected'].includes(open.status) ? submittedAgo(open) : '';
+    const routeLabel = open ? `v${open.version}: ${status.label}${submitted ? `; ${submitted.toLowerCase()}` : ''}${incomplete ? `; listing needs ${missing.length} more` : ''}` : `Listing needs ${missing.length} more`;
 
     return (
         <div className="sd-ext-row" data-extension={extension.slug}>
@@ -265,6 +267,11 @@ function ExtensionRow({ extension }) {
                 <div>
                     <Route stops={stops} label={routeLabel} className="hide-sm" />
                     <Route stops={stops} label={routeLabel} mini className="show-sm" />
+                    {submitted && (
+                        <span className="xs muted show-sm" data-submitted>
+                            {submitted}
+                        </span>
+                    )}
                 </div>
             ) : (
                 <div className="col" style={{ gap: 4 }}>

@@ -6,6 +6,7 @@ use App\Models\Install;
 use App\Models\Organization;
 use App\Models\Release;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 function catalogExtension(array $attributes = [], array $options = []): Extension
 {
@@ -164,4 +165,38 @@ it('lists releases with channels, dates, sizes, notes and compat, including yank
         ->and($fixes['compat'])->toHaveKeys(['console', 'api']);
 
     $this->getJson('/v1/catalog/extensions/acme-tracker/releases?channel=beta')->assertOk()->assertJsonCount(1, 'releases');
+});
+
+it('filters and annotates listings by console compatibility', function () {
+    config(['registry.storage.disk' => 'packages']);
+    Storage::fake('packages');
+
+    $current = makePackage('npm', '@acme/current-engine', extension: ['name' => 'Current', 'slug' => 'current']);
+    makeRelease($current, '2.0.0', publishedAt: now()->toDateTimeString())->forceFill(['compat' => ['console' => '>=0.7.60']])->save();
+    // An older release still works with older consoles: the console would install it.
+    $older = makePackage('npm', '@acme/older-engine', extension: ['name' => 'Older', 'slug' => 'older']);
+    makeRelease($older, '1.0.0', publishedAt: now()->subDays(5)->toDateTimeString())->forceFill(['compat' => ['console' => '>=0.7.0']])->save();
+    makeRelease($older, '2.0.0', publishedAt: now()->toDateTimeString())->forceFill(['compat' => ['console' => '>=0.8.0']])->save();
+    $legacy = makePackage('npm', '@acme/legacy-engine', extension: ['name' => 'Legacy', 'slug' => 'legacy']);
+    makeRelease($legacy, '1.0.0')->forceFill(['compat' => ['console' => '<0.7.0']])->save();
+    // Unpublished releases never count.
+    makeRelease($legacy, '1.1.0', status: Release::STATUS_SUBMITTED)->forceFill(['compat' => ['console' => '>=0.7.0']])->save();
+
+    $this->getJson('/v1/catalog/extensions?sort=name&console=0.7.69&compatible=1')
+        ->assertOk()
+        ->assertJsonPath('meta.total', 2)
+        ->assertJsonPath('data.0.slug', 'current')
+        ->assertJsonPath('data.0.compatibility', ['console' => '0.7.69', 'compatible' => true, 'newest_compatible' => '2.0.0'])
+        ->assertJsonPath('data.1.slug', 'older')
+        ->assertJsonPath('data.1.compatibility', ['console' => '0.7.69', 'compatible' => false, 'newest_compatible' => '1.0.0']);
+
+    // Without compatible=1 every listing is annotated and none is dropped.
+    $this->getJson('/v1/catalog/extensions?sort=name&console=0.7.69')
+        ->assertJsonPath('meta.total', 3)
+        ->assertJsonPath('data.1.slug', 'legacy')
+        ->assertJsonPath('data.1.compatibility.newest_compatible', null);
+
+    // No (or an invalid) console version: no filter and no annotation.
+    $this->getJson('/v1/catalog/extensions?compatible=1')->assertJsonPath('meta.total', 3)->assertJsonMissingPath('data.0.compatibility');
+    $this->getJson('/v1/catalog/extensions?compatible=1&console=latest')->assertJsonPath('meta.total', 3)->assertJsonMissingPath('data.0.compatibility');
 });

@@ -31,12 +31,13 @@ const SORTS = [
 export default function Discover({ filters, results, categories }) {
     const { console: consoleVersion } = usePage().props;
     const [search, setSearch] = useState(filters.q ?? '');
-    const [onlyCompatible, setOnlyCompatible] = useState(Boolean(consoleVersion));
     const [version, setVersion] = useState(consoleVersion ?? '');
     const [editingVersion, setEditingVersion] = useState(false);
 
-    const extensions = (results.data ?? []).filter((extension) => !onlyCompatible || !consoleVersion || extension.compatible !== false);
-    const hidden = (results.data ?? []).length - extensions.length;
+    // The server filters to listings with a release for the remembered console version unless
+    // `compat=any`, so counts and pages cover the whole catalog.
+    const onlyCompatible = Boolean(consoleVersion) && filters.compat !== 'any';
+    const extensions = results.data ?? [];
     const meta = results.meta ?? {};
     const category = categories.find((c) => c.slug === filters.category);
     const intent = INTENTS.find((i) => i.category === filters.category);
@@ -71,9 +72,9 @@ export default function Discover({ filters, results, categories }) {
                         <p className="lead" style={{ maxWidth: 640 }}>
                             Engines and integrations for Fleet-Ops, Storefront and the rest of your console. Every listing shows who built it, whether Fleetbase reviewed it, and if it runs on your version.
                         </p>
-                        <form className="searchbox" role="search" onSubmit={submitSearch}>
+                        <form className="searchbox" role="search" action="/" method="get" onSubmit={submitSearch}>
                             <Icon name="search" size={22} className="muted" />
-                            <input aria-label="Search extensions" placeholder="Try “dock appointments” or “telematics”" value={search} onChange={(event) => setSearch(event.target.value)} data-catalog-search />
+                            <input name="q" aria-label="Search extensions" placeholder="Try “dock appointments” or “telematics”" value={search} onChange={(event) => setSearch(event.target.value)} data-catalog-search />
                             <kbd className="kbd hide-sm">⌘ K</kbd>
                             <button type="submit" className="btn btn-primary">
                                 Search
@@ -82,7 +83,7 @@ export default function Discover({ filters, results, categories }) {
                         <div className="row wrapflex" style={{ gap: 10 }}>
                             {consoleVersion && !editingVersion ? (
                                 <>
-                                    <button type="button" className="compat" aria-pressed={onlyCompatible} onClick={() => setOnlyCompatible(!onlyCompatible)} data-compat-toggle>
+                                    <button type="button" className="compat" aria-pressed={onlyCompatible} onClick={() => visit({ compat: onlyCompatible ? 'any' : null })} data-compat-toggle>
                                         <Icon name="monitor" size={16} />
                                         {onlyCompatible ? `Works with my console: ${consoleVersion}` : 'Any console version'}
                                     </button>
@@ -91,11 +92,11 @@ export default function Discover({ filters, results, categories }) {
                                     </button>
                                 </>
                             ) : (
-                                <form className="row wrapflex" style={{ gap: 8 }} onSubmit={saveVersion}>
+                                <form className="row wrapflex" style={{ gap: 8 }} action="/console" method="post" onSubmit={saveVersion}>
                                     <label className="small ink2" htmlFor="console-version">
                                         Your console version
                                     </label>
-                                    <input id="console-version" className="input mono" style={{ width: 120, minHeight: 40 }} placeholder="0.7.69" value={version} onChange={(event) => setVersion(event.target.value)} />
+                                    <input id="console-version" name="version" className="input mono" style={{ width: 120, minHeight: 40 }} placeholder="0.7.69" value={version} onChange={(event) => setVersion(event.target.value)} />
                                     <button type="submit" className="btn btn-sm">
                                         Show what works
                                     </button>
@@ -141,7 +142,7 @@ export default function Discover({ filters, results, categories }) {
                                 </h2>
                                 <span className="small muted num" data-results-count>
                                     {plural(meta.total ?? extensions.length, 'extension')}
-                                    {onlyCompatible && consoleVersion && hidden > 0 ? ` · ${hidden} on this page need another console version` : ''}
+                                    {onlyCompatible ? ` that work with console ${consoleVersion}` : ''}
                                 </span>
                             </div>
                             <div className="row wrapflex" style={{ gap: 10 }}>
@@ -214,14 +215,14 @@ export default function Discover({ filters, results, categories }) {
                             </>
                         ) : (
                             <div className="card">
-                                {hasFilters || hidden > 0 ? (
+                                {hasFilters || onlyCompatible ? (
                                     <EmptyState
                                         icon="search"
-                                        title={filters.q ? `No extensions match “${filters.q}”` : 'No extensions match these filters'}
+                                        title={filters.q ? `No extensions match “${filters.q}”` : hasFilters ? 'No extensions match these filters' : `Nothing works with console ${consoleVersion} yet`}
                                         actions={
                                             <>
-                                                {hidden > 0 && (
-                                                    <button type="button" className="btn" onClick={() => setOnlyCompatible(false)}>
+                                                {onlyCompatible && (
+                                                    <button type="button" className="btn" onClick={() => visit({ compat: 'any' })}>
                                                         Show all console versions
                                                     </button>
                                                 )}
@@ -233,7 +234,9 @@ export default function Discover({ filters, results, categories }) {
                                             </>
                                         }
                                     >
-                                        Search covers names, subtitles, tags and publishers. Try a broader term, or clear a filter.
+                                        {hasFilters
+                                            ? 'Search covers names, subtitles, tags and publishers. Try a broader term, or clear a filter.'
+                                            : 'Each release says which console versions it supports. Show every version, or update your console.'}
                                     </EmptyState>
                                 ) : (
                                     <EmptyState icon="box" title="No extensions are published yet" actions={<Link href="/studio" className="btn btn-primary">Publish the first one</Link>}>

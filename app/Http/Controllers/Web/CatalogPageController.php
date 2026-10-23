@@ -15,20 +15,25 @@ use Inertia\Response;
  */
 class CatalogPageController extends WebController
 {
-    public const FILTERS = ['q', 'category', 'pricing', 'hosting', 'sort', 'page'];
+    public const FILTERS = ['q', 'category', 'pricing', 'hosting', 'sort', 'page', 'compat'];
 
     /**
-     * GET / — search, intent shortcuts, filters and results.
+     * GET / — search, intent shortcuts, filters and results. With a known console version the
+     * catalog keeps only listings that have a release for it, unless `?compat=any`.
      */
     public function home(Request $request): Response
     {
         $filters = $this->only($request, self::FILTERS);
-        $results = $this->api($request, '/v1/catalog/extensions', $filters + ['limit' => 24], CatalogController::class, 'extensions');
-
-        // Each card says whether its latest release works with the visitor's console.
         $console = $this->consoleVersion($request);
+        $query = array_diff_key($filters, ['compat' => true]) + ['limit' => 24];
+        if ($console) {
+            $query += ['console' => $console] + (($filters['compat'] ?? null) === 'any' ? [] : ['compatible' => 1]);
+        }
+        $results = $this->api($request, '/v1/catalog/extensions', $query, CatalogController::class, 'extensions');
+
+        // Each card says whether a release of it works with the visitor's console.
         $results['data'] = array_map(fn (array $item) => $item + [
-            'compatible' => $console ? Compat::satisfies($console, $item['compat']['console'] ?? null) : null,
+            'compatible' => isset($item['compatibility']) ? $item['compatibility']['newest_compatible'] !== null : null,
         ], $results['data'] ?? []);
 
         return Inertia::render('Discover/Index', [

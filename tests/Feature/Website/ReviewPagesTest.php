@@ -137,3 +137,36 @@ it('keeps the review console from publishers and signed-out visitors', function 
             ->assertInertia(fn (Assert $page) => $page->component('Error')->where('status', 403)->where('message', 'The review console is for Fleetbase staff.'));
     }
 });
+
+it('gives the console the live version an update replaces', function () {
+    [$account, , $extension] = publisher(extension: ['name' => 'Dock Scheduler']);
+    $live = publishedRelease($account, $extension, '0.2.1');
+    $id = uploadRelease($account, $extension, '0.3.0', ['manifest' => ['permissions' => ['write orders']]], ['submit' => '1'])
+        ->assertJsonPath('status', Release::STATUS_SUBMITTED)->json('id');
+    test()->flushHeaders();
+    $first = submittedRelease(extension: ['name' => 'Brand New']);
+
+    $staff = staffAccount();
+    actingOnWebsite($staff);
+
+    $this->get('/review')->assertInertia(fn (Assert $page) => $page
+        ->has('releases.data', 2)
+        ->where('releases.data.0.id', $id)
+        ->where('releases.data.0.previous_version', '0.2.1')
+        ->missing('releases.data.0.previous')
+        ->where('releases.data.1.id', $first->public_id)
+        ->where('releases.data.1.previous_version', null));
+
+    $this->get('/review/releases/'.$id)->assertInertia(fn (Assert $page) => $page
+        ->where('release.previous_version', '0.2.1')
+        ->where('release.previous.id', $live->public_id)
+        ->where('release.previous.version', '0.2.1')
+        ->has('release.previous.manifest')
+        ->has('release.previous.compat'));
+
+    app(ReleasePipeline::class)->approve(Release::findById($id), $staff, null, null, false);
+    $this->get('/review/publish')->assertInertia(fn (Assert $page) => $page
+        ->where('releases.data.0.id', $id)
+        ->where('releases.data.0.status', Release::STATUS_APPROVED)
+        ->where('releases.data.0.previous_version', '0.2.1'));
+});

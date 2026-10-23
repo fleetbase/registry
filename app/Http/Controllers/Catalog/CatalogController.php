@@ -15,6 +15,8 @@ use App\Models\Install;
 use App\Models\Organization;
 use App\Models\Release;
 use App\Support\CatalogCache;
+use App\Support\Compat;
+use App\Support\Semver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\JsonResponse;
@@ -32,7 +34,11 @@ class CatalogController extends Controller
     public const MAX_PER_PAGE = 100;
 
     /**
-     * GET /v1/catalog/extensions?q=&category=&pricing=&hosting=&sort=&page=&limit=
+     * GET /v1/catalog/extensions?q=&category=&pricing=&hosting=&console=&compatible=&sort=&page=&limit=
+     *
+     * With `console=<version>` each item carries `compatibility`: whether its latest release
+     * works with that console and the newest release that does; `compatible=1` keeps only
+     * listings with such a release.
      */
     public function extensions(Request $request): JsonResponse
     {
@@ -44,6 +50,16 @@ class CatalogController extends Controller
             $filter->applySort($request->input('sort'));
 
             $paginator = $query->paginate($perPage)->withQueryString();
+
+            $console = $request->input('console');
+            if (is_string($console) && Semver::valid($console)) {
+                $newest = Compat::newestCompatible($console, $paginator->getCollection()->pluck('uuid'));
+                $paginator->getCollection()->each(fn (Extension $extension) => $extension->setAttribute('compatibility', [
+                    'console' => $console,
+                    'compatible' => $extension->latestRelease !== null && Compat::satisfies($console, data_get($extension->latestRelease->compat, 'console')),
+                    'newest_compatible' => $newest[$extension->uuid] ?? null,
+                ]));
+            }
 
             return ExtensionSummaryResource::collection($paginator)->response($request)->getData(true);
         });

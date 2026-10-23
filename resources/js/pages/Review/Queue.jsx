@@ -5,7 +5,7 @@ import ExtensionIcon from '../../components/ExtensionIcon';
 import { ReleaseStatus, StatusChip } from '../../components/Status';
 import { EmptyState } from '../../components/Ui';
 import { ChecksChip, ReviewTabs } from '../../components/review/Parts';
-import { QUEUE_FILTERS, filterReleases, isFirstRelease, queueAge, reasonTags, sortOldestFirst } from '../../components/review/queue';
+import { QUEUE_FILTERS, filterReleases, queueAge, reasonTags, sortOldestFirst, updateLabel } from '../../components/review/queue';
 import { isPaid, priceLabel, timeAgo } from '../../lib/format';
 
 const AGE_COLOURS = { new: 'var(--ok)', in: 'var(--you)', over: 'var(--fail)' };
@@ -122,7 +122,6 @@ function QueueRow({ release, tab, now, claimer, me }) {
     const extension = release.extension ?? {};
     const organization = extension.organization;
     const age = queueAge(release, now);
-    const first = isFirstRelease(release);
     const paid = isPaid(extension.price);
 
     return (
@@ -163,7 +162,9 @@ function QueueRow({ release, tab, now, claimer, me }) {
             </div>
 
             <div className="row wrapflex col-start-2 min-[900px]:col-start-auto" style={{ gap: 6 }}>
-                <span className="tag">{first ? 'First release' : 'Update'}</span>
+                <span className="tag" data-update>
+                    {updateLabel(release)}
+                </span>
                 {paid && <span className="tag">Paid · {priceLabel(extension.price)}</span>}
                 {reasonTags(release).map((tag) => (
                     <span key={tag} className="tag">

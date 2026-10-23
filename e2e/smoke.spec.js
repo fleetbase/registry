@@ -1,7 +1,21 @@
 // Smoke test against a seeded local Registry Service (scripts/e2e-server.sh): browse the catalog,
 // sign in as a publisher, create a token, then review, approve and publish as staff.
-import { test, expect } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+
+// Pages arrive server-rendered before React hydrates them; every navigation waits until the
+// layout has mounted (html[data-ready]) so clicks and typing reach the app, not bare markup.
+const test = base.extend({
+    page: async ({ page }, use) => {
+        const goto = page.goto.bind(page);
+        page.goto = async (url, options) => {
+            const response = await goto(url, options);
+            await page.waitForSelector('html[data-ready]', { state: 'attached' });
+            return response;
+        };
+        await use(page);
+    },
+});
 
 const seed = () => JSON.parse(readFileSync(new URL('../storage/e2e/seed.json', import.meta.url), 'utf8'));
 
@@ -103,6 +117,7 @@ test('theme toggle switches between light and dark and is remembered', async ({ 
     expect(after).not.toBe(before);
     expect(['light', 'dark']).toContain(after);
     await page.reload();
+    await page.waitForSelector('html[data-ready]', { state: 'attached' });
     expect(await theme()).toBe(after);
 });
 

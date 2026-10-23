@@ -10,6 +10,7 @@ import { ReleaseStatus, StatusChip } from '../../components/Status';
 import { EmptyState, Note } from '../../components/Ui';
 import { ListingTabs, REQUIREMENTS, StudioHeader } from '../../components/studio/StudioChrome';
 import ReleaseActionDialog from '../../components/studio/ReleaseActionDialog';
+import { submittedAgo, submittedAt, withSubmissionDates } from '../../components/studio/submitted';
 import { dateTime, initials, shortDate } from '../../lib/format';
 import { liveRelease } from '../../lib/statuses';
 
@@ -30,7 +31,7 @@ export default function StudioReview({ extension, releases = [], candidate = nul
     const status = candidate?.status;
     const sub = [live ? `Live: v${live.version}` : 'Not live yet', extension.organization?.name].filter(Boolean).join(' · ');
     const title = candidate ? `${extension.name} v${candidate.version}` : extension.name;
-    const stops = candidate ? releaseStops(candidate, { submittedAt: shortDate(candidate.submission?.submitted_at) }) : null;
+    const stops = candidate ? withSubmissionDates(releaseStops(candidate), candidate, { format: shortDate }) : null;
 
     return (
         <SiteLayout title={`Review · ${extension.name}`} section="studio">
@@ -197,6 +198,11 @@ function WithFleetbase({ candidate, onWithdraw }) {
                         <h2 id="h-wait" className="h3">
                             With Fleetbase. Nothing for you to do.
                         </h2>
+                        {submittedAt(candidate) && (
+                            <span className="small muted" data-submitted>
+                                {submittedAgo(candidate)} · {dateTime(submittedAt(candidate))}
+                            </span>
+                        )}
                         <p className="ink2">A reviewer checks the release and the listing against six requirements. Reviews usually take a few business days; you’ll get an email either way.</p>
                     </div>
                 </div>

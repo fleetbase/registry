@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Boots the Registry Service for the Playwright smoke test: a fresh SQLite database seeded with
 # the website fixtures (registry:seed-website), synchronous queue (release checks run inline),
-# local package storage and mail to the log. Serves the Vite build in public/build, so run
-# `npm run build` first.
+# local package storage and mail to the log. Serves the Vite build in public/build (and runs
+# the SSR bundle in bootstrap/ssr when present), so run `npm run build` first.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -37,8 +37,25 @@ cd "$ROOT"
 php artisan config:clear >/dev/null
 php artisan migrate:fresh --force --seed >/dev/null
 php artisan registry:seed-website --json > "$STATE/seed.json"
+# With the SSR bundle built (npm run build), run Inertia's renderer too, and make SSR errors
+# fail the request instead of quietly rendering in the browser.
+SSR_PID=""
+if [ -f "$ROOT/bootstrap/ssr/ssr.js" ]; then
+    export INERTIA_SSR_ENABLED=true
+    export INERTIA_SSR_PORT="${E2E_SSR_PORT:-13715}"
+    export INERTIA_SSR_URL="http://127.0.0.1:$INERTIA_SSR_PORT"
+    export INERTIA_SSR_THROW_ON_ERROR=true
+    node "$ROOT/bootstrap/ssr/ssr.js" &
+    SSR_PID=$!
+else
+    export INERTIA_SSR_ENABLED=false
+fi
+
 # `artisan serve` passes only a few variables to its server process and reads .env, so run PHP's
 # server directly with Laravel's router script; it inherits this environment.
 export PHP_CLI_SERVER_WORKERS=4
 cd "$ROOT/public"
-exec php -S "127.0.0.1:$PORT" "$ROOT/vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php"
+php -S "127.0.0.1:$PORT" "$ROOT/vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php" &
+PHP_PID=$!
+trap 'kill $PHP_PID $SSR_PID 2>/dev/null' EXIT INT TERM
+wait $PHP_PID

@@ -138,7 +138,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: website-build
-          path: public/build
+          path: |
+            public/build
+            bootstrap/ssr
           retention-days: 3
 
   website-e2e:
@@ -169,11 +171,13 @@ jobs:
           npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium
 
+      # The artifact keeps paths from the repository root: public/build and bootstrap/ssr. With
+      # the SSR bundle present, scripts/e2e-server.sh also runs the renderer.
       - name: Download the website build
         uses: actions/download-artifact@v4
         with:
           name: website-build
-          path: public/build
+          path: .
 
       - name: Run the smoke test
         run: CI=true npx playwright test

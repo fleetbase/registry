@@ -5,14 +5,15 @@ import ExtensionIcon from '../../components/ExtensionIcon';
 import { StatusChip } from '../../components/Status';
 import { EmptyState } from '../../components/Ui';
 import { LiftDialog, PublishDialog, ReviewTabs } from '../../components/review/Parts';
-import { isFirstRelease } from '../../components/review/queue';
+import { updateLabel } from '../../components/review/queue';
 import { dateTime, plural, shortDate } from '../../lib/format';
 
 const ROW = { display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', padding: '18px 24px' };
 
 /**
- * To publish: releases approved without “publish at once”, each with Publish, and suspended
- * listings with their reason and Lift suspension.
+ * To publish: releases approved without “publish at once”, each with Publish and a Request
+ * changes link (opens the release page's Request changes card), and suspended listings with
+ * their reason and Lift suspension.
  */
 export default function Pending({ releases, approvers = {}, suspended = [], counts = {} }) {
     const approved = releases?.data ?? [];
@@ -51,15 +52,18 @@ export default function Pending({ releases, approvers = {}, suspended = [], coun
                                                     {extension.name} <span className="mono small muted">v{release.version}</span>
                                                 </span>
                                                 <span className="small muted">
-                                                    {[extension.organization?.name, isFirstRelease(release) ? 'first release' : 'update', approver?.name && `approved by ${approver.name}${approver.at ? `, ${dateTime(approver.at)}` : ''}`].filter(Boolean).join(' · ')}
+                                                    {[extension.organization?.name, updateLabel(release).replace(/^\w/, (letter) => letter.toLowerCase()), approver?.name && `approved by ${approver.name}${approver.at ? `, ${dateTime(approver.at)}` : ''}`].filter(Boolean).join(' · ')}
                                                 </span>
                                             </div>
                                             <StatusChip tone="wait" icon="check">
                                                 Approved, not live
                                             </StatusChip>
-                                            <div className="row">
+                                            <div className="row wrapflex" style={{ gap: 8 }}>
                                                 <Link href={`/review/releases/${release.id}`} className="btn btn-sm" style={{ minHeight: 44 }}>
                                                     Open<span className="sr-only"> {extension.name}</span>
+                                                </Link>
+                                                <Link href={`/review/releases/${release.id}?changes=1`} className="btn btn-sm btn-danger" style={{ minHeight: 44 }} data-request-changes={release.id}>
+                                                    Request changes<span className="sr-only"> on {extension.name}</span>
                                                 </Link>
                                                 <button type="button" className="btn btn-sm btn-primary" style={{ minHeight: 44 }} onClick={() => setPublishing(release)} data-publish={release.id}>
                                                     Publish<span className="sr-only"> {extension.name}</span>

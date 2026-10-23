@@ -117,7 +117,7 @@ function VerifyForm({ initialEmail, sent, submitRef }) {
                 </h1>
                 {initialEmail ? (
                     <p className="ink2">
-                        We sent a 6-digit code to <strong style={{ color: 'var(--ink)' }}>{initialEmail}</strong>. It expires in 15 minutes.
+                        We sent a 6-digit code to <strong style={{ color: 'var(--ink)' }}>{initialEmail}</strong>. It expires in 30 minutes.
                     </p>
                 ) : (
                     <p className="ink2">Enter the email you registered with and the 6-digit code we sent to it.</p>

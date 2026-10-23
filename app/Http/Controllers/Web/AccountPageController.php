@@ -11,7 +11,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Sign in, create account, verify; then profile, organizations and tokens for the signed-in
+ * Sign in, create account, verify, forgot password; then profile, organizations and tokens for the signed-in
  * account. Sign-in itself is POST /v1/auth/session from the page.
  */
 class AccountPageController extends WebController
@@ -30,6 +30,8 @@ class AccountPageController extends WebController
             'intended' => $request->session()->get('url.intended'),
             // Set by the verify page, which sends a just-verified account here.
             'verified' => $request->boolean('verified'),
+            // Set by the forgot-password page after a reset.
+            'reset' => $request->boolean('reset'),
         ]);
     }
 
@@ -41,6 +43,18 @@ class AccountPageController extends WebController
     public function verify(Request $request): Response
     {
         return Inertia::render('Auth/Verify', [
+            'email' => $request->query('email'),
+            'sent' => $request->boolean('sent'),
+        ]);
+    }
+
+    /**
+     * GET /forgot-password (named `password.request`): the email, then the emailed code and
+     * a new password. The reset email links here with `email` and `sent`.
+     */
+    public function forgotPassword(Request $request): Response
+    {
+        return Inertia::render('Auth/ForgotPassword', [
             'email' => $request->query('email'),
             'sent' => $request->boolean('sent'),
         ]);

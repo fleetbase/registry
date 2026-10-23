@@ -144,7 +144,7 @@ function ProfileCard({ organization }) {
                     Public profile
                 </Link>
             </div>
-            <form className="card-body stack" onSubmit={save} aria-label={`${organization.name} profile`} noValidate>
+            <form method="post" className="card-body stack" onSubmit={save} aria-label={`${organization.name} profile`} noValidate>
                 {!canManage && <Note tone="info">Only owners and admins can edit this organization. Your role here is {roleLabel(organization.role)}.</Note>}
                 <fieldset disabled={!canManage || busy} className="stack" style={{ border: 0, padding: 0, margin: 0 }}>
                     <div className="grid2">
@@ -296,7 +296,7 @@ function MembersCard({ organization }) {
             {canManage && (
                 <>
                     <div className="hr" />
-                    <form className="card-body stack" aria-label="Add a member" onSubmit={add} noValidate>
+                    <form method="post" className="card-body stack" aria-label="Add a member" onSubmit={add} noValidate>
                         <div className="row wrapflex" style={{ gap: 12, alignItems: 'flex-end' }}>
                             <Field label="Add a member by email" className="grow" error={inviteError}>
                                 {(id, aria) => (
@@ -424,7 +424,7 @@ function NewOrganizationDialog({ open, onClose }) {
                 </>
             }
         >
-            <form id="new-organization" className="stack" onSubmit={create} noValidate>
+            <form method="post" id="new-organization" className="stack" onSubmit={create} noValidate>
                 {failure && (
                     <Note tone="fail" role="alert">
                         {failure}

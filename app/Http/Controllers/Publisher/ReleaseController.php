@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Publisher;
 
 use App\Http\Requests\Publisher\UploadReleaseRequest;
 use App\Http\Resources\ReleaseDetailResource;
+use App\Models\Event;
 use App\Models\Extension;
+use App\Models\Release;
 use App\Releases\ReleasePipeline;
+use App\Support\CatalogCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class ReleaseController extends PublisherController
 {
@@ -60,6 +64,30 @@ class ReleaseController extends PublisherController
     public function show(Request $request, string $release): ReleaseDetailResource
     {
         return new ReleaseDetailResource(self::releaseDetail($this->findRelease($request, $release)));
+    }
+
+    /**
+     * PATCH /v1/publisher/releases/{id} — `{notes}`: edit the release notes in any status but
+     * yanked. Like listing copy, notes never need review; a published release's notes show
+     * in the catalog at once.
+     */
+    public function update(Request $request, string $release): ReleaseDetailResource
+    {
+        $request->validate(['notes' => ['present', ...UploadReleaseRequest::NOTES]]);
+        $release = $this->findRelease($request, $release);
+
+        if ($release->status === Release::STATUS_YANKED) {
+            throw new UnprocessableEntityHttpException('A yanked release\'s notes cannot be changed.');
+        }
+
+        $release->forceFill(['notes' => $request->input('notes')])->save();
+        Event::record('release.notes_updated', $release, $this->account($request), ['version' => $release->version]);
+
+        if ($release->status === Release::STATUS_PUBLISHED) {
+            CatalogCache::flush();
+        }
+
+        return new ReleaseDetailResource(self::releaseDetail($release));
     }
 
     /**

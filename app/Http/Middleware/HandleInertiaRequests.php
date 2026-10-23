@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Controllers\Auth\GithubSignInController;
 use App\Http\Resources\AccountResource;
 use App\Models\Account;
 use Illuminate\Http\Request;
@@ -37,6 +38,8 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'account' => $account ? (new AccountResource($account->loadMissing('organizations')))->resolve($request) : null,
+                // Sign-in methods besides email and password that this registry has set up.
+                'providers' => ['github' => GithubSignInController::configured()],
             ],
             'registry' => [
                 'host' => parse_url((string) (config('registry.public_url') ?: $request->getSchemeAndHttpHost()), PHP_URL_HOST) ?: $request->getHost(),
