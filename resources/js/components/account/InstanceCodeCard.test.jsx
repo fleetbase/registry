@@ -15,11 +15,9 @@ function renderCard() {
 }
 
 describe('InstanceCodeCard', () => {
-    beforeEach(() => api.post.mockReset());
-
     it('mints a registration code for the organization and shows how to use it', async () => {
         const user = userEvent.setup();
-        api.post.mockResolvedValue({ code: 'K7Q2-M9PD', organization: 'org_acme', expires_at: '2026-10-23T12:15:00Z', expires_in: 900 });
+        api.post.mockResolvedValueOnce({ code: 'K7Q2-M9PD', organization: 'org_acme', expires_at: '2026-10-23T12:15:00Z', expires_in: 900 });
         renderCard();
 
         await user.click(screen.getByRole('button', { name: /Create registration code/ }));
@@ -32,12 +30,12 @@ describe('InstanceCodeCard', () => {
 
     it('shows the service refusal', async () => {
         const user = userEvent.setup();
-        api.post.mockRejectedValue(new ApiError(403, { errors: ['Only organization owners and admins can register instances.'] }));
+        api.post.mockRejectedValueOnce(new ApiError(403, { errors: ['Only organization owners and admins can register instances.'] }));
         renderCard();
 
         await user.click(screen.getByRole('button', { name: /Create registration code/ }));
 
-        expect(await screen.findByRole('alert')).toHaveTextContent('Only organization owners and admins can register instances.');
+        expect(screen.getByRole('alert')).toHaveTextContent('Only organization owners and admins can register instances.');
         expect(screen.queryByText(/flb instance register/)).not.toBeInTheDocument();
     });
 });
