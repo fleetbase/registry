@@ -70,7 +70,8 @@ class InstanceController extends Controller
 
     /**
      * GET /v1/instances/me — the instance, its organization and the organization's
-     * licences with seat usage and whether this instance holds a seat.
+     * licences with seat usage, whether this instance holds a seat, and the receipt of a
+     * bought licence (so a console can link it after a re-registration or a cache clear).
      */
     public function me(Request $request): JsonResponse
     {
@@ -79,7 +80,7 @@ class InstanceController extends Controller
 
         $licences = Licence::query()
             ->where('organization_uuid', $instance->organization_uuid)
-            ->with('extension')
+            ->with(['extension', 'purchase'])
             ->withCount('activeActivations')
             ->addSelect(['activated_here' => LicenceActivation::query()
                 ->selectRaw('count(*)')
