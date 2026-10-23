@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\Web;
 
+use App\Commerce\Stripe;
+use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Models\Account;
 use App\Models\Extension;
+use App\Models\Purchase;
 use App\Models\Release;
 use App\Models\Review;
 use Illuminate\Http\Request;
@@ -12,8 +15,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Fleetbase staff review console: the queue, one release, releases waiting to be published
- * and suspended listings. Decisions are POSTs to /v1/admin from the page.
+ * Fleetbase staff review console: the queue, one release, releases waiting to be published,
+ * suspended listings and finance. Decisions and refunds are POSTs to /v1/admin from the page.
  */
 class ReviewPageController extends WebController
 {
@@ -94,6 +97,46 @@ class ReviewPageController extends WebController
             'reviewItems' => $this->api($request, '/v1/admin/review-items', [], ReviewController::class, 'reviewItems'),
             'suspension' => $suspension,
         ]);
+    }
+
+    /**
+     * GET /review/finance[?from=&to=&status=&publisher=&page=] — fee revenue, refunds, disputes
+     * and per-publisher totals over the range, and the purchases in it with a refund action.
+     */
+    public function finance(Request $request): Response
+    {
+        $this->authorizeStaff($request);
+        $range = $this->range($request);
+        $filters = $range + $this->only($request, ['status', 'publisher']);
+        $status = in_array($filters['status'] ?? null, [Purchase::STATUS_PAID, Purchase::STATUS_REFUNDED, Purchase::STATUS_DISPUTED], true) ? $filters['status'] : null;
+        $filters = array_filter(['status' => $status] + $filters);
+
+        return Inertia::render('Review/Finance', [
+            'summary' => $this->api($request, '/v1/admin/finance', $range, FinanceController::class, 'summary'),
+            'purchases' => $this->api($request, '/v1/admin/finance/purchases', $filters + $this->only($request, ['page']), FinanceController::class, 'purchases'),
+            'filters' => $filters,
+            'stripe' => ['configured' => Stripe::configured()],
+            'counts' => $this->counts(),
+        ]);
+    }
+
+    /**
+     * `from` and `to` from the query when they are dates in order; anything else falls back to
+     * the report's default range.
+     *
+     * @return array{from?: string, to?: string}
+     */
+    protected function range(Request $request): array
+    {
+        $dates = [];
+        foreach (['from', 'to'] as $key) {
+            $value = $request->query($key);
+            if (is_string($value) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $parts) && checkdate((int) $parts[2], (int) $parts[3], (int) $parts[1])) {
+                $dates[$key] = $value;
+            }
+        }
+
+        return isset($dates['from'], $dates['to']) && $dates['to'] < $dates['from'] ? [] : $dates;
     }
 
     protected function authorizeStaff(Request $request): void

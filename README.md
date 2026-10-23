@@ -25,7 +25,7 @@ Phase 1, Workstreams A to C, and Phase 2 Workstream E:
 | Releases pipeline: publisher API, upload, queued checks, state machine, D6 review policy, staff review API, publishing | done |
 | Website backend (Workstream F): cookie sessions, organizations and members, listing media and pricing, staff downloads and review items | done |
 | Website (Workstream F): Inertia (React) catalog, account, Studio and review console, light and dark | done |
-| Commerce (Phase 4, K to M): Stripe Connect Express, prices mirrored to Stripe, Checkout from instances and the website, webhooks, payouts and billing APIs and pages | done |
+| Commerce (Phase 4, K to M): Stripe Connect Express, prices mirrored to Stripe, Checkout from instances and the website, webhooks, payouts and billing APIs and pages, staff finance and refunds | done |
 | CLI v2 (G), staff finance view | later workstreams |
 
 ## Stack
@@ -137,7 +137,7 @@ a website page (unknown paths render the website's 404).
 | `/account/billing/{slug?}[?handoff=]` | Billing: purchases, receipts, licences and their instances; Finalizing after a website checkout |
 | `/studio`, `/studio/new`, `/studio/{slug}` (listing), `/studio/{slug}/releases[/{id}]`, `/studio/{slug}/review`, `/studio/{slug}/history`, `/studio/insights` | Publisher Studio |
 | `/studio/payouts/{slug?}` | Payouts: Stripe onboarding and account management (Connect.js), balance, schedule, sales and CSV |
-| `/review`, `/review/publish`, `/review/releases/{id}` | Staff review console |
+| `/review`, `/review/publish`, `/review/releases/{id}`, `/review/finance` | Staff review console (finance: fee revenue, refunds, disputes, per-publisher totals, refunds) |
 
 ## API overview
 
@@ -381,6 +381,7 @@ checks are emailed too.
 | `GET /v1/admin/review-items` | The review requirements R1 to R6 (`registry.review.items`); approve and reject accept only these codes |
 | `GET /v1/admin/facilitator-fees` | The fee in effect (`current_rate_bps`), the configured default, and every scheduled fee, newest first |
 | `POST /v1/admin/facilitator-fees` | `rate_bps` (0 to 5000; 1000 = 10%), optional `effective_from` (now or later, never earlier) and `note`. Adds a row; rows are never edited |
+| `GET /v1/admin/finance`, `/finance/purchases`, `/finance/monthly.csv`, `POST /v1/admin/purchases/{id}/refund` | Staff finance and refunds; see Commerce |
 
 ### Instance API (instance token)
 
@@ -472,6 +473,31 @@ cannot change, so a new amount or currency creates a new price and archives the 
 | `GET /v1/organizations/{slug}/billing/licences` | owners, admins, billing | Licences with seat use and the instances activated on each |
 | `POST /v1/purchases/checkout` | owners, admins, billing of the buyer | Website checkout: `extension`, `organization`. Returns a hand-off (below); Stripe returns the buyer to `/account/billing/{slug}?handoff=` |
 | `GET /v1/purchases/{handoff}` | members of the buyer | The hand-off |
+
+### Staff finance and refunds (admin middleware: `review` scope, `is_staff` organization)
+
+The finance view reads the registry's own `purchases`, not Stripe, so it works without Stripe
+and matches what the webhooks recorded. A purchase counts in the range its sale date falls in,
+with its refunds and dispute, so a November refund of an October sale changes October. Amounts
+are minor units per currency. Every bucket carries:
+
+| Field | Meaning |
+| --- | --- |
+| `sales`, `gross` | Purchases and `amount_total` (tax included) |
+| `refunds`, `refunded` | Purchases with a refund, and `meta.amount_refunded` (all of `gross` when `refunded` without it) |
+| `fee`, `fee_refunded`, `fee_revenue` | `fee_amount`; the fee returned on refunds, in proportion to the amount refunded (`refund_application_fee`); fee less fee returned |
+| `publisher_net` | `net_amount` less the publisher's share of refunds (the reversed transfer) |
+| `disputes`, `disputed` | Purchases with `meta.dispute`, and the disputed amount. Not subtracted: the outcome is decided in Stripe |
+
+| Method and path | Purpose |
+| --- | --- |
+| `GET /v1/admin/finance?from=&to=` | `totals` per currency, `months` per month and currency, `publishers` per organization and currency (highest fee revenue first). Default range: the last 12 months including this one |
+| `GET /v1/admin/finance/purchases?from=&to=&status=&publisher=&extension=&page=` | Purchases newest first: publisher, customer, gross, fee, net, `refunded`, `fee_refunded`, `refundable` (what is left; 0 while disputed), `dispute`, Stripe ids |
+| `GET /v1/admin/finance/monthly.csv?from=&to=[&by=publisher]` | One row per month and currency (and publisher), the fields above in major units |
+| `POST /v1/admin/purchases/{id}/refund` | `amount` (minor units, defaults to what is left), `reason` (`requested_by_customer`, `duplicate`, `fraudulent`), `note`. Creates a Stripe refund on the payment intent with `reverse_transfer` and `refund_application_fee`, so the publisher and Fleetbase each give back their share; records `purchase.refund_requested`. Answers 202: the purchase turns `refunded` and its licence `revoked` when `charge.refunded` arrives. 409 when already refunded or disputed (answer disputes in the Stripe Dashboard), 422 above what is left, 502 when Stripe refuses |
+
+Refund from the Finance page (`/review/finance`) rather than the Stripe Dashboard: a Dashboard
+refund does not reverse the transfer or return the fee unless both boxes are ticked.
 
 ### Webhooks
 
