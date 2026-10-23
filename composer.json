@@ -12,6 +12,7 @@
     "require": {
         "php": "^8.2",
         "composer/semver": "^3.4",
+        "inertiajs/inertia-laravel": "^3.0",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "^3.0",

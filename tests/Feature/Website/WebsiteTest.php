@@ -1,50 +1,86 @@
 <?php
 
-use Illuminate\Support\Facades\File;
+use Inertia\Testing\AssertableInertia as Assert;
 
-beforeEach(function () {
-    $this->publicPath = sys_get_temp_dir().'/registry-public-'.uniqid();
-    File::ensureDirectoryExists($this->publicPath.'/assets');
-    app()->usePublicPath($this->publicPath);
+it('renders Discover with the catalog, filters and compatibility for the visitor’s console', function () {
+    $fits = makePackage('npm', '@acme/fits-engine', extension: ['name' => 'Fits', 'slug' => 'fits']);
+    makeRelease($fits, '1.0.0', manifest: ['compat' => ['console' => '>=0.7.60']])->forceFill(['compat' => ['console' => '>=0.7.60']])->save();
+    $old = makePackage('npm', '@acme/old-engine', extension: ['name' => 'Old', 'slug' => 'old']);
+    makeRelease($old, '1.0.0')->forceFill(['compat' => ['console' => '<0.7.0']])->save();
+
+    $this->withUnencryptedCookie('registry_console', '0.7.69')
+        ->get('/?sort=name')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Discover/Index')
+            ->where('filters', ['sort' => 'name'])
+            ->where('console', '0.7.69')
+            ->has('results.data', 2)
+            ->where('results.data.0.slug', 'fits')
+            ->where('results.data.0.compatible', true)
+            ->where('results.data.1.compatible', false)
+            ->has('categories')
+            ->where('auth.account', null));
 });
 
-afterEach(function () {
-    File::deleteDirectory($this->publicPath);
+it('renders an extension with its releases and checks another console version on request', function () {
+    $package = makePackage('npm', '@acme/dock-engine', extension: ['name' => 'Dock Scheduler', 'slug' => 'dock-scheduler']);
+    makeRelease($package, '0.2.0', publishedAt: now()->subDays(10)->toDateTimeString())->forceFill(['compat' => ['console' => '>=0.7.0']])->save();
+    makeRelease($package, '0.3.0')->forceFill(['compat' => ['console' => '>=0.7.60']])->save();
+
+    $this->get('/extensions/dock-scheduler')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Extension/Show')
+            ->where('extension.name', 'Dock Scheduler')
+            ->has('releases', 2)
+            ->where('releases.0.version', '0.3.0')
+            ->where('compatibility', null));
+
+    $this->get('/extensions/dock-scheduler?check=0.7.40')
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('compatibility.compatible', false)
+            ->where('compatibility.newest_compatible', '0.2.0'));
 });
 
-it('serves the website shell for every other GET path', function () {
-    file_put_contents($this->publicPath.'/index.html', '<!doctype html><title>Registry</title>');
-    file_put_contents($this->publicPath.'/assets/app.js', 'console.log(1);');
+it('renders a publisher profile', function () {
+    $package = makePackage('npm', '@acme/x-engine', extension: ['name' => 'X']);
+    $organization = $package->extension->organization;
 
-    foreach (['/', '/extensions/fleet-ops', '/publisher/listings/new?tab=media', '/admin/queue'] as $path) {
-        $response = $this->get($path)->assertOk();
-        expect($response->headers->get('Content-Type'))->toStartWith('text/html')
-            ->and($response->headers->get('Cache-Control'))->toContain('no-cache')
-            ->and(file_get_contents($response->baseResponse->getFile()->getPathname()))->toBe('<!doctype html><title>Registry</title>')
-            ->and($response->headers->getCookies())->toBe([]);
-    }
-
-    // A built file the web server did not serve itself.
-    $asset = $this->get('/assets/app.js')->assertOk();
-    expect($asset->baseResponse->getFile()->getPathname())->toBe(realpath($this->publicPath.'/assets/app.js'));
+    $this->get("/publishers/{$organization->slug}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('Publisher/Show')->where('publisher.slug', $organization->slug)->has('publisher.extensions', 1));
 });
 
-it('answers 503 until the website is built', function () {
-    $this->get('/extensions')
-        ->assertStatus(503)
-        ->assertExactJson(['errors' => ['The website has not been built. Run npm run build in web/.']]);
+it('remembers the console version in a cookie', function () {
+    $this->from('/')->post('/console', ['version' => '0.7.69'])->assertRedirect('/')->assertCookie('registry_console', '0.7.69', false);
+    $this->from('/')->post('/console', ['version' => 'nope'])->assertSessionHasErrors('version');
+});
+
+it('renders website 404 and 403 pages, and sends visitors to sign in', function () {
+    $this->get('/extensions/missing')->assertNotFound()->assertInertia(fn (Assert $page) => $page->component('Error')->where('status', 404));
+    $this->get('/no/such/page')->assertNotFound()->assertInertia(fn (Assert $page) => $page->component('Error'));
+    $this->get('/studio')->assertRedirect('/sign-in');
+
+    [$account] = publisher();
+    actingOnWebsite($account);
+    $this->get('/review')->assertForbidden()->assertInertia(fn (Assert $page) => $page->component('Error')->where('status', 403));
+});
+
+it('shares the signed-in account', function () {
+    [$account] = publisher();
+    actingOnWebsite($account);
+
+    $this->get('/')->assertInertia(fn (Assert $page) => $page->where('auth.account.email', $account->email)->has('auth.account.organizations', 1));
 });
 
 it('keeps API, package and health paths out of the website', function () {
-    file_put_contents($this->publicPath.'/index.html', '<!doctype html>');
-
     $this->get('/v1/nope')->assertNotFound()->assertExactJson(['errors' => ['Resource not found.']]);
     $this->get('/v1/catalog/nope/deeper')->assertNotFound()->assertExactJson(['errors' => ['Resource not found.']]);
     $this->postJson('/v1/nope')->assertNotFound()->assertExactJson(['errors' => ['Resource not found.']]);
     $this->get('/composer/nope')->assertNotFound()->assertJsonPath('error', 'Not found.');
     $this->get('/npm/-/nope/deeper')->assertNotFound();
     $this->get('/up')->assertOk();
-    $this->postJson('/extensions')->assertNotFound();
 });
 
 it('moves the service info to GET /v1', function () {

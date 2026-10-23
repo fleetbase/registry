@@ -23,12 +23,14 @@ Phase 1, Workstreams A to C, and Phase 2 Workstream E:
 | Instance API: registration codes, register, me, updates, installs, licence seats | done |
 | `registry:import` from the cloud registry-bridge tables (dry run, anomaly report, tarball copy) | done |
 | Releases pipeline: publisher API, upload, queued checks, state machine, D6 review policy, staff review API, publishing | done |
-| Website backend (Workstream F): cookie sessions, organizations and members, listing media and pricing, staff downloads and review items, SPA fallback | done; the website itself is in progress |
+| Website backend (Workstream F): cookie sessions, organizations and members, listing media and pricing, staff downloads and review items | done |
+| Website (Workstream F): Inertia (React) catalog, account, Studio and review console, light and dark | done |
 | CLI v2 (G), Stripe (Phase 4) | later workstreams |
 
 ## Stack
 
-Laravel 12 on PHP 8.3, MySQL 8, S3-compatible object storage. The Fleetbase core-api
+Laravel 12 on PHP 8.3, MySQL 8, S3-compatible object storage. The website is Inertia v3 with
+React 19, Tailwind v4 and Vite, served by the same Laravel app. The Fleetbase core-api
 conventions the plan relies on (`Model` with UUID keys and public ids, `HasUuid`,
 `HasPublicId`, the `Money` cast, `Http\Filter\Filter`, `FleetbaseResource`) are ported
 into `app/` with the same names and behaviour, so code written against them reads like
@@ -58,14 +60,29 @@ docker compose up --build
 | Mailpit (verification emails) | http://localhost:8025 |
 | MySQL | localhost:3307 (registry / registry) |
 
+The website needs its assets. Build them once, or run Vite beside `artisan serve` for hot
+reload (Node 22):
+
+```bash
+npm install
+npm run build        # public/build (client) and bootstrap/ssr (SSR bundle)
+npm run dev          # or: Vite dev server with hot reload
+```
+
 Release checks run on the queue. `docker compose` starts a worker; with `php artisan serve`
 run `php artisan queue:work` beside it (or set `QUEUE_CONNECTION=sync`).
 
 Run the tests:
 
 ```bash
-composer test
+composer test        # Pest
+npm test             # Vitest (components and page logic)
+npm run lint         # ESLint
+npm run test:e2e     # Playwright smoke test (run npm run build first)
 ```
+
+The Playwright test boots its own server (`scripts/e2e-server.sh`: a fresh SQLite database in
+`storage/e2e`, `registry:seed-website`, a synchronous queue) on port 8123.
 
 `php artisan registry:seed-website [--json]` (never in production) adds what the website's
 smoke test needs on top of that: `staff@registry.test` in a staff organization and
@@ -83,6 +100,38 @@ tests/Conformance/packages.sh http://127.0.0.1:8000
 ```
 
 CI runs the same script in the `package-conformance` job.
+
+## Website
+
+The website lives in this app: Laravel routes in `routes/web.php` render Inertia pages from
+`app/Http/Controllers/Web`, and every path that is not `/v1`, `/npm`, `/composer` or `/up` is
+a website page (unknown paths render the website's 404).
+
+- **Reads.** Page controllers call the `/v1` API controllers in process
+  (`WebController::api`), so page props have exactly the API's JSON shapes and share the
+  catalog cache.
+- **Writes.** Pages call `/v1` from the browser with the session cookie and the `XSRF-TOKEN`
+  header (`resources/js/lib/api.js`), then reload their props.
+- **Sessions.** Signing in (`POST /v1/auth/session`) puts an `flbs_` token in the Laravel
+  session; the `web` guard resolves it. Website routes use `auth:web`, which redirects to
+  `/sign-in`.
+- **Console version.** The "works with my console" checks read `?console=` or the
+  `registry_console` cookie (unencrypted, so the page can read it too), set by `POST /console`.
+- **Pages.** `resources/js/pages` (Discover, Extension, Publisher, Auth, Account, Studio,
+  Review), shared components in `resources/js/components`, the layout in
+  `resources/js/layouts/SiteLayout.jsx`, the design tokens in `resources/css/registry.css`
+  (`data-theme` on `<html>`: light, dark, or the system setting).
+- **SSR.** `npm run build` also builds `bootstrap/ssr/ssr.js`. Inertia uses it only when
+  `php artisan inertia:start-ssr` is running; otherwise pages render in the browser. The
+  Docker image ships the client build only.
+
+| Path | Page |
+| --- | --- |
+| `/`, `/extensions/{slug}`, `/publishers/{slug}` | Discover, extension, publisher |
+| `/sign-in`, `/register`, `/verify` | Account access |
+| `/account/profile`, `/account/organizations/{slug?}`, `/account/tokens` | Account |
+| `/studio`, `/studio/new`, `/studio/{slug}` (listing), `/studio/{slug}/releases[/{id}]`, `/studio/{slug}/review`, `/studio/{slug}/history`, `/studio/insights` | Publisher Studio |
+| `/review`, `/review/publish`, `/review/releases/{id}` | Staff review console |
 
 ## API overview
 
@@ -403,12 +452,13 @@ app/
   Http/Controllers/Packages/   npm and Composer endpoints
   Http/Controllers/Publisher/  publisher extensions and releases
   Http/Controllers/Admin/      staff review API
+  Http/Controllers/Web/        website pages (Inertia), reading through the /v1 controllers
   Jobs/RunReleaseChecks.php    queued release checks
   Releases/                    pipeline, state machine, review policy (D6), listing readiness,
                                namespace rules, manifest schema, checks, archive inspection, secrets
   Import/                      importer: SQL dump loader, source connection, mapping, report
   Http/Filter/                 request-driven query filters (ExtensionFilter)
-  Http/Middleware/             scope:…, licence:npm|composer
+  Http/Middleware/             scope:…, licence:npm|composer, HandleInertiaRequests (shared props)
   Http/Resources/              Fleetbase-style JSON resources
   Models/                      one model per table; Model.php is the base
   Services/                    ReleaseStorage, LicenceGate, Packages/ (packument, Composer metadata)
@@ -420,7 +470,10 @@ database/seeders/              CategorySeeder (41 categories from registry-bridg
 docker/                        compose helpers
 legacy/                        the Verdaccio registry (v1)
 resources/schemas/            extension.json JSON Schema (copy of registry-bridge's)
-tests/Feature/{Auth,Catalog,Packages,Instance,Import,Releases}  Pest feature tests (SQLite in memory)
+resources/js/                  website: pages/, components/, layouts/, lib/ (Inertia + React)
+resources/css/                 Tailwind entry and the design tokens (registry.css)
+e2e/, playwright.config.js     Playwright smoke test; scripts/e2e-server.sh boots its server
+tests/Feature/{Auth,Catalog,Packages,Instance,Import,Releases,Website}  Pest feature tests (SQLite in memory)
 tests/Conformance/packages.sh  real npm and Composer clients against a running service
 tests/Fixtures/import/         mysqldump fixture of the cloud registry tables
 ```

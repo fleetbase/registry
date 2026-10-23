@@ -1,0 +1,102 @@
+/* Publisher Studio: the pieces the design canvas styles per artboard (Studio, Create, Editor,
+   Upload, Rejected, History, Soon). Tokens only, so both themes follow. */
+
+/* Section nav (Extensions · Insights): links styled like the selected segment. */
+.seg a[aria-current='page'] { background: var(--surface); color: var(--ink); box-shadow: var(--e1), 0 0 0 1px var(--line); }
+.seg a { text-decoration: none; }
+
+/* Studio home */
+.sd-inbox-item { display: flex; align-items: center; gap: 14px; padding: 14px 16px; min-height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; }
+.sd-inbox-item:hover { border-color: var(--accent-line); text-decoration: none; color: var(--ink); }
+.sd-ext-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 2fr) minmax(0, 1fr); gap: 24px; align-items: center; padding: 22px 24px; border-top: 1px solid var(--line); }
+.sd-ext-row:first-child { border-top: 0; }
+.sd-who { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.sd-org-switch { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px 0 6px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 500 14px/1 var(--font); cursor: pointer; }
+.sd-org-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; min-width: 260px; padding: 6px; border-radius: 14px; border: 1px solid var(--line); background: var(--raised, var(--surface)); box-shadow: var(--e2); display: flex; flex-direction: column; gap: 2px; list-style: none; margin: 0; }
+.sd-org-menu button { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); font: 500 14px/1.2 var(--font); text-align: left; cursor: pointer; }
+.sd-org-menu button:hover, .sd-org-menu button[aria-current='true'] { background: var(--accent-soft); }
+.sd-bigstep { display: flex; flex-direction: column; gap: 12px; padding: 24px; border-radius: 20px; border: 1px solid var(--line); background: var(--surface); }
+.sd-bigstep .n { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+/* Create */
+.sd-opt-card { display: flex; gap: 12px; align-items: flex-start; padding: 14px; min-height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font: inherit; color: var(--ink); text-align: left; width: 100%; }
+.sd-opt-card[aria-checked='true'] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.sd-radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--line-strong); flex-shrink: 0; margin-top: 1px; display: grid; place-items: center; }
+.sd-opt-card[aria-checked='true'] .sd-radio { border-color: var(--accent); }
+.sd-opt-card[aria-checked='true'] .sd-radio::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.sd-pkg { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface-2); font-family: var(--mono); font-size: 14px; overflow-wrap: anywhere; }
+.sd-pkg .k { font-family: var(--font); font-size: 12px; font-weight: 600; color: var(--muted); min-width: 76px; }
+.sd-linkbtn { border: 0; padding: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; text-decoration: none; min-height: 24px; }
+.sd-linkbtn:hover { text-decoration: underline; }
+
+/* Editor */
+.sd-ed { display: grid; grid-template-columns: 220px minmax(0, 1fr) 320px; gap: 32px; align-items: start; }
+.sd-ed-nav { position: sticky; top: 24px; }
+.sd-ed-rail { position: sticky; top: 24px; }
+.sd-sec { scroll-margin-top: 84px; }
+.sd-savebar { position: sticky; top: 12px; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--you-line); background: var(--you-bg); color: var(--ink); }
+.sd-shot-tile { position: relative; height: 120px; border-radius: 12px; border: 1px solid var(--line); background: linear-gradient(160deg, var(--bg-tint), var(--surface-2)); display: flex; align-items: flex-end; padding: 8px; font-size: 12px; color: var(--ink-2); overflow: hidden; }
+.sd-shot-tile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sd-shot-tile .tools { position: absolute; top: 6px; right: 6px; display: flex; gap: 4px; z-index: 1; }
+.sd-shot-tile .cover { position: absolute; top: 8px; left: 8px; z-index: 1; }
+.sd-shot-tile .cap { position: relative; z-index: 1; padding: 2px 6px; border-radius: 6px; background: var(--surface); }
+.sd-mini-btn { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.sd-mini-btn:disabled { opacity: .45; cursor: not-allowed; }
+.sd-add-tile { height: 120px; border-radius: 12px; border: 2px dashed var(--line-strong); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--muted); font-size: 13px; background: transparent; cursor: pointer; font-family: inherit; text-align: center; padding: 8px; }
+.sd-add-tile[data-over='true'] { border-color: var(--accent); background: var(--accent-soft); }
+.sd-toolbar { display: flex; gap: 4px; flex-wrap: wrap; padding: 8px; border-bottom: 1px solid var(--line); }
+.sd-toolbar button { min-width: 44px; height: 44px; padding: 0 8px; border-radius: 8px; border: 0; background: transparent; color: var(--ink-2); font: 600 13px/1 var(--font); cursor: pointer; }
+.sd-toolbar button:hover { background: var(--accent-soft); }
+.sd-overview { min-height: 160px; outline: none; }
+.sd-overview:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+.sd-overview:empty::before { content: attr(data-placeholder); color: var(--muted); }
+.sd-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; min-height: 44px; height: auto; }
+.sd-tags input { flex: 1; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; min-width: 100px; min-height: 30px; }
+.sd-tag { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 4px 0 10px; border-radius: 999px; background: var(--bg-tint); border: 1px solid var(--line); font-size: 13px; color: var(--ink); }
+.sd-tag button { width: 24px; height: 24px; border: 0; border-radius: 50%; background: transparent; color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+.sd-rd { display: flex; gap: 10px; align-items: center; padding: 7px 0; font-size: 14px; }
+.sd-rd .d { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0; border: 1px solid; }
+.sd-rd.ok .d { background: var(--ok-bg); color: var(--ok); border-color: var(--ok-line); }
+.sd-rd.no .d { background: var(--you-bg); color: var(--you); border-color: var(--you-line); }
+.sd-rd.ok .t { color: var(--muted); }
+.sd-chips-scroll { display: none; }
+
+/* Upload and release */
+.sd-file { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); min-width: 0; }
+.sd-file .fi { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+.sd-drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 22px; border-radius: 14px; border: 2px dashed var(--line-strong); color: var(--muted); text-align: center; font-size: 14px; }
+.sd-drop[data-over='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+.sd-slot { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); }
+.sd-rel { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr) auto; gap: 20px; align-items: start; padding: 20px 24px; border-top: 1px solid var(--line); }
+.sd-rel:first-child { border-top: 0; }
+
+/* Review (rejected) */
+.sd-req { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 16px 0; border-top: 1px solid var(--line); }
+.sd-req:first-child { border-top: 0; }
+.sd-code { font-family: var(--mono); font-weight: 600; font-size: 13px; padding: 4px 8px; border-radius: 8px; background: var(--bg-tint); text-align: center; color: var(--ink); }
+.sd-req.failed .sd-code { background: var(--fail-bg); color: var(--fail); }
+
+/* History */
+.sd-rel-group { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; padding: 24px 0; border-top: 1px solid var(--line); }
+.sd-rel-group:first-child { border-top: 0; padding-top: 0; }
+
+/* Insights */
+.sd-ghost { border-radius: 16px; border: 1px dashed var(--line-strong); background: repeating-linear-gradient(135deg, transparent 0 10px, var(--bg-tint) 10px 11px); position: relative; overflow: hidden; color: var(--line-strong); }
+.sd-ghost svg { position: absolute; inset: auto 0 0 0; width: 100%; height: 70%; }
+
+@media (max-width: 1100px) {
+    .sd-ed { grid-template-columns: minmax(0, 1fr) 300px; }
+    .sd-ed-nav { display: none; }
+    .sd-chips-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+}
+@media (max-width: 1000px) {
+    .sd-ext-row, .sd-rel { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 18px 16px; }
+    .sd-ext-row .sd-actions, .sd-rel .sd-actions { justify-content: flex-start !important; }
+}
+@media (max-width: 760px) {
+    .sd-ed { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+    .sd-ed-rail { order: -1; position: static; }
+    .sd-ed-rail .sd-rd.ok { display: none; }
+    .sd-rel-group { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+    .sd-savebar { top: 8px; }
+}

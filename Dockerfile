@@ -13,6 +13,18 @@ COPY composer.json composer.lock ./
 RUN --mount=type=cache,target=/tmp/cache \
     composer install --no-dev --no-interaction --no-scripts --prefer-dist --no-progress --ignore-platform-reqs
 
+# ---- Website assets ---------------------------------------------------------
+# Vite builds the Inertia (React) client into public/build. The SSR bundle is not built: the
+# runtime image has no Node, and Inertia renders on the client when no SSR server is running.
+FROM node:22-bookworm-slim AS assets
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
+COPY vite.config.js ./
+COPY resources ./resources
+RUN npx vite build
+
 # ---- Runtime ---------------------------------------------------------------
 FROM serversideup/php:8.3-fpm-nginx-alpine AS base
 
@@ -32,6 +44,7 @@ RUN install-php-extensions bcmath intl gd zip pdo_mysql redis pcntl exif \
 WORKDIR /var/www/html
 COPY --chown=www-data:www-data . .
 COPY --from=vendor --chown=www-data:www-data /app/vendor ./vendor
+COPY --from=assets --chown=www-data:www-data /app/public/build ./public/build
 
 RUN composer dump-autoload --optimize --classmap-authoritative --no-dev 2>/dev/null || true \
     && mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache \
