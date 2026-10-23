@@ -2,6 +2,9 @@
 
 namespace App\Commerce;
 
+use Stripe\Exception\ApiErrorException;
+use Stripe\Exception\CardException;
+use Stripe\Exception\InvalidRequestException;
 use Stripe\StripeClient;
 use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
@@ -22,6 +25,18 @@ class Stripe
         }
 
         return app(StripeClient::class);
+    }
+
+    /**
+     * What to tell the caller about a Stripe failure: Stripe's own words for a refused request
+     * (a bad price, an incomplete account), a generic line when the platform's side failed
+     * (credentials, network, rate limits), which callers cannot fix.
+     */
+    public static function failure(ApiErrorException $e): string
+    {
+        return $e instanceof InvalidRequestException || $e instanceof CardException
+            ? 'Stripe could not complete the request: '.$e->getMessage()
+            : 'Payments are unavailable right now. Try again in a few minutes.';
     }
 
     /**

@@ -99,7 +99,7 @@ it('lists sales with gross, fee, net, status and customer, filtered and totalled
             'status' => 'paid',
             'created_at' => $old->created_at->toJSON(),
         ])
-        ->assertJsonPath('totals', [['currency' => 'USD', 'count' => 2, 'gross' => 10584, 'fee' => 980, 'net' => 9604]])
+        ->assertJsonPath('totals', [['currency' => 'USD', 'count' => 1, 'gross' => 5292, 'fee' => 490, 'net' => 4802]])
         ->assertJsonPath('meta.total', 2);
 
     $this->getJson("/v1/organizations/{$publisher->slug}/payouts/transactions?from=2026-10-10")->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $refunded->public_id);

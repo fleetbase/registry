@@ -1,5 +1,6 @@
 <?php
 
+use App\Commerce\Stripe;
 use App\Http\Middleware\EnsurePackageLicence;
 use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\EnsureTokenScope;
@@ -72,12 +73,12 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        // Stripe refused or could not be reached: a bad gateway, with Stripe's message.
+        // Stripe refused or could not be reached: a bad gateway (see Stripe::failure).
         $exceptions->render(function (ApiErrorException $e, Request $request) use ($isApi) {
             if ($isApi($request)) {
                 report($e);
 
-                return response()->error('Stripe could not complete the request: '.$e->getMessage(), 502);
+                return response()->error(Stripe::failure($e), 502);
             }
         });
 

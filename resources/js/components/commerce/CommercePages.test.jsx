@@ -103,7 +103,7 @@ describe('Payouts', () => {
         expect(within(rows[1]).getByText('−$4.90')).toBeInTheDocument();
         expect(within(rows[1]).getByText('$48.02')).toBeInTheDocument();
         expect(within(rows[2]).getByText('Refunded')).toBeInTheDocument();
-        expect(screen.getByText('Total, 2 sales (USD)')).toBeInTheDocument();
+        expect(screen.getByText('Total, 2 sales not refunded (USD)')).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'CSV' })).toHaveAttribute('href', '/v1/organizations/acme/payouts/transactions.csv?status=paid');
 
         await user.click(screen.getByRole('button', { name: 'Bank account, tax and payout schedule' }));

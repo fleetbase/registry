@@ -80,14 +80,17 @@ class PayoutController extends Controller
 
     /**
      * GET /v1/organizations/{slug}/payouts/transactions[?from=&to=&extension=&status=&page=] —
-     * sales of the organization's extensions, newest first, with totals per currency.
+     * sales of the organization's extensions, newest first, with totals per currency (refunded
+     * sales left out of the totals).
      */
     public function transactions(Request $request, string $slug): JsonResponse
     {
         $organization = $this->billingOrganization($request, $slug);
         $query = $this->sales($request, $organization);
 
+        // Refunded sales are listed but not counted: their money went back to the buyer.
         $totals = (clone $query)->reorder()
+            ->where('status', '!=', Purchase::STATUS_REFUNDED)
             ->selectRaw('currency, count(*) as count, sum(amount_total) as gross, sum(fee_amount) as fee, sum(net_amount) as net')
             ->groupBy('currency')
             ->get()

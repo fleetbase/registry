@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Web;
 
+use App\Commerce\Stripe;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Organization\OrganizationController;
 use Illuminate\Http\JsonResponse;
@@ -93,7 +94,7 @@ abstract class WebController extends Controller
         } catch (ApiErrorException $e) {
             report($e);
 
-            return [null, 'Stripe could not be reached: '.$e->getMessage()];
+            return [null, Stripe::failure($e)];
         }
     }
 

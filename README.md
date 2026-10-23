@@ -466,7 +466,7 @@ cannot change, so a new amount or currency creates a new price and archives the 
 | `POST /v1/organizations/{slug}/stripe/account` | owners, admins | Create the Express account (once; 201, then 200) |
 | `POST /v1/organizations/{slug}/stripe/account-session` | owners, admins | `client_secret` and `publishable_key` for Connect.js: onboarding, account management, notification banner, payouts, tax settings and registrations |
 | `GET /v1/organizations/{slug}/payouts` | owners, admins, billing | Connect status, `balance` (`available`, `pending`, `in_transit` per currency), payout `schedule`, the last 10 payouts |
-| `GET /v1/organizations/{slug}/payouts/transactions?from=&to=&status=&extension=&page=` | owners, admins, billing | Sales of the organization's extensions: `gross`, `fee`, `net`, `tax`, `refunded`, `status`, `customer`; `totals` per currency |
+| `GET /v1/organizations/{slug}/payouts/transactions?from=&to=&status=&extension=&page=` | owners, admins, billing | Sales of the organization's extensions: `gross`, `fee`, `net`, `tax`, `refunded`, `status`, `customer`; `totals` per currency, leaving out refunded sales |
 | `GET /v1/organizations/{slug}/payouts/transactions.csv` | owners, admins, billing | The same sales (same filters) as CSV |
 | `GET /v1/organizations/{slug}/billing/purchases` | owners, admins, billing | What the organization bought: amount, tax, who bought it, status, Stripe receipt URL, licence |
 | `GET /v1/organizations/{slug}/billing/licences` | owners, admins, billing | Licences with seat use and the instances activated on each |

@@ -303,7 +303,7 @@ function Sales({ organization, transactions, filters }) {
                             {(transactions?.totals ?? []).map((total) => (
                                 <tr key={total.currency}>
                                     <th scope="row" colSpan={4}>
-                                        Total, {total.count} sale{total.count === 1 ? '' : 's'} ({total.currency})
+                                        Total, {total.count} sale{total.count === 1 ? '' : 's'} not refunded ({total.currency})
                                     </th>
                                     <td className="num" style={{ textAlign: 'right' }}>
                                         {money(total.gross, total.currency)}

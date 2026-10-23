@@ -27,7 +27,7 @@ it('renders Studio payouts with the account, balance and sales', function () {
             ->where('commerce.fee_bps', 1000));
 });
 
-it('shows the Connect status when Stripe cannot be reached', function () {
+it('shows the Connect status when Stripe refuses the balance', function () {
     [$owner, $publisher] = sellableListing();
     stripe()->on('get', '/v1/balance', ['error' => ['type' => 'invalid_request_error', 'message' => 'Account not found.']], 400);
     actingOnWebsite($owner);
@@ -38,7 +38,7 @@ it('shows the Connect status when Stripe cannot be reached', function () {
             ->component('Studio/Payouts')
             ->where('organization.slug', $publisher->slug)
             ->where('payouts.connect.connected', true)
-            ->where('error', 'Stripe could not be reached: Account not found.'));
+            ->where('error', 'Stripe could not complete the request: Account not found.'));
 });
 
 it('lists only organizations where the account sees money', function () {
@@ -75,4 +75,12 @@ it('renders account billing with purchases, licences and the returning hand-off'
     [, $other] = buyerOrganization();
     $foreign = Checkout::create(['extension_uuid' => $listing->uuid, 'organization_uuid' => $other->uuid, 'source' => 'website']);
     $this->get("/account/billing/{$organization->slug}?handoff={$foreign->public_id}")->assertOk()->assertInertia(fn (Assert $page) => $page->where('checkout', null));
+});
+
+it('hides platform-side Stripe failures behind a generic message', function () {
+    [$owner, $publisher] = sellableListing();
+    stripe()->on('get', '/v1/balance', ['error' => ['type' => 'invalid_request_error', 'message' => 'Invalid API Key provided: sk_test_****']], 401);
+    actingOnWebsite($owner);
+
+    $this->get('/studio/payouts')->assertInertia(fn (Assert $page) => $page->where('error', 'Payments are unavailable right now. Try again in a few minutes.'));
 });
