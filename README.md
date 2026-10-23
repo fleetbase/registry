@@ -380,6 +380,10 @@ checks are emailed too.
 | `GET /v1/admin/releases/{id}/files/{engine,api,dist}` | Downloads an archive for review; recorded as `release.downloaded` |
 | `GET /v1/admin/review-items` | The review requirements R1 to R6 (`registry.review.items`); approve and reject accept only these codes |
 | `GET /v1/admin/facilitator-fees` | The fee in effect (`current_rate_bps`), the configured default, and every scheduled fee, newest first |
+| `GET /v1/admin/licences?organization=&extension=&status=&kind=` | Licences (100 newest) with organization, purchase and seats in use |
+| `POST /v1/admin/licences/{id}/revoke` | Required `reason`. New installs and updates stop; running instances keep their seat |
+| `POST /v1/admin/licences/{id}/reinstate` | Optional `reason`. For a won dispute or a mistaken revoke |
+| `PATCH /v1/admin/licences/{id}` | `max_activations`: seats, at least the seats in use |
 | `POST /v1/admin/facilitator-fees` | `rate_bps` (0 to 5000; 1000 = 10%), optional `effective_from` (now or later, never earlier) and `note`. Adds a row; rows are never edited |
 | `GET /v1/admin/finance`, `/finance/purchases`, `/finance/monthly.csv`, `POST /v1/admin/purchases/{id}/refund` | Staff finance and refunds; see Commerce |
 
@@ -459,6 +463,13 @@ fees and losses fall on Fleetbase (`controller.fees.payer` and `losses.payments`
 sale price as a second Stripe price; `on_sale` decides which one Checkout charges. Stripe prices
 cannot change, so a new amount or currency creates a new price and archives the old one.
 
+**Licences and seats.** A purchase gives the buyer organization one paid licence with 5 seats.
+A seat is one Fleetbase instance registered to that organization: installing on an instance
+takes a seat, uninstalling frees it, and every company (tenant) on that instance is covered by
+the one install. Buying again adds another licence with 5 more seats; installs use the seats
+of all the organization's active licences. Another registry organization buys its own licence.
+Staff can change seats, revoke and reinstate licences (Admin API).
+
 ### Organization routes (personal token or website session)
 
 | Method and path | Who | Purpose |
@@ -470,7 +481,7 @@ cannot change, so a new amount or currency creates a new price and archives the 
 | `GET /v1/organizations/{slug}/payouts/transactions?from=&to=&status=&extension=&page=` | owners, admins, billing | Sales of the organization's extensions: `gross`, `fee`, `net`, `tax`, `refunded`, `status`, `customer`; `totals` per currency, leaving out refunded sales |
 | `GET /v1/organizations/{slug}/payouts/transactions.csv` | owners, admins, billing | The same sales (same filters) as CSV |
 | `GET /v1/organizations/{slug}/billing/purchases` | owners, admins, billing | What the organization bought: amount, tax, who bought it, status, Stripe receipt URL, licence |
-| `GET /v1/organizations/{slug}/billing/licences` | owners, admins, billing | Licences with seat use and the instances activated on each |
+| `GET /v1/organizations/{slug}/billing/licences` | members | Licences with seat use and the instances activated on each |
 | `POST /v1/purchases/checkout` | owners, admins, billing of the buyer | Website checkout: `extension`, `organization`. Returns a hand-off (below); Stripe returns the buyer to `/account/billing/{slug}?handoff=` |
 | `GET /v1/purchases/{handoff}` | members of the buyer | The hand-off |
 
@@ -512,7 +523,7 @@ safe.
 | `checkout.session.completed` (paid), `checkout.session.async_payment_succeeded` | Purchase (`amount_total`, `fee_amount` from the PaymentIntent's application fee, `net_amount` = total − fee, tax and subtotal in `meta`, receipt URL from the charge), a `paid` licence with 5 seats, the hand-off `complete`, a receipt email to the buyer |
 | `checkout.session.expired` | The hand-off `expired` |
 | `charge.refunded` | Full refund: purchase `refunded`, licence `revoked` (new installs and updates stop; running instances keep their seat). Partial refund: `meta.amount_refunded` only |
-| `charge.dispute.created` | Purchase `disputed` with the dispute in `meta` (licence stays active), email to `REGISTRY_COMMERCE_NOTIFY` |
+| `charge.dispute.created` | Purchase `disputed` with the dispute in `meta`, licence `revoked` (`revoked_reason: disputed`; staff reinstate it if the dispute is won), email to `REGISTRY_COMMERCE_NOTIFY` |
 | `account.updated` | The organization's `payout_status` and `meta.stripe` |
 
 ### Instance checkout (contract for registry-bridge)
@@ -532,8 +543,10 @@ instance token (`Authorization: Bearer flbi_…`).
    ```
 
    `extension` is a slug, `ext_` id or package name. `return_url` (http or https) is where Stripe
-   sends the operator after paying; `cancel_url` defaults to it. `email` prefills Checkout and is
-   optional. Answers `201`:
+   sends the operator after paying; `cancel_url` defaults to it. Both must be on the host the
+   instance registered (`instances.host`) or its domain: an instance registered as `api.acme.com`
+   may use `api.acme.com`, `acme.com` or `console.acme.com`; `localhost` and IP addresses match
+   only themselves (any port). `email` prefills Checkout and is optional. Answers `201`:
 
    ```json
    {
@@ -554,9 +567,10 @@ instance token (`Authorization: Bearer flbi_…`).
 
    `amount` is the price before tax (the sale price while a sale is on). Refusals use the usual
    `{"errors": [...]}` envelope: 404 unknown extension; 409 when the organization publishes the
-   extension or already holds a paid licence for it; 422 when it is not published, is free, does
-   not match the instance's hosting kind, or the publisher cannot take payments yet; 503 when the
-   registry has no Stripe configuration; 502 when Stripe refuses.
+   extension; 422 when a return URL is off the instance's host, the extension is not published,
+   is free, does not match the instance's hosting kind, or the publisher cannot take payments yet;
+   503 when the registry has no Stripe configuration; 502 when Stripe refuses. An organization
+   that already holds a licence may buy again: each purchase is another licence with 5 more seats.
 
 2. **Redirect** the operator's browser to `url` (a full-page redirect; Checkout cannot be framed).
 

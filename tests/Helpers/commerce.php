@@ -44,11 +44,11 @@ function buyerOrganization(string $role = Membership::ROLE_OWNER): array
 }
 
 /**
- * A registered instance of the organization.
+ * A registered instance of the organization, at `console.example` unless told otherwise.
  */
-function buyerInstance(Organization $organization, string $kind = Instance::KIND_SELF_HOSTED): Instance
+function buyerInstance(Organization $organization, string $kind = Instance::KIND_SELF_HOSTED, ?string $host = 'https://console.example'): Instance
 {
-    return Instance::factory()->create(['organization_uuid' => $organization->uuid, 'kind' => $kind]);
+    return Instance::factory()->create(['organization_uuid' => $organization->uuid, 'kind' => $kind, 'host' => $host]);
 }
 
 /**

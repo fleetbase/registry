@@ -28,7 +28,7 @@ class DisputeOpenedMail extends Mailable
 
     public function content(): Content
     {
-        $this->purchase->loadMissing(['extension.organization', 'buyer']);
+        $this->purchase->loadMissing(['extension.organization', 'buyer', 'licence']);
         $dispute = (array) ($this->purchase->meta['dispute'] ?? []);
 
         return new Content(
@@ -41,6 +41,7 @@ class DisputeOpenedMail extends Mailable
                 'reason' => $dispute['reason'] ?? null,
                 'disputeId' => $dispute['id'] ?? null,
                 'purchaseId' => $this->purchase->public_id,
+                'licenceId' => $this->purchase->licence?->public_id,
             ],
         );
     }

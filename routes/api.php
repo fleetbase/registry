@@ -6,6 +6,7 @@ use App\Http\Controllers\Account\InstanceCodeController;
 use App\Http\Controllers\Account\TokenController;
 use App\Http\Controllers\Admin\FacilitatorFeeController;
 use App\Http\Controllers\Admin\FinanceController;
+use App\Http\Controllers\Admin\LicenceController as AdminLicenceController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
@@ -144,6 +145,10 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::post('releases/{release}/publish', [ReviewController::class, 'publish'])->name('releases.publish');
         Route::post('extensions/{slug}/suspend', [ReviewController::class, 'suspend'])->name('extensions.suspend');
         Route::post('extensions/{slug}/unsuspend', [ReviewController::class, 'unsuspend'])->name('extensions.unsuspend');
+        Route::get('licences', [AdminLicenceController::class, 'index'])->name('licences.index');
+        Route::post('licences/{licence}/revoke', [AdminLicenceController::class, 'revoke'])->name('licences.revoke');
+        Route::post('licences/{licence}/reinstate', [AdminLicenceController::class, 'reinstate'])->name('licences.reinstate');
+        Route::patch('licences/{licence}', [AdminLicenceController::class, 'update'])->name('licences.update');
         Route::get('facilitator-fees', [FacilitatorFeeController::class, 'index'])->name('facilitator-fees.index');
         Route::post('facilitator-fees', [FacilitatorFeeController::class, 'store'])->name('facilitator-fees.store');
         Route::get('finance', [FinanceController::class, 'summary'])->name('finance');

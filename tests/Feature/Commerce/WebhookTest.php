@@ -199,7 +199,7 @@ it('ignores refunds and disputes of charges the registry did not sell', function
     expect(Purchase::count())->toBe(0);
 });
 
-it('flags a disputed purchase and tells staff', function () {
+it('flags a disputed purchase, revokes its licence and tells staff', function () {
     config(['registry.commerce.notify' => ['finance@fleetbase.example']]);
     [$checkout] = startedCheckout();
     stripeWebhook('checkout.session.completed', completedSession($checkout))->assertOk();
@@ -209,7 +209,8 @@ it('flags a disputed purchase and tells staff', function () {
     $purchase = Purchase::sole();
     expect($purchase->status)->toBe(Purchase::STATUS_DISPUTED)
         ->and($purchase->meta['dispute'])->toMatchArray(['id' => 'dp_1QfLmTDispute0001', 'reason' => 'fraudulent', 'status' => 'needs_response', 'amount' => 5292])
-        ->and(Licence::sole()->isActive())->toBeTrue();
+        ->and(Licence::sole()->status)->toBe(Licence::STATUS_REVOKED)
+        ->and(Licence::sole()->meta['revoked_reason'])->toBe('disputed');
     Mail::assertSent(DisputeOpenedMail::class, fn ($mail) => $mail->hasTo('finance@fleetbase.example'));
 });
 

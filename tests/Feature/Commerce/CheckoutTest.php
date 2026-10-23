@@ -16,7 +16,7 @@ it('starts a hosted Checkout Session from an instance with a destination charge,
 
     $response = $this->postJson('/v1/instances/me/purchases/checkout', [
         'extension' => packageName($listing, 'npm'),
-        'return_url' => 'https://console.globex.example/extensions/purchased?x=1',
+        'return_url' => 'https://console.example/extensions/purchased?x=1',
         'email' => 'ops@globex.example',
     ])->assertCreated();
 
@@ -44,8 +44,8 @@ it('starts a hosted Checkout Session from an instance with a destination charge,
 
     expect($params['mode'])->toBe('payment')
         ->and($params['line_items'])->toBe([['price' => 'price_1QfLmTRegular0001', 'quantity' => 1]])
-        ->and($params['success_url'])->toBe("https://console.globex.example/extensions/purchased?x=1&handoff={$checkout->public_id}")
-        ->and($params['cancel_url'])->toBe("https://console.globex.example/extensions/purchased?x=1&handoff={$checkout->public_id}&cancelled=1")
+        ->and($params['success_url'])->toBe("https://console.example/extensions/purchased?x=1&handoff={$checkout->public_id}")
+        ->and($params['cancel_url'])->toBe("https://console.example/extensions/purchased?x=1&handoff={$checkout->public_id}&cancelled=1")
         ->and($params['client_reference_id'])->toBe($checkout->public_id)
         ->and($params['customer_email'])->toBe('ops@globex.example')
         ->and($params['metadata'])->toBe($metadata)
@@ -124,11 +124,6 @@ it('refuses checkouts that cannot or need not happen', function (Closure $arrang
 
         return "{$publisher->name} publishes {$listing->name} and already has access to it.";
     }, 409, ''],
-    'already licensed' => [function ($listing, $organization) {
-        Licence::create(['extension_uuid' => $listing->uuid, 'organization_uuid' => $organization->uuid, 'kind' => Licence::KIND_PAID, 'max_activations' => 5, 'status' => Licence::STATUS_ACTIVE]);
-
-        return "{$organization->name} already holds a licence for {$listing->name}. Ask Fleetbase staff for more seats.";
-    }, 409, ''],
     'payouts not ready' => [function ($listing, $organization, $instance, $publisher) {
         $publisher->forceFill(['meta' => ['stripe' => ['transfers' => 'inactive']], 'payout_status' => Organization::PAYOUT_RESTRICTED])->save();
 
@@ -149,6 +144,45 @@ it('reads imported accounts and mirrors imported prices before the first checkou
         ->and($publisher->refresh()->payout_status)->toBe(Organization::PAYOUT_ENABLED)
         ->and($price->stripe_price_id)->toStartWith('price_test')
         ->and(stripe()->sent('post', '/v1/checkout/sessions')[0]['params']['line_items'][0]['price'])->toBe($price->stripe_price_id);
+});
+
+it('sells another licence to an organization that already holds one', function () {
+    [, , $listing] = sellableListing();
+    [, $organization] = buyerOrganization();
+    Licence::create(['extension_uuid' => $listing->uuid, 'organization_uuid' => $organization->uuid, 'kind' => Licence::KIND_PAID, 'max_activations' => 5, 'status' => Licence::STATUS_ACTIVE]);
+    actingAsInstance(buyerInstance($organization));
+
+    $this->postJson('/v1/instances/me/purchases/checkout', ['extension' => $listing->slug, 'return_url' => 'https://console.example/x'])->assertCreated();
+});
+
+it('sends buyers back only to the instance host or its domain', function (?string $host, string $url, bool $allowed) {
+    [, , $listing] = sellableListing();
+    [, $organization] = buyerOrganization();
+    actingAsInstance(buyerInstance($organization, host: $host));
+
+    $response = $this->postJson('/v1/instances/me/purchases/checkout', ['extension' => $listing->slug, 'return_url' => $url]);
+
+    $allowed ? $response->assertCreated() : $response->assertStatus(422);
+})->with([
+    'same host' => ['https://api.acme.com', 'https://api.acme.com/console/extensions', true],
+    'sibling subdomain' => ['https://api.acme.com', 'https://console.acme.com/extensions', true],
+    'parent domain' => ['api.acme.com:8000', 'https://acme.com/x', true],
+    'other domain' => ['https://api.acme.com', 'https://evil.example/x', false],
+    'look-alike suffix' => ['https://api.acme.com', 'https://notacme.com/x', false],
+    'localhost with port' => ['http://localhost:8000', 'http://localhost:4200/extensions', true],
+    'localhost elsewhere' => ['http://localhost:8000', 'http://127.0.0.1:4200/x', false],
+    'no registered host' => [null, 'https://console.example/x', false],
+]);
+
+it('checks the cancel URL as well', function () {
+    [, , $listing] = sellableListing();
+    [, $organization] = buyerOrganization();
+    actingAsInstance(buyerInstance($organization));
+
+    $this->postJson('/v1/instances/me/purchases/checkout', ['extension' => $listing->slug, 'return_url' => 'https://console.example/x', 'cancel_url' => 'https://evil.example/x'])
+        ->assertStatus(422)
+        ->assertExactJson(['errors' => ["Return URLs must be on this instance's host (console.example) or its domain."]]);
+    expect(Checkout::count())->toBe(0);
 });
 
 it('validates the instance checkout request', function () {

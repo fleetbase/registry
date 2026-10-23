@@ -23,7 +23,8 @@ class PurchaseController extends Controller
 {
     /**
      * POST /v1/instances/me/purchases/checkout — a hosted Checkout Session for the instance's
-     * organization. Answers 201 with the hand-off id and Stripe's URL.
+     * organization. The return and cancel URLs must be on the instance's registered host or its
+     * domain. Answers 201 with the hand-off id and Stripe's URL.
      */
     public function checkout(StartCheckoutRequest $request, CheckoutSessions $sessions): JsonResponse
     {
@@ -33,6 +34,14 @@ class PurchaseController extends Controller
         $extension = Extension::findByIdentifier($request->input('extension'));
         if (! $extension) {
             return response()->error('Extension not found.', 404);
+        }
+
+        foreach (array_filter([$request->input('return_url'), $request->input('cancel_url')]) as $url) {
+            if (! $instance->ownsUrl($url)) {
+                return response()->error($instance->hostname()
+                    ? "Return URLs must be on this instance's host ({$instance->hostname()}) or its domain."
+                    : 'This instance has no registered host. Register it again with its URL to buy extensions.', 422);
+            }
         }
 
         $checkout = $sessions->start(

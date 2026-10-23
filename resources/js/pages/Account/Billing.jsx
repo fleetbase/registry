@@ -17,7 +17,7 @@ export const FINALIZE_TIMEOUT_MS = 60_000;
  * licences with the instances holding a seat. After a website checkout Stripe returns here with
  * `?handoff=`, and the page shows Finalizing until the webhook has created the purchase.
  */
-export default function Billing({ organizations = [], organization, purchases = [], licences = [], checkout }) {
+export default function Billing({ organizations = [], organization, purchases = null, licences = [], checkout }) {
     return (
         <SiteLayout title={organization ? `${organization.name} · Billing` : 'Billing'}>
             <div className="wrap" style={{ paddingTop: 40, paddingBottom: 80 }}>
@@ -34,12 +34,18 @@ export default function Billing({ organizations = [], organization, purchases = 
                     )}
                     {!organization ? (
                         <EmptyState icon="card" title="No organization to show">
-                            Billing is for organization owners, admins and billing members.
+                            You are not a member of an organization yet.
                         </EmptyState>
                     ) : (
                         <>
                             {checkout && <Handoff organization={organization} checkout={checkout} />}
-                            <Purchases purchases={purchases} />
+                            {purchases ? (
+                                <Purchases purchases={purchases} />
+                            ) : (
+                                <Note tone="info">
+                                    <span className="small">Purchases and receipts are for {organization.name}’s owners, admins and billing members.</span>
+                                </Note>
+                            )}
                             <Licences licences={licences} />
                         </>
                     )}

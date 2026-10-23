@@ -57,15 +57,15 @@ abstract class WebController extends Controller
     }
 
     /**
-     * The caller's organizations where they see money (owners, admins, billing members), and the
-     * selected one: `$slug`, else the first that is not personal, else the first.
+     * The caller's organizations with one of `$roles` (default: those who see money: owners,
+     * admins, billing members; null: every role), and the selected one: `$slug`, else the first that is not personal, else the first.
      *
      * @return array{0: list<array>, 1: ?array}
      */
-    protected function billingOrganizations(Request $request, ?string $slug): array
+    protected function billingOrganizations(Request $request, ?string $slug, ?array $roles = OrganizationController::BILLING_ROLES): array
     {
         $organizations = collect($this->api($request, '/v1/organizations', [], OrganizationController::class, 'index'))
-            ->filter(fn (array $organization) => in_array($organization['role'] ?? null, OrganizationController::BILLING_ROLES, true))
+            ->filter(fn (array $organization) => $roles === null || in_array($organization['role'] ?? null, $roles, true))
             ->values();
 
         $selected = $slug !== null

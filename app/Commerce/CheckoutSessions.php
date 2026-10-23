@@ -7,7 +7,6 @@ use App\Models\Checkout;
 use App\Models\Extension;
 use App\Models\FacilitatorFee;
 use App\Models\Instance;
-use App\Models\Licence;
 use App\Models\Organization;
 use Illuminate\Support\Arr;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -132,15 +131,6 @@ class CheckoutSessions
 
         if ($extension->organization_uuid === $organization->uuid) {
             throw new ConflictHttpException("{$organization->name} publishes {$extension->name} and already has access to it.");
-        }
-
-        $licensed = Licence::query()->active()
-            ->where('extension_uuid', $extension->uuid)
-            ->where('organization_uuid', $organization->uuid)
-            ->where('kind', Licence::KIND_PAID)
-            ->exists();
-        if ($licensed) {
-            throw new ConflictHttpException("{$organization->name} already holds a licence for {$extension->name}. Ask Fleetbase staff for more seats.");
         }
 
         // Imported listings and accounts (registry:import) have no Stripe state yet: read it now.

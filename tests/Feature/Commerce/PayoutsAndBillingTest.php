@@ -100,7 +100,7 @@ it('exports sales as CSV', function () {
         ]);
 });
 
-it('keeps payouts and billing to owners, admins and billing members', function (string $role, int $status) {
+it('keeps payouts and purchases to owners, admins and billing members, and shows licences to every member', function (string $role, int $status) {
     [, $publisher] = sellableListing();
     $member = Account::factory()->create();
     $member->organizations()->attach($publisher->uuid, ['role' => $role]);
@@ -108,7 +108,7 @@ it('keeps payouts and billing to owners, admins and billing members', function (
 
     $this->getJson("/v1/organizations/{$publisher->slug}/payouts/transactions")->assertStatus($status);
     $this->getJson("/v1/organizations/{$publisher->slug}/billing/purchases")->assertStatus($status);
-    $this->getJson("/v1/organizations/{$publisher->slug}/billing/licences")->assertStatus($status);
+    $this->getJson("/v1/organizations/{$publisher->slug}/billing/licences")->assertOk();
 })->with([
     'billing' => [Membership::ROLE_BILLING, 200],
     'admin' => [Membership::ROLE_ADMIN, 200],

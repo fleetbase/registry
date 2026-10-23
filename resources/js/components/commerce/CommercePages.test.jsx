@@ -150,6 +150,15 @@ describe('Billing', () => {
         expect(screen.getByText(/v1\.2\.0/)).toBeInTheDocument();
     });
 
+    it('shows members their licences but not the purchases', () => {
+        const member = { ...acme, role: 'member' };
+        render(<Billing organizations={[member]} organization={member} purchases={null} licences={[licence]} />);
+
+        expect(screen.getByText('Purchases and receipts are for Acme Fleet Tools’s owners, admins and billing members.')).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: /Receipt/ })).not.toBeInTheDocument();
+        expect(screen.getByText('1 of 5 instances')).toBeInTheDocument();
+    });
+
     it('shows Finalizing and polls the hand-off until the purchase lands', async () => {
         vi.useFakeTimers();
         const checkout = { handoff: 'chk_1', status: 'open', extension: { slug: 'route-optimizer', name: 'Route Optimizer' } };

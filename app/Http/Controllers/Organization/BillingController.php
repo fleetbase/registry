@@ -12,8 +12,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * What an organization bought: purchases with who bought them and Stripe's receipts, and its
- * licences with the instances holding a seat. Owners, admins and billing members.
+ * What an organization bought: purchases with who bought them and Stripe's receipts (owners,
+ * admins and billing members), and its licences with the instances holding a seat (any member).
  */
 class BillingController extends Controller
 {
@@ -39,11 +39,11 @@ class BillingController extends Controller
 
     /**
      * GET /v1/organizations/{slug}/billing/licences — paid and free licences with seat use and
-     * the instances activated on each.
+     * the instances activated on each. Any member.
      */
     public function licences(Request $request, string $slug): JsonResponse
     {
-        $organization = $this->billingOrganization($request, $slug);
+        $organization = $this->findOrganization($request, $slug);
 
         $licences = Licence::query()
             ->where('organization_uuid', $organization->uuid)
