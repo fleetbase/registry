@@ -1,8 +1,13 @@
 <?php
 
 use App\Models\Account;
+use App\Models\Event;
+use App\Models\Extension;
+use App\Models\Install;
 use App\Models\Instance;
 use App\Models\InstanceRegistrationCode;
+use App\Models\Licence;
+use App\Models\LicenceActivation;
 use App\Models\Membership;
 use App\Models\Organization;
 use App\Models\Token;
@@ -14,6 +19,29 @@ function accountWithOrganization(string $role = Membership::ROLE_OWNER, bool $pe
     $account->organizations()->attach($organization->uuid, ['role' => $role]);
 
     return [$account, $organization];
+}
+
+/**
+ * An instance of the organization holding a seat on a licence for an installed extension.
+ *
+ * @return array{0: Instance, 1: string, 2: Install, 3: LicenceActivation}
+ */
+function installedInstance(Organization $organization): array
+{
+    $instance = Instance::factory()->create(['organization_uuid' => $organization->uuid]);
+    $token = $instance->issueToken();
+    $extension = Extension::factory()->published()->create();
+    $install = Install::factory()->create(['instance_uuid' => $instance->uuid, 'extension_uuid' => $extension->uuid]);
+    $licence = Licence::create([
+        'extension_uuid' => $extension->uuid,
+        'organization_uuid' => $organization->uuid,
+        'kind' => Licence::KIND_PAID,
+        'max_activations' => 1,
+        'status' => Licence::STATUS_ACTIVE,
+    ]);
+    $activation = LicenceActivation::create(['licence_uuid' => $licence->uuid, 'instance_uuid' => $instance->uuid, 'activated_at' => now()]);
+
+    return [$instance, $token, $install, $activation];
 }
 
 function registrationPayload(string $code, array $overrides = []): array
@@ -143,4 +171,66 @@ it('keeps instance and personal tokens apart', function () {
 
     $instance->forceFill(['status' => Instance::STATUS_REVOKED])->save();
     $this->withHeader('Authorization', 'Bearer '.$instanceToken)->getJson('/v1/instances/me')->assertStatus(401);
+});
+
+it('rotates the same instance when it registers again with its previous token', function () {
+    [$account, $organization] = accountWithOrganization();
+    [$instance, $previousToken, $install, $activation] = installedInstance($organization);
+    $code = InstanceRegistrationCode::mint($organization, $account);
+
+    $response = $this->postJson('/v1/instances/register', registrationPayload($code->plainTextCode, [
+        'previous_token' => $previousToken,
+        'name' => 'Acme renamed',
+        'console_version' => '0.7.3',
+    ]))->assertOk()
+        ->assertJsonPath('instance.id', $instance->public_id)
+        ->assertJsonPath('instance.name', 'Acme renamed')
+        ->assertJsonPath('instance.console_version', '0.7.3');
+
+    $plain = $response->json('token');
+    expect($plain)->toStartWith('flbi_')->not->toBe($previousToken)
+        ->and(Instance::count())->toBe(1)
+        ->and($instance->fresh()->token_hash)->toBe(hash('sha256', $plain))
+        ->and($install->fresh()->status)->toBe(Install::STATUS_INSTALLED)
+        ->and($activation->fresh()->deactivated_at)->toBeNull()
+        ->and($code->fresh()->instance_uuid)->toBe($instance->uuid)
+        ->and(Event::where('kind', 'instance.reregistered')->count())->toBe(1);
+
+    $this->withHeader('Authorization', 'Bearer '.$previousToken)->getJson('/v1/instances/me')->assertStatus(401);
+    $this->withHeader('Authorization', 'Bearer '.$plain)->getJson('/v1/instances/me')
+        ->assertOk()->assertJsonPath('instance.id', $instance->public_id);
+});
+
+it('replaces an instance that registers into another organization', function () {
+    [, $oldOrganization] = accountWithOrganization();
+    [$instance, $previousToken, $install, $activation] = installedInstance($oldOrganization);
+    [$account, $organization] = accountWithOrganization();
+    $code = InstanceRegistrationCode::mint($organization, $account);
+
+    $response = $this->postJson('/v1/instances/register', registrationPayload($code->plainTextCode, ['previous_token' => $previousToken]))
+        ->assertCreated()
+        ->assertJsonPath('instance.organization.id', $organization->public_id);
+
+    $replacement = Instance::where('public_id', $response->json('instance.id'))->first();
+    expect($replacement->uuid)->not->toBe($instance->uuid)
+        ->and($instance->fresh()->status)->toBe(Instance::STATUS_REVOKED)
+        ->and($activation->fresh()->deactivated_at)->not->toBeNull()
+        ->and($install->fresh()->instance_uuid)->toBe($replacement->uuid)
+        ->and($install->fresh()->status)->toBe(Install::STATUS_INSTALLED);
+
+    $this->withHeader('Authorization', 'Bearer '.$previousToken)->getJson('/v1/instances/me')->assertStatus(401);
+});
+
+it('creates a new instance when the previous token is unknown or revoked', function () {
+    [$account, $organization] = accountWithOrganization();
+    [$instance, $previousToken] = installedInstance($organization);
+    $instance->forceFill(['status' => Instance::STATUS_REVOKED])->save();
+
+    $this->postJson('/v1/instances/register', registrationPayload(InstanceRegistrationCode::mint($organization, $account)->plainTextCode, ['previous_token' => $previousToken]))
+        ->assertCreated();
+    $this->postJson('/v1/instances/register', registrationPayload(InstanceRegistrationCode::mint($organization, $account)->plainTextCode, ['previous_token' => 'flbi_unknown']))
+        ->assertCreated();
+
+    expect(Instance::count())->toBe(3)
+        ->and($instance->fresh()->status)->toBe(Instance::STATUS_REVOKED);
 });
