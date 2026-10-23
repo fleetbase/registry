@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import SiteLayout from '../../layouts/SiteLayout';
 import AccountHeader from '../../components/account/AccountHeader';
+import InstanceCodeCard from '../../components/account/InstanceCodeCard';
 import Dialog from '../../components/Dialog';
 import Icon from '../../components/Icon';
 import { StatusChip } from '../../components/Status';
@@ -73,6 +74,7 @@ export default function Organizations({ organizations = [], organization }) {
                             {organization ? (
                                 <>
                                     <ProfileCard key={`profile-${organization.slug}`} organization={organization} />
+                                    {MANAGING.includes(organization.role) && <InstanceCodeCard key={`instances-${organization.slug}`} organization={organization} />}
                                     {organization.is_personal ? (
                                         <Note tone="info">
                                             This is your personal organization: it only ever has you. To publish with other people, <button type="button" style={{ border: 0, background: 'none', padding: 0, color: 'var(--accent)', font: 'inherit', textDecoration: 'underline', cursor: 'pointer' }} onClick={() => setCreating(true)}>create an organization</button>.

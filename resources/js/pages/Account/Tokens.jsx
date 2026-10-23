@@ -116,11 +116,11 @@ function TokensPage({ tokens }) {
                     </h2>
                     <div className="stack">
                         <CopyCommand value="npm i -g @fleetbase/cli" label="install command" />
-                        <CopyCommand value={`flb set-auth <token> --registry ${registry.url}`} label="set-auth command" />
+                        <CopyCommand value={`flb login --token <token> --registry ${registry.url}`} label="login command" />
                         <CopyCommand value="flb publish" label="publish command" />
                     </div>
                     <p className="small muted">
-                        In CI, store the token as a secret named <code>FLB_TOKEN</code> instead of running <code>set-auth</code>.
+                        In CI, store the token as a secret named <code>FLB_TOKEN</code> instead of running <code>flb login</code>.
                     </p>
                 </section>
             </div>
