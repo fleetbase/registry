@@ -40,10 +40,12 @@ Route::middleware('auth:web')->group(function () {
     Route::get('account/profile', [AccountPageController::class, 'profile'])->name('account.profile');
     Route::get('account/organizations/{slug?}', [AccountPageController::class, 'organizations'])->name('account.organizations');
     Route::get('account/tokens', [AccountPageController::class, 'tokens'])->name('account.tokens');
+    Route::get('account/billing/{slug?}', [AccountPageController::class, 'billing'])->name('account.billing');
 
     Route::get('studio', [StudioPageController::class, 'index'])->name('studio');
     Route::get('studio/new', [StudioPageController::class, 'create'])->name('studio.create');
     Route::get('studio/insights', [StudioPageController::class, 'insights'])->name('studio.insights');
+    Route::get('studio/payouts/{slug?}', [StudioPageController::class, 'payouts'])->name('studio.payouts');
     Route::get('studio/{slug}', [StudioPageController::class, 'editor'])->name('studio.editor');
     Route::get('studio/{slug}/releases', [StudioPageController::class, 'releases'])->name('studio.releases');
     Route::get('studio/{slug}/releases/{release}', [StudioPageController::class, 'release'])->name('studio.release');

@@ -76,3 +76,26 @@ export function openRelease(releases = []) {
 export function liveRelease(releases = []) {
     return [...releases].filter((release) => release.status === 'published').sort((a, b) => new Date(b.published_at) - new Date(a.published_at))[0] ?? null;
 }
+
+/** A publisher organization's Stripe Connect payout status (`account.updated`). */
+export const PAYOUT_STATUSES = {
+    enabled: { tone: 'ok', icon: 'check', label: 'Payouts on', hint: 'Sales are paid out on your schedule.' },
+    pending: { tone: 'you', icon: 'arrowRight', label: 'Finish setup', hint: 'Stripe needs your business and bank details.' },
+    restricted: { tone: 'you', icon: 'alert', label: 'Action needed', hint: 'Stripe needs more information before it pays out.' },
+    rejected: { tone: 'fail', icon: 'x', label: 'Rejected', hint: 'Stripe closed this account. Contact Fleetbase.' },
+};
+
+/** A purchase's status. */
+export const PURCHASE_STATUSES = {
+    paid: { tone: 'ok', icon: 'check', label: 'Paid' },
+    refunded: { tone: 'idle', icon: 'minus', label: 'Refunded' },
+    disputed: { tone: 'fail', icon: 'alert', label: 'Disputed' },
+};
+
+export function payoutStatus(status) {
+    return PAYOUT_STATUSES[status] ?? { tone: 'idle', icon: 'minus', label: 'Not set up', hint: 'Connect a Stripe account to sell extensions.' };
+}
+
+export function purchaseStatus(status) {
+    return PURCHASE_STATUSES[status] ?? { tone: 'idle', icon: 'minus', label: status };
+}

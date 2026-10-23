@@ -1,8 +1,9 @@
+import { Link } from '@inertiajs/react';
 import SiteLayout from '../../layouts/SiteLayout';
 import { StatusChip } from '../../components/Status';
 import { StudioNav } from '../../components/studio/StudioChrome';
 
-/** Analytics and payouts, both coming soon. No numbers until there are real ones. */
+/** Analytics (coming soon; no numbers until there are real ones) and the way to payouts. */
 export default function StudioInsights() {
     return (
         <SiteLayout title="Insights" section="studio">
@@ -29,15 +30,12 @@ export default function StudioInsights() {
                             <p className="small muted">Today: each extension’s install count is on its public page.</p>
                         </section>
                         <section className="card card-pad stack" aria-labelledby="h-pay">
-                            <StatusChip tone="idle" icon="clock" style={{ alignSelf: 'flex-start' }}>
-                                Coming soon
-                            </StatusChip>
                             <h2 id="h-pay" className="h2">
                                 Payouts
                             </h2>
-                            <p className="ink2">Sell extensions with a one-time licence. Payments go to your organization’s Stripe Connect account; Fleetbase keeps a facilitator fee and shows every sale, refund and payout here.</p>
+                            <p className="ink2">Sell extensions with a one-time licence. Payments go to your organization’s Stripe account; Fleetbase keeps a facilitator fee and shows every sale, refund and payout.</p>
                             <ol className="col" style={{ gap: 10, listStyle: 'none', margin: 0, padding: 0 }}>
-                                {['Connect a Stripe account for your organization', 'Set a price on any listing', 'Operators buy in their console; you’re paid on Stripe’s schedule'].map((step, index) => (
+                                {['Set up payouts for your organization', 'Set a price on any listing', 'Operators buy in their console or here; you’re paid on Stripe’s schedule'].map((step, index) => (
                                     <li key={step} className="row" style={{ gap: 10 }}>
                                         <span className="count" aria-hidden="true">
                                             {index + 1}
@@ -47,12 +45,9 @@ export default function StudioInsights() {
                                 ))}
                             </ol>
                             <div className="row wrapflex">
-                                <button type="button" className="btn" disabled aria-describedby="payouts-when">
-                                    Connect Stripe
-                                </button>
-                                <span id="payouts-when" className="small muted">
-                                    Available when payouts open
-                                </span>
+                                <Link href="/studio/payouts" className="btn">
+                                    Open payouts
+                                </Link>
                             </div>
                         </section>
                     </div>

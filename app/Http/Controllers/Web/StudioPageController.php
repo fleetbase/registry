@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Web;
 
+use App\Commerce\Stripe;
 use App\Http\Controllers\Catalog\CatalogController;
+use App\Http\Controllers\Organization\PayoutController;
+use App\Http\Controllers\Organization\StripeConnectController;
 use App\Http\Controllers\Publisher\ExtensionController;
 use App\Http\Controllers\Publisher\ReleaseController;
 use App\Models\Release;
@@ -12,7 +15,7 @@ use Inertia\Response;
 
 /**
  * Publisher Studio: my extensions, create, the listing editor, releases with live checks,
- * review status, history and the coming-soon insights.
+ * review status, history, payouts and the coming-soon insights.
  */
 class StudioPageController extends WebController
 {
@@ -113,6 +116,33 @@ class StudioPageController extends WebController
     public function insights(): Response
     {
         return Inertia::render('Studio/Insights');
+    }
+
+    /**
+     * GET /studio/payouts[/{slug}] — an organization's Stripe Connect account (onboarding and
+     * management through Connect.js), balance, payout schedule and sales.
+     */
+    public function payouts(Request $request, ?string $slug = null): Response
+    {
+        [$organizations, $organization] = $this->billingOrganizations($request, $slug);
+        $payouts = $error = $transactions = null;
+
+        if ($organization) {
+            $slug = $organization['slug'];
+            [$payouts, $error] = $this->tryApi($request, "/v1/organizations/{$slug}/payouts", [], PayoutController::class, 'summary', ['slug' => $slug]);
+            $payouts ??= ['connect' => $this->api($request, "/v1/organizations/{$slug}/stripe", [], StripeConnectController::class, 'show', ['slug' => $slug])];
+            $transactions = $this->api($request, "/v1/organizations/{$slug}/payouts/transactions", $this->only($request, ['page', 'from', 'to', 'status']), PayoutController::class, 'transactions', ['slug' => $slug]);
+        }
+
+        return Inertia::render('Studio/Payouts', [
+            'organizations' => $organizations,
+            'organization' => $organization,
+            'payouts' => $payouts,
+            'transactions' => $transactions,
+            'filters' => $this->only($request, ['from', 'to', 'status']),
+            'error' => $error,
+            'stripe' => ['configured' => Stripe::configured(), 'publishable_key' => config('services.stripe.key')],
+        ]);
     }
 
     /**

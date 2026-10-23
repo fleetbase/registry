@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { api } from '../../lib/api';
 import { Link, router, usePage } from '@inertiajs/react';
 import SiteLayout from '../../layouts/SiteLayout';
 import ExtensionIcon from '../../components/ExtensionIcon';
@@ -16,7 +17,7 @@ import { HOSTINGS } from '../../lib/statuses';
  * version (a partial reload of `compatibility`).
  */
 export default function ExtensionShow({ extension, releases, compatibility }) {
-    const { registry, auth } = usePage().props;
+    const { registry, auth, commerce } = usePage().props;
     const selfHosted = extension.hosting === 'self_hosted';
     const paid = isPaid(extension.price);
     const [method, setMethod] = useState(selfHosted ? 'cli' : 'console');
@@ -200,6 +201,7 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                     </div>
                                     {extension.price?.on_sale && <StatusChip tone="you">On sale</StatusChip>}
                                 </div>
+                                {paid && !owns && commerce?.enabled && <BuyPanel extension={extension} account={auth?.account} />}
                                 <Segmented
                                     label="Install method"
                                     value={method}
@@ -226,7 +228,7 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                                 {paid ? ', choose Buy and pay with Stripe, then Install.' : ' and choose Install.'}
                                             </Step>
                                             <Step n={3}>The console installs the engine and API package and reloads when done.</Step>
-                                            {paid && <span className="xs muted">Paid extensions are bought in your console; checkout here opens with payouts.</span>}
+                                            {paid && <span className="xs muted">Or buy it on this page: the licence covers your organization’s instances either way.</span>}
                                         </div>
                                     ))}
                                 {method === 'cli' && (
@@ -438,6 +440,69 @@ function Lightbox({ extension, screenshots, index: start, onClose }) {
                     </button>
                 ))}
             </div>
+        </div>
+    );
+}
+
+const BUYING_ROLES = ['owner', 'admin', 'billing'];
+
+/**
+ * Buy on the website: pick one of your organizations (owners, admins, billing members) and go to
+ * Stripe's hosted checkout. Stripe returns to the organization's billing page.
+ */
+export function BuyPanel({ extension, account }) {
+    const organizations = (account?.organizations ?? []).filter((organization) => BUYING_ROLES.includes(organization.role) && organization.id !== extension.publisher?.id);
+    const [organization, setOrganization] = useState(organizations.find((item) => !item.is_personal)?.slug ?? organizations[0]?.slug ?? '');
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState(null);
+
+    if (!account) {
+        return (
+            <Link href={`/sign-in`} className="btn btn-primary w-full" data-buy="sign-in">
+                Sign in to buy
+            </Link>
+        );
+    }
+
+    if (organizations.length === 0) {
+        return <span className="xs muted">To buy, ask an owner of your organization for the billing role.</span>;
+    }
+
+    async function buy() {
+        setBusy(true);
+        setError(null);
+        try {
+            const checkout = await api.post('purchases/checkout', { extension: extension.slug, organization });
+            window.location.assign(checkout.url);
+        } catch (e) {
+            setError(e.message);
+            setBusy(false);
+        }
+    }
+
+    return (
+        <div className="col" style={{ gap: 8 }} data-buy>
+            {organizations.length > 1 && (
+                <label className="field">
+                    <span className="label">Buy for</span>
+                    <select className="select" value={organization} onChange={(e) => setOrganization(e.target.value)}>
+                        {organizations.map((item) => (
+                            <option key={item.id} value={item.slug}>
+                                {item.name}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+            )}
+            <button type="button" className="btn btn-primary w-full" onClick={buy} disabled={busy || !organization} aria-busy={busy || undefined}>
+                {busy ? 'Opening Stripe…' : `Buy for ${money(extension.price.effective_amount ?? extension.price.amount, extension.price.currency)}`}
+            </button>
+            {error && (
+                <span className="xs" role="alert" style={{ color: 'var(--fail)' }}>
+                    {error}
+                </span>
+            )}
+            <span className="xs muted">Tax is added at checkout where it applies. Paid securely with Stripe.</span>
         </div>
     );
 }
