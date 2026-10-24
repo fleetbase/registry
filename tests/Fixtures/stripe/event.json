@@ -1,0 +1,11 @@
+{
+  "id": "evt_1QfLmT2eZvKYlo2C0aBcDeFg",
+  "object": "event",
+  "api_version": "2026-09-30.endive",
+  "created": 1792800000,
+  "data": { "object": {} },
+  "livemode": false,
+  "pending_webhooks": 1,
+  "request": { "id": null, "idempotency_key": null },
+  "type": "checkout.session.completed"
+}

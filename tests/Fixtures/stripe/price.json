@@ -1,0 +1,18 @@
+{
+  "id": "price_1QfLmTRegular0001",
+  "object": "price",
+  "active": true,
+  "billing_scheme": "per_unit",
+  "created": 1792750000,
+  "currency": "usd",
+  "livemode": false,
+  "lookup_key": null,
+  "metadata": {},
+  "nickname": null,
+  "product": "prod_QfLmTRouteOptimizer",
+  "recurring": null,
+  "tax_behavior": "exclusive",
+  "type": "one_time",
+  "unit_amount": 4900,
+  "unit_amount_decimal": "4900"
+}
