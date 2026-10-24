@@ -75,6 +75,33 @@ return [
         'source_disk' => env('REGISTRY_IMPORT_SOURCE_DISK', 'import_source'),
     ],
 
+    'cloud' => [
+        // Shared with the cloud console's API (REGISTRY_CLOUD_PLATFORM_SECRET there too). It signs
+        // `POST /v1/instances/register/cloud`; empty turns cloud registration off.
+        'platform_secret' => env('REGISTRY_CLOUD_PLATFORM_SECRET'),
+
+        // Organization that owns the cloud instance (slug); created on first use. Licences stay
+        // with each cloud company's organization: the instance only acts for them.
+        'organization' => env('REGISTRY_CLOUD_ORGANIZATION', 'fleetbase'),
+
+        // Host the cloud API registers with (its APP_URL), e.g. `api.fleetbase.io`. The importer
+        // attaches cloud installs to the instance of this host so the first registration
+        // rotates onto it.
+        'host' => env('REGISTRY_CLOUD_HOST'),
+
+        // Seconds a signed registration request stays valid.
+        'signature_tolerance' => (int) env('REGISTRY_CLOUD_SIGNATURE_TOLERANCE', 300),
+    ],
+
+    'maintenance' => [
+        // Refuse publishing and checkout with 503 (cutover freeze). `registry:maintenance on`
+        // sets it at runtime without a deploy; this variable forces it on.
+        'enabled' => (bool) env('REGISTRY_MAINTENANCE', false),
+        'message' => env('REGISTRY_MAINTENANCE_MESSAGE', 'The Fleetbase extensions registry is being upgraded. Publishing and purchases are paused and will be back shortly.'),
+        // Retry-After header on refused requests, in seconds.
+        'retry_after' => (int) env('REGISTRY_MAINTENANCE_RETRY_AFTER', 3600),
+    ],
+
     'storage' => [
         // Disk that holds tarballs, prebuilt dist archives, icons and screenshots.
         'disk' => env('REGISTRY_STORAGE_DISK', 's3'),

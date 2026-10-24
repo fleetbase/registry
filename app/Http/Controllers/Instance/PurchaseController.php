@@ -23,8 +23,9 @@ class PurchaseController extends Controller
 {
     /**
      * POST /v1/instances/me/purchases/checkout — a hosted Checkout Session for the instance's
-     * organization. The return and cancel URLs must be on the instance's registered host or its
-     * domain. Answers 201 with the hand-off id and Stripe's URL.
+     * organization (the company's, when the cloud instance acts for one). The return and cancel
+     * URLs must be on the instance's registered host or its domain. Answers 201 with the hand-off
+     * id and Stripe's URL.
      */
     public function checkout(StartCheckoutRequest $request, CheckoutSessions $sessions): JsonResponse
     {
@@ -46,7 +47,7 @@ class PurchaseController extends Controller
 
         $checkout = $sessions->start(
             $extension,
-            $instance->organization,
+            $instance->licensingOrganization(),
             Checkout::SOURCE_INSTANCE,
             $request->input('return_url'),
             $request->input('cancel_url') ?? $request->input('return_url'),
@@ -69,7 +70,7 @@ class PurchaseController extends Controller
 
         $checkout = Checkout::query()
             ->where('public_id', $handoff)
-            ->where('organization_uuid', $instance->organization_uuid)
+            ->where('organization_uuid', $instance->licensingOrganizationUuid())
             ->with(['extension', 'organization', 'purchase.extension', 'purchase.licence'])
             ->first();
 

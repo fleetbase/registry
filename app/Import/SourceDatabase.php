@@ -5,6 +5,7 @@ namespace App\Import;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
 /**
@@ -14,6 +15,8 @@ use RuntimeException;
  *   mysql://user:pass@host:3306/fleetbase   (also mariadb://)
  *   sqlite:///absolute/path/snapshot.sqlite
  *   /path/to/dump.sql or dump.sql.gz         (loaded into a temporary SQLite file)
+ *   import_source:cutover/cloud.sql.gz       (a dump on a filesystem disk, e.g. the cloud bucket the
+ *                                            importer reads; downloaded, then loaded as above)
  */
 class SourceDatabase
 {
@@ -27,6 +30,8 @@ class SourceDatabase
     ];
 
     protected ?string $temporaryFile = null;
+
+    protected ?string $downloadedDump = null;
 
     /** @var array<string, int> rows loaded per table, when the source is a dump */
     public array $dumpRowCounts = [];
@@ -56,10 +61,38 @@ class SourceDatabase
     {
         DB::purge(self::CONNECTION);
 
-        if ($this->temporaryFile && is_file($this->temporaryFile)) {
-            @unlink($this->temporaryFile);
+        foreach ([$this->temporaryFile, $this->downloadedDump] as $file) {
+            if ($file && is_file($file)) {
+                @unlink($file);
+            }
         }
         $this->temporaryFile = null;
+        $this->downloadedDump = null;
+    }
+
+    /**
+     * `disk:path` names a dump on a configured filesystem disk: download it to a temporary file and
+     * return that file's path. Null for anything else.
+     */
+    protected function diskDump(): ?string
+    {
+        if (! preg_match('#^([A-Za-z0-9_-]+):(?!//)(.+)$#', $this->from, $m) || ! is_array(config('filesystems.disks.'.$m[1]))) {
+            return null;
+        }
+
+        [, $disk, $path] = $m;
+        $stream = Storage::disk($disk)->readStream($path);
+        if (! is_resource($stream)) {
+            throw new RuntimeException("SQL dump not found on the {$disk} disk: {$path}");
+        }
+
+        $this->downloadedDump = tempnam(sys_get_temp_dir(), 'registry-dump-').(str_ends_with($path, '.gz') ? '.sql.gz' : '.sql');
+        $out = fopen($this->downloadedDump, 'wb');
+        stream_copy_to_stream($stream, $out);
+        fclose($out);
+        fclose($stream);
+
+        return $this->downloadedDump;
     }
 
     protected function isDsn(): bool
@@ -94,13 +127,16 @@ class SourceDatabase
                 'password' => isset($parts['pass']) ? urldecode($parts['pass']) : '',
                 'charset' => $query['charset'] ?? 'utf8mb4',
                 'collation' => $query['collation'] ?? 'utf8mb4_unicode_ci',
+                // ?unix_socket=/path (a local rehearsal), ?ssl_ca=/path/to/rds-ca.pem (a TLS-only database)
+                'unix_socket' => $query['unix_socket'] ?? '',
+                'options' => isset($query['ssl_ca']) ? [\PDO::MYSQL_ATTR_SSL_CA => $query['ssl_ca']] : [],
                 'prefix' => '',
                 'strict' => false,
             ];
         }
 
         $this->temporaryFile = tempnam(sys_get_temp_dir(), 'registry-import-').'.sqlite';
-        $this->dumpRowCounts = (new SqlDumpLoader(self::TABLES))->load($this->from, $this->temporaryFile);
+        $this->dumpRowCounts = (new SqlDumpLoader(self::TABLES))->load($this->diskDump() ?? $this->from, $this->temporaryFile);
 
         return ['driver' => 'sqlite', 'database' => $this->temporaryFile, 'prefix' => '', 'foreign_key_constraints' => false];
     }

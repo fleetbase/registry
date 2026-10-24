@@ -7,8 +7,8 @@ use App\Models\Instance;
 use App\Models\LicenceActivation;
 
 /**
- * Releases every seat an instance holds on licences for an extension.
- * Returns the number of activations closed.
+ * Releases every seat an instance holds on licences for an extension; for the cloud instance
+ * acting for a company, only that company's seats. Returns the number of activations closed.
  */
 class DeactivateLicence
 {
@@ -17,7 +17,9 @@ class DeactivateLicence
         return LicenceActivation::query()
             ->where('instance_uuid', $instance->uuid)
             ->whereNull('deactivated_at')
-            ->whereHas('licence', fn ($q) => $q->where('extension_uuid', $extension->uuid))
+            ->whereHas('licence', fn ($q) => $q
+                ->where('extension_uuid', $extension->uuid)
+                ->when($instance->tenant(), fn ($q, $tenant) => $q->where('organization_uuid', $tenant->uuid)))
             ->update(['deactivated_at' => now(), 'updated_at' => now()]);
     }
 }

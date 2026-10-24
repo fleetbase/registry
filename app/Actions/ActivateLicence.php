@@ -15,7 +15,9 @@ use Illuminate\Support\Facades\DB;
  * extension, creating the automatic free licence on first install of a free extension.
  *
  * Seat = instance (D4). Re-activating an instance that already holds a seat only moves
- * the activation to the new release.
+ * the activation to the new release. The cloud instance acting for a company uses that
+ * company's organization's licences (`Instance::licensingOrganizationUuid()`), so each cloud
+ * company holds its own seat on the one cloud instance.
  */
 class ActivateLicence
 {
@@ -25,7 +27,7 @@ class ActivateLicence
             $licences = Licence::query()
                 ->active()
                 ->where('extension_uuid', $extension->uuid)
-                ->where('organization_uuid', $instance->organization_uuid)
+                ->where('organization_uuid', $instance->licensingOrganizationUuid())
                 ->orderByRaw('case when kind = ? then 0 else 1 end', [Licence::KIND_PAID])
                 ->orderBy('created_at')
                 ->lockForUpdate()
@@ -82,7 +84,7 @@ class ActivateLicence
 
         $revoked = Licence::query()
             ->where('extension_uuid', $extension->uuid)
-            ->where('organization_uuid', $instance->organization_uuid)
+            ->where('organization_uuid', $instance->licensingOrganizationUuid())
             ->where('status', Licence::STATUS_REVOKED)
             ->exists();
 
@@ -92,7 +94,7 @@ class ActivateLicence
 
         return Licence::create([
             'extension_uuid' => $extension->uuid,
-            'organization_uuid' => $instance->organization_uuid,
+            'organization_uuid' => $instance->licensingOrganizationUuid(),
             'kind' => Licence::KIND_FREE,
             'max_activations' => null,
             'status' => Licence::STATUS_ACTIVE,

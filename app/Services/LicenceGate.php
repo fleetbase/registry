@@ -50,7 +50,7 @@ class LicenceGate
         }
 
         $organizations = $this->organizationsFor($credential);
-        if (in_array($extension->organization_uuid, $organizations, true) || $this->hasActiveLicence($extension, $organizations)) {
+        if (in_array($extension->organization_uuid, $organizations, true) || $this->hasActiveLicence($extension, $organizations) || $this->platformHoldsSeat($credential, $extension)) {
             return ['status' => self::STATUS_ALLOWED, 'message' => null];
         }
 
@@ -70,6 +70,21 @@ class LicenceGate
             ->where('extension_uuid', $extension->uuid)
             ->whereIn('organization_uuid', $organizationUuids)
             ->exists();
+    }
+
+    /**
+     * The cloud instance downloads for whichever company it is installing for, and Composer and
+     * npm cannot name that company. It may read a paid package while any company holds an active
+     * seat on it: the install report that claims the seat comes before the download.
+     */
+    protected function platformHoldsSeat(Token|Instance $credential, Extension $extension): bool
+    {
+        return $credential instanceof Instance
+            && $credential->isPlatform()
+            && $credential->activations()
+                ->whereNull('deactivated_at')
+                ->whereHas('licence', fn ($q) => $q->active()->where('extension_uuid', $extension->uuid))
+                ->exists();
     }
 
     protected function resolve(string $plain, Request $request): Token|Instance|null
