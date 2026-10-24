@@ -215,14 +215,15 @@ default here is 12) because Laravel's `hashed` cast refuses hashes above the con
 | `GET /v1/catalog/extensions?q=&category=&pricing=&hosting=&console=&compatible=&sort=&page=&limit=` | Paged listings with publisher, category, latest release, install count, compat, price, package names. `console=<version>` adds `compatibility: {console, compatible, newest_compatible}` to each item (does the latest release work, and the newest published release that does); with `compatible=1` only listings that have such a release |
 | `GET /v1/catalog/extensions/{slug}` | Full listing, screenshots, publisher, versions summary |
 | `GET /v1/catalog/extensions/{slug}/releases?channel=` | Published (and yanked) releases: versions, channels, dates, sizes, notes, compat |
-
-Catalog releases (`latest_release`, each `versions` entry, `/releases`) and the instance
-`updates` releases carry `dist`: `null`, or `{size, sha256, integrity, built_against}` for
-a release with a prebuilt engine dist, where `built_against` holds the
-`@fleetbase/ember-ui` and `@fleetbase/ember-core` versions it was built with. The archive
-is `GET /npm/{engine}/-/dist/{version}`, behind the licence gate.
 | `GET /v1/catalog/publishers/{slug}` | Publisher profile and their published extensions |
 | `GET /v1/catalog/categories` | Categories with published extension counts |
+
+Catalog releases (`latest_release`, each `versions` entry, `/releases`) and the instance
+`updates` releases carry `dist`: `null`, or `{url, size, sha256, integrity, built_against}`
+for a release with a prebuilt engine dist, where `built_against` holds the
+`@fleetbase/ember-ui` and `@fleetbase/ember-core` versions it was built with. `url` is
+`GET /v1/instances/me/releases/{release}/dist`, which an instance fetches with its token;
+the same archive is also served at `GET /npm/{engine}/-/dist/{version}`.
 
 Filters: `pricing=free|paid`, `hosting=cloud|self_hosted|both` (listings marked `both`
 match either side), `category=<slug or id>[,…]`, `publisher=<slug>`, `tag=<tag>`.
@@ -420,6 +421,7 @@ disables a token.
 | `POST /v1/instances/register` | No bearer token. Body: `code`, `name`, `kind` (`cloud` or `self_hosted`), optional `host`, `console_version`, `api_version`, `previous_token`. Redeems the code (single use, 15 minutes) and returns `{token, token_type, rotated, instance}`; the token is never shown again. 201 for a new instance, 200 when an existing one was rotated (see re-registration below) |
 | `GET /v1/instances/me` | The instance, its organization, and the organization's licences with `seats_used` and `activated_here` |
 | `GET /v1/instances/me/updates?channel=` | Every extension installed on the instance: the installed release, the newest compatible published release, `update_available`. `channel=beta` includes beta releases |
+| `GET /v1/instances/me/releases/{release}/dist` | The release's prebuilt engine dist (`rel_` id), as `dist.url` names it. Free extensions: any active instance. Paid: 403 unless the instance's organization owns the extension or holds an active licence, checked on every request. `X-Checksum-Sha256`, ETag, 304; yanked releases stay downloadable; 404 when the release has no dist or the listing is suspended |
 | `POST /v1/instances/me/installs` | Body: `extension` (slug, `ext_` id or an npm/Composer package name), `version` or `release` (`rel_` id), `status` (`installing`, `installed`, `failed`), optional `error`, `installed_by`. Returns `{install, activation}` |
 | `DELETE /v1/instances/me/installs/{extension}` | Reports an uninstall (scoped npm names work in the path). Returns `{install, deactivated}` |
 
