@@ -377,6 +377,16 @@ it('reads from a sqlite:// source', function () {
     expect($report['counts']['extensions']['created'])->toBe(5);
 });
 
+it('reads a dump from a filesystem disk', function () {
+    $this->source->put('registry-cutover/cloud-registry.sql', file_get_contents(FIXTURE_DUMP));
+
+    $report = runImport(['--from' => 'import_source:registry-cutover/cloud-registry.sql', '--dry-run' => true]);
+
+    expect($report['counts']['extensions']['created'])->toBe(5);
+    $this->artisan('registry:import', ['--from' => 'import_source:registry-cutover/missing.sql', '--dry-run' => true])
+        ->expectsOutputToContain('SQL dump not found on the import_source disk')->assertFailed();
+});
+
 it('reads socket and TLS settings from a mysql:// source', function () {
     $source = new class('mysql://importer:p%40ss@db.internal:3307/fleetbase?unix_socket=/tmp/my.sock&ssl_ca=/etc/ssl/rds.pem') extends SourceDatabase
     {

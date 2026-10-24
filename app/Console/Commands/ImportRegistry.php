@@ -15,7 +15,7 @@ use Illuminate\Console\Command;
 class ImportRegistry extends Command
 {
     protected $signature = 'registry:import
-        {--from= : mysql://user:pass@host:3306/db, sqlite:///path/to/file.sqlite, or a path to a .sql / .sql.gz dump}
+        {--from= : mysql://user:pass@host:3306/db, sqlite:///path/to/file.sqlite, a path to a .sql / .sql.gz dump, or disk:path for a dump on a filesystem disk (import_source:cutover/cloud.sql.gz)}
         {--dry-run : Map everything and print counts and anomalies, then roll back; no files are copied}
         {--verify : Compare source and target after an import (pending changes, counts, a sample of rows and tarballs); exits 1 on drift}
         {--sample=25 : Rows per table compared field by field with --verify}
@@ -23,12 +23,15 @@ class ImportRegistry extends Command
         {--cloud-host= : Host the cloud API registers with; cloud installs attach to its instance (default: registry.cloud.host)}
         {--source-disk= : Filesystem disk holding the cloud `files` objects (default: registry.import.source_disk)}
         {--report= : Also write the full report, every anomaly included, as JSON to this path}
-        {--examples=10 : Anomaly examples printed per type}';
+        {--examples=10 : Anomaly examples printed per type}
+        {--memory-limit=512M : PHP memory limit for the run (the source tables are held in memory); never lowered}';
 
     protected $description = 'Import extensions, releases, accounts, purchases and installs from the cloud registry-bridge tables';
 
     public function handle(): int
     {
+        $this->raiseMemoryLimit((string) $this->option('memory-limit'));
+
         $from = (string) $this->option('from');
         if ($from === '') {
             $this->error('--from is required: a mysql:// or sqlite:// DSN, or a path to a SQL dump.');
@@ -69,8 +72,11 @@ class ImportRegistry extends Command
             ], '127.0.0.1');
         }
 
+        $peak = (int) round(memory_get_peak_usage(true) / 1048576);
+        $this->line("Peak memory: {$peak} MB of ".ini_get('memory_limit'));
+
         if ($path = $this->option('report')) {
-            file_put_contents($path, json_encode($report->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            file_put_contents($path, json_encode([...$report->toArray(), 'peak_memory_mb' => $peak], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
             $this->line("Full report written to {$path}");
         }
 
@@ -138,6 +144,21 @@ class ImportRegistry extends Command
         $this->info('No drift.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Raise PHP's memory limit to `$limit` (e.g. 512M); a higher or unlimited one is kept.
+     */
+    protected function raiseMemoryLimit(string $limit): void
+    {
+        $bytes = fn (string $value) => (int) $value * match (strtoupper(substr(trim($value), -1))) {
+            'G' => 1024 ** 3, 'M' => 1024 ** 2, 'K' => 1024, default => 1,
+        };
+
+        $current = (string) ini_get('memory_limit');
+        if ($limit !== '' && $current !== '-1' && $bytes($limit) > $bytes($current)) {
+            ini_set('memory_limit', $limit);
+        }
     }
 
     protected function cloudHost(): ?string
