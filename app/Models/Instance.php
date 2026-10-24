@@ -146,6 +146,38 @@ class Instance extends Model implements AuthenticatableContract
         return $host === $base || str_ends_with($host, '.'.$base);
     }
 
+    /**
+     * The active instance of an organization registered from the same host (scheme, case and a
+     * trailing slash ignored), most recently seen first. Null when the host is empty.
+     */
+    public static function findByHost(string $organizationUuid, ?string $host): ?static
+    {
+        $host = static::normalizeHost($host);
+        if ($host === null) {
+            return null;
+        }
+
+        return static::query()
+            ->where('organization_uuid', $organizationUuid)
+            ->where('status', self::STATUS_ACTIVE)
+            ->whereNotNull('host')
+            ->orderByDesc('last_seen_at')
+            ->orderByDesc('created_at')
+            ->get()
+            ->first(fn (Instance $instance) => static::normalizeHost($instance->host) === $host);
+    }
+
+    /**
+     * `HTTPS://Fleet.Acme.test/` and `fleet.acme.test` are the same host.
+     */
+    public static function normalizeHost(?string $host): ?string
+    {
+        $host = strtolower(trim((string) $host));
+        $host = rtrim((string) preg_replace('#^[a-z][a-z0-9+.-]*://#', '', $host), '/');
+
+        return $host !== '' ? $host : null;
+    }
+
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;

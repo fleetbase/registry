@@ -267,7 +267,15 @@ p2 and Composer dist routes need `Authorization: Bearer` with a personal token c
 scope or an instance token (`flbi_…`). The token's organizations are its pinned
 organization, or every organization of the account when it is not pinned; access is
 granted when one of them owns the extension or holds an active, unexpired licence. 401
-without a usable token, 403 with one. Paid responses are `Cache-Control: private`.
+without a usable token (a revoked instance counts as none), 403 with one. Paid responses
+are `Cache-Control: private`.
+
+Downloads check the organization's licence only, not a seat on the calling instance.
+Seats are claimed when the instance reports the install (`POST /v1/instances/me/installs`
+with `installing`, which returns 403 when the licence has no free seat), and a personal
+`install` token of the same organization could fetch the package anyway, so a seat check
+at download time would add no enforcement. It would also break downloads from developer
+machines and CI, which have no instance.
 
 **Package store.** `App\Services\ReleaseStorage` writes objects to the
 `REGISTRY_STORAGE_DISK` disk under `tarballs/`, `dist/`, `icons/` and `screenshots/`,
@@ -410,12 +418,32 @@ disables a token.
 
 | Method and path | Purpose |
 | --- | --- |
-| `POST /v1/instances/register` | No bearer token. Body: `code`, `name`, `kind` (`cloud` or `self_hosted`), optional `host`, `console_version`, `api_version`. Redeems the code (single use, 15 minutes) and returns `{token, token_type, instance}`; the token is never shown again |
+| `POST /v1/instances/register` | No bearer token. Body: `code`, `name`, `kind` (`cloud` or `self_hosted`), optional `host`, `console_version`, `api_version`, `previous_token`. Redeems the code (single use, 15 minutes) and returns `{token, token_type, rotated, instance}`; the token is never shown again. 201 for a new instance, 200 when an existing one was rotated (see re-registration below) |
 | `GET /v1/instances/me` | The instance, its organization, and the organization's licences with `seats_used` and `activated_here` |
 | `GET /v1/instances/me/updates?channel=` | Every extension installed on the instance: the installed release, the newest compatible published release, `update_available`. `channel=beta` includes beta releases |
 | `GET /v1/instances/me/releases/{release}/dist` | The release's prebuilt engine dist (`rel_` id), as `dist.url` names it. Free extensions: any active instance. Paid: 403 unless the instance's organization owns the extension or holds an active licence, checked on every request. `X-Checksum-Sha256`, ETag, 304; yanked releases stay downloadable; 404 when the release has no dist or the listing is suspended |
 | `POST /v1/instances/me/installs` | Body: `extension` (slug, `ext_` id or an npm/Composer package name), `version` or `release` (`rel_` id), `status` (`installing`, `installed`, `failed`), optional `error`, `installed_by`. Returns `{install, activation}` |
 | `DELETE /v1/instances/me/installs/{extension}` | Reports an uninstall (scoped npm names work in the path). Returns `{install, deactivated}` |
+
+Re-registration:
+
+- Registering an instance that is already registered rotates it instead of creating a second
+  one: the same `instances` row (same `inst_` id) gets the new name, host and versions and a
+  new token, the old token stops working, and its installs and licence seats stay where they
+  are. The response is 200 with `rotated: true`.
+- The instance is matched by `previous_token` (its current token, which the console and
+  `flb instance register` send) when it belongs to an active instance of the code's
+  organization; else by `host`, when an active instance of that organization has the same host
+  (scheme, case and a trailing slash ignored; the most recently seen one when there are
+  several). A console that lost its token is therefore still rotated from the same host.
+- A new host, an empty host, or a host registered only in another organization creates a new
+  instance (201).
+- A `previous_token` of an instance in another organization moves the console: a new instance
+  is created in the code's organization, the old one is revoked with its seats released, and
+  its open installs move to the new instance, which claims seats in its own organization on its
+  next install report.
+- The `instance.registered` or `instance.reregistered` event records `matched_by` (`token` or
+  `host`) and, for a move, the `replaced` instance.
 
 Install rules:
 
