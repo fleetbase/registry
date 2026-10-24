@@ -28,11 +28,18 @@ class InstanceController extends Controller
      * POST /v1/instances/register — exchanges a registration code for an instance token.
      * The token (`flbi_…`) is returned once; only its SHA-256 hash is stored.
      *
-     * An instance that registers again sends its current token as `previous_token`. When that
-     * token belongs to an active instance in the code's organization, that instance is updated
-     * and handed a new token (the old one stops working), so its installs and licence seats stay
-     * on one row. When it belongs to another organization, a new instance is created, the old one
-     * is revoked with its seats released, and its open installs move to the new instance.
+     * Registering an instance that is already registered rotates it: the same row is updated and
+     * handed a new token (the old one stops working), so its installs and licence seats stay on
+     * one instance, and the response is 200 with `rotated: true`. The instance is matched by
+     *
+     * 1. `previous_token`, the instance's current token, when it belongs to an active instance in
+     *    the code's organization; else
+     * 2. `host`, when an active instance of the code's organization has the same host (scheme,
+     *    case and a trailing slash ignored).
+     *
+     * A `previous_token` of another organization's instance creates a new instance; the old one is
+     * revoked with its seats released and its open installs move to the new instance. Anything
+     * else (no match, an unknown or revoked token, a new host) creates a new instance: 201.
      */
     public function register(RegisterInstanceRequest $request): JsonResponse
     {
@@ -47,7 +54,11 @@ class InstanceController extends Controller
         }
 
         $previous = $request->filled('previous_token') ? Instance::findByToken((string) $request->input('previous_token')) : null;
-        $rotated = $previous !== null && $previous->organization_uuid === $organization->uuid;
+        $matched = $previous !== null && $previous->organization_uuid === $organization->uuid ? 'token' : null;
+        if ($previous === null && ($previous = Instance::findByHost($organization->uuid, $request->input('host')))) {
+            $matched = 'host';
+        }
+        $rotated = $matched !== null;
 
         [$instance, $plain] = DB::transaction(function () use ($request, $code, $organization, $previous, $rotated) {
             $attributes = [
@@ -81,12 +92,14 @@ class InstanceController extends Controller
 
         Event::record($rotated ? 'instance.reregistered' : 'instance.registered', $instance, $code->account, array_filter([
             'code' => $code->uuid,
+            'matched_by' => $matched,
             'replaced' => $previous && ! $rotated ? $previous->public_id : null,
         ]), $request->ip());
 
         return response()->json([
             'token' => $plain,
             'token_type' => 'Bearer',
+            'rotated' => $rotated,
             'instance' => (new InstanceResource($instance->load('organization')))->resolve($request),
         ], $rotated ? 200 : 201);
     }
