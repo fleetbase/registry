@@ -42,4 +42,14 @@ return [
         'redirect' => env('GITHUB_REDIRECT_URI') ?: rtrim((string) env('APP_URL', 'http://localhost'), '/').'/auth/github/callback',
     ],
 
+    // Stripe: Connect Express accounts for publishers, Checkout for buyers, webhooks. Commerce
+    // routes answer 503 until `secret` is set. `webhook_secrets` is comma-separated: the platform
+    // endpoint's signing secret and the Connect endpoint's (account.updated) when they differ.
+    'stripe' => [
+        'key' => env('STRIPE_KEY'),
+        'secret' => env('STRIPE_SECRET'),
+        'webhook_secrets' => array_values(array_filter(array_map('trim', explode(',', (string) env('STRIPE_WEBHOOK_SECRET', ''))))),
+        'webhook_tolerance' => (int) env('STRIPE_WEBHOOK_TOLERANCE', 300),
+    ],
+
 ];

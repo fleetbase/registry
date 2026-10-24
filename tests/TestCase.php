@@ -3,6 +3,7 @@
 namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Stripe\ApiRequestor;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -12,6 +13,14 @@ abstract class TestCase extends BaseTestCase
 
         // Website pages render the Blade root view; tests do not need built assets.
         $this->withoutVite();
+    }
+
+    protected function tearDown(): void
+    {
+        // A test that faked Stripe (tests/Helpers/stripe.php) must not leak it into the next.
+        ApiRequestor::setHttpClient(null);
+
+        parent::tearDown();
     }
 
     /**

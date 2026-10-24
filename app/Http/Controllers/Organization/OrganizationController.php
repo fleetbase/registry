@@ -32,6 +32,8 @@ use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
  */
 class OrganizationController extends Controller
 {
+    use ActsForOrganization;
+
     /** Roles that may edit the organization and manage its members. */
     public const MANAGING_ROLES = [Membership::ROLE_OWNER, Membership::ROLE_ADMIN];
 
@@ -204,38 +206,6 @@ class OrganizationController extends Controller
         ], $request->ip());
 
         return response()->json(['removed' => true, 'id' => $membership->account->public_id]);
-    }
-
-    protected function account(Request $request): Account
-    {
-        return $request->user();
-    }
-
-    /**
-     * One of the caller's organizations by slug, public id or uuid, with the caller's
-     * membership as `pivot`. Organizations the caller is not in answer 404.
-     */
-    protected function findOrganization(Request $request, string $identifier, array $with = []): Organization
-    {
-        $account = $this->account($request);
-
-        $organization = $account->organizations()
-            ->with($with)
-            ->where(fn (Builder $q) => $q->where('organizations.slug', $identifier)
-                ->orWhere('organizations.public_id', $identifier)
-                ->orWhere('organizations.uuid', $identifier))
-            ->first();
-
-        if (! $organization instanceof Organization) {
-            throw new NotFoundHttpException('Organization not found.');
-        }
-
-        $pinned = $account->currentToken()?->organization_uuid;
-        if ($pinned && $pinned !== $organization->uuid) {
-            throw new AccessDeniedHttpException('This token is limited to another organization.');
-        }
-
-        return $organization;
     }
 
     protected function detail(Request $request, string $identifier): OrganizationResource

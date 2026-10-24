@@ -1,0 +1,27 @@
+{
+  "id": "acct_1QfLmTPublisher01",
+  "object": "account",
+  "business_profile": { "name": "Acme Fleet Tools", "url": "https://acme.example" },
+  "capabilities": { "card_payments": "inactive", "transfers": "inactive" },
+  "charges_enabled": false,
+  "controller": { "fees": { "payer": "application" }, "is_controller": true, "losses": { "payments": "application" }, "stripe_dashboard": { "type": "express" }, "type": "application" },
+  "country": "US",
+  "created": 1792700000,
+  "default_currency": "usd",
+  "details_submitted": false,
+  "email": "owner@acme.example",
+  "metadata": {},
+  "payouts_enabled": false,
+  "requirements": {
+    "alternatives": [],
+    "current_deadline": null,
+    "currently_due": ["business_profile.mcc", "external_account", "tos_acceptance.date", "tos_acceptance.ip"],
+    "disabled_reason": "requirements.past_due",
+    "errors": [],
+    "eventually_due": ["business_profile.mcc", "external_account", "tos_acceptance.date", "tos_acceptance.ip"],
+    "past_due": ["external_account", "tos_acceptance.date", "tos_acceptance.ip"],
+    "pending_verification": []
+  },
+  "settings": { "payouts": { "schedule": { "delay_days": 2, "interval": "daily" } } },
+  "type": "express"
+}

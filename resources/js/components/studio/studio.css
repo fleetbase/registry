@@ -2,7 +2,6 @@
    Upload, Rejected, History, Soon). Tokens only, so both themes follow. */
 
 /* Section nav (Extensions · Insights): links styled like the selected segment. */
-.seg a[aria-current='page'] { background: var(--surface); color: var(--ink); box-shadow: var(--e1), 0 0 0 1px var(--line); }
 .seg a { text-decoration: none; }
 
 /* Studio home */

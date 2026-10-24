@@ -25,7 +25,8 @@ Phase 1, Workstreams A to C, and Phase 2 Workstream E:
 | Releases pipeline: publisher API, upload, queued checks, state machine, D6 review policy, staff review API, publishing | done |
 | Website backend (Workstream F): cookie sessions, organizations and members, listing media and pricing, staff downloads and review items | done |
 | Website (Workstream F): Inertia (React) catalog, account, Studio and review console, light and dark | done |
-| CLI v2 (G), Stripe (Phase 4) | later workstreams |
+| Commerce (Phase 4, K to M): Stripe Connect Express, prices mirrored to Stripe, Checkout from instances and the website, webhooks, payouts and billing APIs and pages | done |
+| CLI v2 (G), staff finance view | later workstreams |
 
 ## Stack
 
@@ -133,7 +134,9 @@ a website page (unknown paths render the website's 404).
 | `/sign-in`, `/register`, `/verify`, `/forgot-password` | Account access |
 | `/auth/github`, `/auth/github/callback` | Sign in with GitHub (redirects; see below) |
 | `/account/profile`, `/account/organizations/{slug?}`, `/account/tokens` | Account |
+| `/account/billing/{slug?}[?handoff=]` | Billing: purchases, receipts, licences and their instances; Finalizing after a website checkout |
 | `/studio`, `/studio/new`, `/studio/{slug}` (listing), `/studio/{slug}/releases[/{id}]`, `/studio/{slug}/review`, `/studio/{slug}/history`, `/studio/insights` | Publisher Studio |
+| `/studio/payouts/{slug?}` | Payouts: Stripe onboarding and account management (Connect.js), balance, schedule, sales and CSV |
 | `/review`, `/review/publish`, `/review/releases/{id}` | Staff review console |
 
 ## API overview
@@ -210,6 +213,12 @@ default here is 12) because Laravel's `hashed` cast refuses hashes above the con
 | `GET /v1/catalog/extensions?q=&category=&pricing=&hosting=&console=&compatible=&sort=&page=&limit=` | Paged listings with publisher, category, latest release, install count, compat, price, package names. `console=<version>` adds `compatibility: {console, compatible, newest_compatible}` to each item (does the latest release work, and the newest published release that does); with `compatible=1` only listings that have such a release |
 | `GET /v1/catalog/extensions/{slug}` | Full listing, screenshots, publisher, versions summary |
 | `GET /v1/catalog/extensions/{slug}/releases?channel=` | Published (and yanked) releases: versions, channels, dates, sizes, notes, compat |
+
+Catalog releases (`latest_release`, each `versions` entry, `/releases`) and the instance
+`updates` releases carry `dist`: `null`, or `{size, sha256, integrity, built_against}` for
+a release with a prebuilt engine dist, where `built_against` holds the
+`@fleetbase/ember-ui` and `@fleetbase/ember-core` versions it was built with. The archive
+is `GET /npm/{engine}/-/dist/{version}`, behind the licence gate.
 | `GET /v1/catalog/publishers/{slug}` | Publisher profile and their published extensions |
 | `GET /v1/catalog/categories` | Categories with published extension counts |
 
@@ -227,6 +236,7 @@ carry npm's `error` string beside the usual `errors` array.
 | --- | --- |
 | `GET /npm/{name}` | Packument from published, non-yanked releases: `versions` (stored `package.json` + `dist.tarball`, `dist.shasum`, `dist.integrity`), `dist-tags` (`latest` = highest stable, `beta` = highest beta; `latest` falls back to the highest beta when nothing is stable), `time`. Scoped names work encoded (`@scope%2fname`) or not. ETag, 304 |
 | `GET /npm/{name}/-/{basename}-{version}.tgz` | The engine tarball. Yanked versions stay downloadable for lockfiles |
+| `GET /npm/{name}/-/dist/{version}` | The release's prebuilt engine dist as uploaded (`fleetbase-build-engine-release` output, tar or tar.gz), which a console installs as a runtime engine without a rebuild. Not an npm protocol route. `X-Checksum-Sha256`, ETag, 304; 404 when the release has no dist. Yanked versions stay downloadable. Catalog releases carry its `dist: {size, sha256, integrity, built_against}` |
 | `PUT`/`POST`/`DELETE`/`PATCH /npm/…` | 405: publish with `flb publish` |
 | `GET /npm/-/ping`, `GET /npm/-/whoami` | `npm ping`, `npm whoami` |
 | `GET /composer/packages.json` | `metadata-url`, `available-packages` (every package with a published release) |
@@ -249,8 +259,8 @@ Client setup:
 
 with `COMPOSER_AUTH='{"bearer": {"registry.fleetbase.io": "flbp_…"}}'` for paid packages.
 
-**Licence gate.** Free packages are open. For a paid package the packument, tarball, p2
-and dist routes need `Authorization: Bearer` with a personal token carrying the `install`
+**Licence gate.** Free packages are open. For a paid package the packument, tarball, prebuilt dist,
+p2 and Composer dist routes need `Authorization: Bearer` with a personal token carrying the `install`
 scope or an instance token (`flbi_…`). The token's organizations are its pinned
 organization, or every organization of the account when it is not pinned; access is
 granted when one of them owns the extension or holds an active, unexpired licence. 401
@@ -291,7 +301,7 @@ releases answer 404.
 | `POST`/`DELETE /v1/publisher/extensions/{slug}/icon` | Multipart `icon` (PNG, JPG or WebP, up to 1 MB) replaces the icon; DELETE removes it |
 | `POST /v1/publisher/extensions/{slug}/screenshots` | Multipart `screenshot` (PNG, JPG or WebP, up to 5 MB), optional `caption`; at most 8 |
 | `PATCH /v1/publisher/extensions/{slug}/screenshots` | `order`: every screenshot id once, cover first. `DELETE …/screenshots/{id}` removes one |
-| `PUT /v1/publisher/extensions/{slug}/price` | `model` (`free`, `one_time`), `amount` (minor units), `currency`. Paid prices need the organization's Stripe Connect account (Phase 4); a price change sends the next release to review |
+| `PUT /v1/publisher/extensions/{slug}/price` | `model` (`free`, `one_time`), `amount` (minor units), `currency`, optional `sale_amount` (below `amount`) and `on_sale`. Paid prices need the organization's Stripe account (see Commerce). Saving mirrors the price to Stripe first (a refused price is not saved, 502); a price change sends the next release to review |
 | `GET /v1/publisher/extensions/{slug}/releases` | Every release with its checks |
 | `POST /v1/publisher/extensions/{slug}/releases` | Multipart: `manifest` (extension.json), `engine` (npm tarball, gzipped) and/or `api` (Composer tar or tar.gz), optional `dist` (the `<name>/` folder from ember-core's `fleetbase-build-engine-release`, tarred), optional `channel` (`stable`, `beta`; default from the manifest), `notes`, `submit` (submit as soon as the checks pass). Returns the release (201) |
 | `GET /v1/publisher/releases/{id}` | Files, checks, submission state, review policy outcome, the review timeline with reasons and items |
@@ -384,6 +394,12 @@ checks are emailed too.
 | `POST /v1/admin/extensions/{slug}/unsuspend` | Optional `reason`. Restores the status saved at suspension |
 | `GET /v1/admin/releases/{id}/files/{engine,api,dist}` | Downloads an archive for review; recorded as `release.downloaded` |
 | `GET /v1/admin/review-items` | The review requirements R1 to R6 (`registry.review.items`); approve and reject accept only these codes |
+| `GET /v1/admin/facilitator-fees` | The fee in effect (`current_rate_bps`), the configured default, and every scheduled fee, newest first |
+| `GET /v1/admin/licences?organization=&extension=&status=&kind=` | Licences (100 newest) with organization, purchase and seats in use |
+| `POST /v1/admin/licences/{id}/revoke` | Required `reason`. New installs and updates stop; running instances keep their seat |
+| `POST /v1/admin/licences/{id}/reinstate` | Optional `reason`. For a won dispute or a mistaken revoke |
+| `PATCH /v1/admin/licences/{id}` | `max_activations`: seats, at least the seats in use |
+| `POST /v1/admin/facilitator-fees` | `rate_bps` (0 to 5000; 1000 = 10%), optional `effective_from` (now or later, never earlier) and `note`. Adds a row; rows are never edited |
 
 ### Instance API (instance token)
 
@@ -441,6 +457,147 @@ Install rules:
   npm/Composer range syntax, evaluated with composer/semver). A side with no range accepts any
   version; an instance that does not report a version, or reports one that is not semver,
   is not constrained on that side; a range that does not parse never matches.
+
+## Commerce (Stripe)
+
+Paid extensions are sold through Stripe with Connect Express accounts for publishers and hosted
+Checkout for buyers. Every commerce route answers 503 until `STRIPE_SECRET` is set.
+
+**Setup.** Set `STRIPE_KEY` (publishable, for Connect.js on the website) and `STRIPE_SECRET`.
+Create two webhook endpoints in the Stripe Dashboard, both pointing at
+`https://<registry>/v1/webhooks/stripe`:
+
+- *Your account*: `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+  `checkout.session.expired`, `charge.refunded`, `charge.dispute.created`.
+- *Connected accounts*: `account.updated`.
+
+Put both signing secrets in `STRIPE_WEBHOOK_SECRET`, comma-separated. After `registry:import`,
+run `php artisan registry:stripe-sync` once: it reads every imported Connect account's state and
+mirrors every paid price that has no Stripe price yet (checkout also does this lazily).
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `REGISTRY_FACILITATOR_FEE_BPS` | `1000` | Fee before the first `facilitator_fees` row takes effect |
+| `REGISTRY_LICENCE_MAX_ACTIVATIONS` | `5` | Seats (instances) on a paid licence (D4) |
+| `REGISTRY_STRIPE_TAX` | `true` | Stripe Tax on Checkout, with the publisher's account liable |
+| `REGISTRY_STRIPE_TAX_CODE`, `REGISTRY_STRIPE_TAX_BEHAVIOR` | none, `exclusive` | Product tax code; whether listing prices exclude tax |
+| `REGISTRY_CHECKOUT_EXPIRES_MINUTES` | `60` | How long a Checkout Session stays open (30 to 1440) |
+| `REGISTRY_CONNECT_COUNTRY` | none | Country for new Connect accounts; empty lets the publisher choose |
+| `REGISTRY_COMMERCE_NOTIFY` | none | Comma-separated emails told about new disputes |
+
+**How money moves.** A Checkout Session is a destination charge: the buyer pays the platform,
+`application_fee_amount` (the facilitator fee in effect when the session starts, on the price
+before tax) stays with Fleetbase, and the rest is transferred to the publisher's account. With
+Stripe Tax on, the charge is made `on_behalf_of` the publisher and the publisher's account is
+liable for tax, so the tax collected reaches the account that files it. Platform-side Stripe
+fees and losses fall on Fleetbase (`controller.fees.payer` and `losses.payments` are
+`application`, as the console's accounts are today).
+
+**Prices.** One Stripe product per listing on the platform account, the regular price, and the
+sale price as a second Stripe price; `on_sale` decides which one Checkout charges. Stripe prices
+cannot change, so a new amount or currency creates a new price and archives the old one.
+
+**Licences and seats.** A purchase gives the buyer organization one paid licence with 5 seats.
+A seat is one Fleetbase instance registered to that organization: installing on an instance
+takes a seat, uninstalling frees it, and every company (tenant) on that instance is covered by
+the one install. Buying again adds another licence with 5 more seats; installs use the seats
+of all the organization's active licences. Another registry organization buys its own licence.
+Staff can change seats, revoke and reinstate licences (Admin API).
+
+### Organization routes (personal token or website session)
+
+| Method and path | Who | Purpose |
+| --- | --- | --- |
+| `GET /v1/organizations/{slug}/stripe[?refresh=1]` | members (refresh: owners, admins) | `connected`, `payout_status` (`pending`, `restricted`, `enabled`, `rejected`), `can_receive_payments`, `requirements_due`, country, default currency |
+| `POST /v1/organizations/{slug}/stripe/account` | owners, admins | Create the Express account (once; 201, then 200) |
+| `POST /v1/organizations/{slug}/stripe/account-session` | owners, admins | `client_secret` and `publishable_key` for Connect.js: onboarding, account management, notification banner, payouts, tax settings and registrations |
+| `GET /v1/organizations/{slug}/payouts` | owners, admins, billing | Connect status, `balance` (`available`, `pending`, `in_transit` per currency), payout `schedule`, the last 10 payouts |
+| `GET /v1/organizations/{slug}/payouts/transactions?from=&to=&status=&extension=&page=` | owners, admins, billing | Sales of the organization's extensions: `gross`, `fee`, `net`, `tax`, `refunded`, `status`, `customer`; `totals` per currency, leaving out refunded sales |
+| `GET /v1/organizations/{slug}/payouts/transactions.csv` | owners, admins, billing | The same sales (same filters) as CSV |
+| `GET /v1/organizations/{slug}/billing/purchases` | owners, admins, billing | What the organization bought: amount, tax, who bought it, status, Stripe receipt URL, licence |
+| `GET /v1/organizations/{slug}/billing/licences` | members | Licences with seat use and the instances activated on each |
+| `POST /v1/purchases/checkout` | owners, admins, billing of the buyer | Website checkout: `extension`, `organization`. Returns a hand-off (below); Stripe returns the buyer to `/account/billing/{slug}?handoff=` |
+| `GET /v1/purchases/{handoff}` | members of the buyer | The hand-off |
+
+### Webhooks
+
+`POST /v1/webhooks/stripe` checks the `Stripe-Signature` header against each secret (400 when
+none matches or the timestamp is more than 5 minutes off) and stores each event id once in
+`events.external_id`, in the same transaction as its effects: a redelivery answers
+`{"status": "duplicate"}` and a failure answers 500 with nothing written, so Stripe's retry is
+safe.
+
+| Event | Effect |
+| --- | --- |
+| `checkout.session.completed` (paid), `checkout.session.async_payment_succeeded` | Purchase (`amount_total`, `fee_amount` from the PaymentIntent's application fee, `net_amount` = total − fee, tax and subtotal in `meta`, receipt URL from the charge), a `paid` licence with 5 seats, the hand-off `complete`, a receipt email to the buyer |
+| `checkout.session.expired` | The hand-off `expired` |
+| `charge.refunded` | Full refund: purchase `refunded`, licence `revoked` (new installs and updates stop; running instances keep their seat). Partial refund: `meta.amount_refunded` only |
+| `charge.dispute.created` | Purchase `disputed` with the dispute in `meta`, licence `revoked` (`revoked_reason: disputed`; staff reinstate it if the dispute is won), email to `REGISTRY_COMMERCE_NOTIFY` |
+| `account.updated` | The organization's `payout_status` and `meta.stripe` |
+
+### Instance checkout (contract for registry-bridge)
+
+A console buys a paid extension for its instance's organization in four steps. All calls use the
+instance token (`Authorization: Bearer flbi_…`).
+
+1. **Start.** `POST /v1/instances/me/purchases/checkout`
+
+   ```json
+   {
+     "extension": "route-optimizer",
+     "return_url": "https://console.example.com/extensions/purchased",
+     "cancel_url": "https://console.example.com/extensions",
+     "email": "ops@example.com"
+   }
+   ```
+
+   `extension` is a slug, `ext_` id or package name. `return_url` (http or https) is where Stripe
+   sends the operator after paying; `cancel_url` defaults to it. Both must be on the host the
+   instance registered (`instances.host`) or its domain: an instance registered as `api.acme.com`
+   may use `api.acme.com`, `acme.com` or `console.acme.com`; `localhost` and IP addresses match
+   only themselves (any port). `email` prefills Checkout and is optional. Answers `201`:
+
+   ```json
+   {
+     "handoff": "chk_x1y2z3a4b5",
+     "status": "open",
+     "source": "instance",
+     "extension": { "id": "ext_…", "slug": "route-optimizer", "name": "Route Optimizer" },
+     "organization": { "id": "org_…", "slug": "globex", "name": "Globex" },
+     "amount": 4900,
+     "currency": "USD",
+     "url": "https://checkout.stripe.com/c/pay/cs_…",
+     "expires_at": "2026-10-24T13:00:00.000000Z",
+     "completed_at": null,
+     "purchase": null,
+     "created_at": "2026-10-24T12:00:00.000000Z"
+   }
+   ```
+
+   `amount` is the price before tax (the sale price while a sale is on). Refusals use the usual
+   `{"errors": [...]}` envelope: 404 unknown extension; 409 when the organization publishes the
+   extension; 422 when a return URL is off the instance's host, the extension is not published,
+   is free, does not match the instance's hosting kind, or the publisher cannot take payments yet;
+   503 when the registry has no Stripe configuration; 502 when Stripe refuses. An organization
+   that already holds a licence may buy again: each purchase is another licence with 5 more seats.
+
+2. **Redirect** the operator's browser to `url` (a full-page redirect; Checkout cannot be framed).
+
+3. **Return.** Stripe sends the operator to `return_url` with `handoff=<id>` appended
+   (`…/purchased?handoff=chk_x1y2z3a4b5`), or to `cancel_url` with `handoff` and `cancelled=1`.
+   The return proves nothing about payment.
+
+4. **Poll** `GET /v1/instances/me/purchases/{handoff}` (any checkout of the instance's
+   organization) every 2 seconds, showing *Finalizing*, until `status` is no longer `open`:
+
+   - `complete`: `purchase` is set, with `status`, `amount_total` (with tax), `amount_tax`,
+     `receipt_url` and `licence` (`kind: paid`, `max_activations`). Install as usual; the install
+     claims a seat.
+   - `expired`: the session ran out (or `expires_at` passed) without payment. Offer to start again.
+
+   The webhook usually lands within seconds. If it has not after about a minute, tell the
+   operator the purchase will appear once Stripe confirms it; the licence arrives by webhook even
+   if the console tab is closed, and `GET /v1/instances/me` lists it.
 
 ## Importing from Fleetbase Cloud
 

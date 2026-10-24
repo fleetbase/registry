@@ -1,0 +1,16 @@
+{
+  "id": "dp_1QfLmTDispute0001",
+  "object": "dispute",
+  "amount": 5292,
+  "balance_transactions": [],
+  "charge": "ch_3QfLmTCharge00001",
+  "created": 1792900000,
+  "currency": "usd",
+  "evidence_details": { "due_by": 1793700000, "has_evidence": false, "past_due": false, "submission_count": 0 },
+  "is_charge_refundable": false,
+  "livemode": false,
+  "metadata": {},
+  "payment_intent": "pi_3QfLmTPayment0001",
+  "reason": "fraudulent",
+  "status": "needs_response"
+}

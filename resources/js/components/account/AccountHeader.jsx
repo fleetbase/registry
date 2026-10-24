@@ -4,11 +4,12 @@ import './account.css';
 
 const SECTIONS = [
     { key: 'organizations', label: 'Organizations', href: '/account/organizations' },
+    { key: 'billing', label: 'Billing', href: '/account/billing' },
     { key: 'profile', label: 'Profile', href: '/account/profile' },
     { key: 'tokens', label: 'Tokens', href: '/account/tokens' },
 ];
 
-/** The account pages' heading with the Organizations · Profile · Tokens switcher. */
+/** The account pages' heading with the Organizations · Billing · Profile · Tokens switcher. */
 export default function AccountHeader({ title = 'Account', current, description, actions }) {
     const account = usePage().props.auth?.account;
     const subtitle =

@@ -2,9 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Commerce\Stripe;
 use App\Http\Controllers\Auth\GithubSignInController;
 use App\Http\Resources\AccountResource;
 use App\Models\Account;
+use App\Models\FacilitatorFee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
@@ -45,6 +47,8 @@ class HandleInertiaRequests extends Middleware
                 'host' => parse_url((string) (config('registry.public_url') ?: $request->getSchemeAndHttpHost()), PHP_URL_HOST) ?: $request->getHost(),
                 'url' => rtrim((string) (config('registry.public_url') ?: $request->getSchemeAndHttpHost()), '/'),
             ],
+            // Fleetbase's facilitator fee now (the Studio price editor shows the publisher's share).
+            'commerce' => fn () => ['fee_bps' => FacilitatorFee::rateAt(now()), 'enabled' => Stripe::configured()],
             'console' => $this->consoleVersion($request),
             'flash' => fn () => $request->session()->get('flash'),
         ];

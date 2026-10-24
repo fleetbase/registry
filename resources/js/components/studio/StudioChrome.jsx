@@ -20,10 +20,11 @@ export function StudioHeader({ extension, title, sub, back = '/studio', backLabe
     );
 }
 
-/** Studio sections: Extensions · Insights. */
+/** Studio sections: Extensions · Payouts · Insights. */
 export function StudioNav({ current }) {
     const items = [
         { href: '/studio', label: 'Extensions', key: 'extensions' },
+        { href: '/studio/payouts', label: 'Payouts', key: 'payouts' },
         { href: '/studio/insights', label: 'Insights', key: 'insights' },
     ];
     return (

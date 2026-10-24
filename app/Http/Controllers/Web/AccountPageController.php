@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Account\TokenController;
+use App\Http\Controllers\Organization\BillingController;
 use App\Http\Controllers\Organization\OrganizationController;
+use App\Http\Controllers\Purchase\CheckoutController;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,7 +14,7 @@ use Inertia\Response;
 
 /**
  * Sign in, create account, verify, forgot password; then profile, organizations and tokens for the signed-in
- * account. Sign-in itself is POST /v1/auth/session from the page.
+ * account, and its organizations' billing. Sign-in itself is POST /v1/auth/session from the page.
  */
 class AccountPageController extends WebController
 {
@@ -80,6 +82,31 @@ class AccountPageController extends WebController
             'organization' => $selected
                 ? $this->api($request, "/v1/organizations/{$selected}", [], OrganizationController::class, 'show', ['slug' => $selected])
                 : null,
+        ]);
+    }
+
+    /**
+     * GET /account/billing[/{slug}][?handoff=] — what the organization bought, its licences with
+     * their instances, and receipts. Stripe returns website buyers here with the hand-off, which
+     * the page polls until the purchase lands.
+     */
+    public function billing(Request $request, ?string $slug = null): Response
+    {
+        [$organizations, $organization] = $this->billingOrganizations($request, $slug, null);
+        $billing = $organization && in_array($organization['role'] ?? null, OrganizationController::BILLING_ROLES, true);
+        $checkout = null;
+
+        if ($organization && $request->filled('handoff')) {
+            [$checkout] = $this->tryApi($request, '/v1/purchases/'.$request->query('handoff'), [], CheckoutController::class, 'show', ['handoff' => (string) $request->query('handoff')]);
+        }
+
+        return Inertia::render('Account/Billing', [
+            'organizations' => $organizations,
+            'organization' => $organization,
+            // Purchases and receipts are for owners, admins and billing members; licences for everyone.
+            'purchases' => $billing ? $this->api($request, "/v1/organizations/{$organization['slug']}/billing/purchases", [], BillingController::class, 'purchases', ['slug' => $organization['slug']]) : null,
+            'licences' => $organization ? $this->api($request, "/v1/organizations/{$organization['slug']}/billing/licences", [], BillingController::class, 'licences', ['slug' => $organization['slug']]) : [],
+            'checkout' => $checkout,
         ]);
     }
 

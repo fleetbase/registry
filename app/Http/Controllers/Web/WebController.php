@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers\Web;
 
+use App\Commerce\Stripe;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Organization\OrganizationController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Stripe\Exception\ApiErrorException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
  * Base for the website's Inertia page controllers.
@@ -49,6 +53,48 @@ abstract class WebController extends Controller
             return (array) $result;
         } finally {
             app()->instance('request', $previous);
+        }
+    }
+
+    /**
+     * The caller's organizations with one of `$roles` (default: those who see money: owners,
+     * admins, billing members; null: every role), and the selected one: `$slug`, else the first that is not personal, else the first.
+     *
+     * @return array{0: list<array>, 1: ?array}
+     */
+    protected function billingOrganizations(Request $request, ?string $slug, ?array $roles = OrganizationController::BILLING_ROLES): array
+    {
+        $organizations = collect($this->api($request, '/v1/organizations', [], OrganizationController::class, 'index'))
+            ->filter(fn (array $organization) => $roles === null || in_array($organization['role'] ?? null, $roles, true))
+            ->values();
+
+        $selected = $slug !== null
+            ? $organizations->firstWhere('slug', $slug)
+            : ($organizations->firstWhere('is_personal', false) ?? $organizations->first());
+
+        if ($slug !== null && $selected === null) {
+            abort(404);
+        }
+
+        return [$organizations->all(), $selected];
+    }
+
+    /**
+     * Like api(), but a failure (Stripe not configured or unreachable) answers null and the
+     * reason instead of an error page.
+     *
+     * @return array{0: ?array, 1: ?string}
+     */
+    protected function tryApi(Request $request, string $uri, array $query, string $controller, string $method, array $parameters = []): array
+    {
+        try {
+            return [$this->api($request, $uri, $query, $controller, $method, $parameters), null];
+        } catch (HttpExceptionInterface $e) {
+            return [null, $e->getMessage()];
+        } catch (ApiErrorException $e) {
+            report($e);
+
+            return [null, Stripe::failure($e)];
         }
     }
 

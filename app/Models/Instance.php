@@ -103,6 +103,50 @@ class Instance extends Model implements AuthenticatableContract
     }
 
     /**
+     * The instance's registered host name, lowercased, whether `host` was stored as a URL or a
+     * bare host (with or without a port).
+     */
+    public function hostname(): ?string
+    {
+        $host = trim((string) $this->host);
+        if ($host === '') {
+            return null;
+        }
+
+        $name = parse_url(str_contains($host, '://') ? $host : 'http://'.$host, PHP_URL_HOST);
+
+        return is_string($name) && $name !== '' ? strtolower($name) : null;
+    }
+
+    /**
+     * A URL on this instance's registered host or its parent domain: an instance registered as
+     * `api.acme.com` may send buyers back to `acme.com` or `console.acme.com`. IP addresses and
+     * single-label hosts (`localhost`) only match themselves.
+     */
+    public function ownsUrl(string $url): bool
+    {
+        $registered = $this->hostname();
+        $host = parse_url($url, PHP_URL_HOST);
+        if ($registered === null || ! is_string($host) || $host === '') {
+            return false;
+        }
+
+        $host = strtolower($host);
+        if ($host === $registered) {
+            return true;
+        }
+
+        $labels = explode('.', $registered);
+        if (filter_var($registered, FILTER_VALIDATE_IP) || count($labels) < 2) {
+            return false;
+        }
+
+        $base = count($labels) > 2 ? implode('.', array_slice($labels, 1)) : $registered;
+
+        return $host === $base || str_ends_with($host, '.'.$base);
+    }
+
+    /**
      * The active instance of an organization registered from the same host (scheme, case and a
      * trailing slash ignored), most recently seen first. Null when the host is empty.
      */

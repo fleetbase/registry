@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Publisher;
 
+use App\Commerce\PriceCatalog;
 use App\Http\Requests\Publisher\CreateExtensionRequest;
 use App\Http\Requests\Publisher\UpdateExtensionRequest;
 use App\Http\Requests\Publisher\UpdatePriceRequest;
@@ -183,22 +184,37 @@ class ExtensionController extends PublisherController
      * D6 a price that differs from the last release's snapshot sends the next release to
      * human review.
      */
-    public function price(UpdatePriceRequest $request, string $slug): PublisherExtensionResource
+    public function price(UpdatePriceRequest $request, PriceCatalog $catalog, string $slug): PublisherExtensionResource
     {
         $extension = $this->findExtension($request, $slug, ['organization', 'price']);
         $model = $request->input('model');
 
-        if ($model !== Price::MODEL_FREE && blank($extension->organization?->stripe_connect_id)) {
-            throw new UnprocessableEntityHttpException('Paid pricing opens when Stripe Connect payouts ship (Phase 4).');
+        if ($model !== Price::MODEL_FREE && ! $extension->organization?->hasStripeAccount()) {
+            throw new UnprocessableEntityHttpException("Set up payouts for {$extension->organization?->name} before charging for an extension.");
         }
 
         $attributes = $model === Price::MODEL_FREE
             ? ['model' => Price::MODEL_FREE, 'amount' => 0, 'currency' => $request->input('currency') ?? $extension->price?->currency ?? 'USD', 'on_sale' => false, 'sale_amount' => null]
-            : ['model' => $model, 'amount' => (int) $request->input('amount'), 'currency' => $request->input('currency')];
+            : [
+                'model' => $model,
+                'amount' => (int) $request->input('amount'),
+                'currency' => $request->input('currency'),
+                'sale_amount' => $request->filled('sale_amount') ? (int) $request->input('sale_amount') : null,
+                'on_sale' => $request->filled('sale_amount') && $request->boolean('on_sale'),
+            ];
 
         $before = $extension->price ? (new PriceResource($extension->price))->resolve($request) : null;
         $price = $extension->price ?? $extension->price()->make();
-        $price->fill($attributes)->save();
+        $price->fill($attributes);
+
+        // Mirror to Stripe first: a price Stripe refused is not saved.
+        $sync = $model === Price::MODEL_FREE
+            ? $price->stripe_price_id || $price->stripe_sale_price_id
+            : $price->isDirty() || ! $price->stripe_price_id;
+        if ($sync) {
+            $catalog->sync($price, $extension);
+        }
+        $price->save();
 
         Event::record('extension.price_changed', $extension, $this->account($request), ['from' => $before, 'to' => $attributes]);
 

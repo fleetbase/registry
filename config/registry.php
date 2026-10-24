@@ -83,4 +83,32 @@ return [
         ],
     ],
 
+    'commerce' => [
+        // Facilitator fee in basis points (1000 = 10%) when no row in `facilitator_fees` is in
+        // effect yet. Staff change the fee with POST /v1/admin/facilitator-fees, which keeps history.
+        'facilitator_fee_bps' => (int) env('REGISTRY_FACILITATOR_FEE_BPS', 1000),
+
+        // Seats (instances) on a paid licence (D4). Staff raise it per licence on request.
+        'max_activations' => (int) env('REGISTRY_LICENCE_MAX_ACTIVATIONS', 5),
+
+        // Stripe Tax on Checkout. The publisher's connected account is liable (the charge is
+        // made on its behalf), so the tax collected reaches the account that files it.
+        'tax' => [
+            'enabled' => (bool) env('REGISTRY_STRIPE_TAX', true),
+            // Product tax code for extensions; null uses the Stripe account's default.
+            'code' => env('REGISTRY_STRIPE_TAX_CODE'),
+            // Whether listing prices exclude tax (added at checkout) or include it.
+            'behavior' => env('REGISTRY_STRIPE_TAX_BEHAVIOR', 'exclusive'),
+        ],
+
+        // Minutes a Checkout Session stays open (Stripe allows 30 to 1440).
+        'checkout_expires_minutes' => (int) env('REGISTRY_CHECKOUT_EXPIRES_MINUTES', 60),
+
+        // Country for new Connect Express accounts; null lets the publisher choose in onboarding.
+        'connect_country' => env('REGISTRY_CONNECT_COUNTRY'),
+
+        // Who hears about new disputes (a comma-separated list of emails); empty sends nothing.
+        'notify' => array_values(array_filter(array_map('trim', explode(',', (string) env('REGISTRY_COMMERCE_NOTIFY', ''))))),
+    ],
+
 ];

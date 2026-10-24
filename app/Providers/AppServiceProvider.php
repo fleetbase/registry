@@ -15,12 +15,16 @@ use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\MessageBag;
 use Illuminate\Support\ServiceProvider;
+use Stripe\StripeClient;
 
 class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->bind(StripeClient::class, fn () => new StripeClient([
+            'api_key' => (string) config('services.stripe.secret'),
+            'max_network_retries' => 2,
+        ]));
     }
 
     public function boot(): void
@@ -89,6 +93,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Release uploads carry up to two 50 MB archives and a dist.
         RateLimiter::for('upload', fn (Request $request) => Limit::perHour(60)->by($request->user()?->uuid ?: $request->ip()));
+
+        // Stripe retries and bursts (a refund sends several events at once).
+        RateLimiter::for('webhooks', fn (Request $request) => Limit::perMinute(600)->by($request->ip()));
 
         RateLimiter::for('catalog', fn (Request $request) => Limit::perMinute(300)->by($request->ip()));
 
