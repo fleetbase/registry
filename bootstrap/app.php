@@ -3,7 +3,9 @@
 use App\Http\Middleware\EnsurePackageLicence;
 use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\EnsureTokenScope;
+use App\Http\Middleware\StatefulSession;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -27,7 +29,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'scope' => EnsureTokenScope::class,
             'licence' => EnsurePackageLicence::class,
             'staff' => EnsureStaff::class,
+            'stateful' => StatefulSession::class,
         ]);
+
+        // The website's cookie session must start before `auth:token,web` resolves the caller.
+        $middleware->prependToPriorityList(EncryptCookies::class, StatefulSession::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $isPackage = fn (Request $request) => $request->is('npm', 'npm/*', 'composer', 'composer/*');

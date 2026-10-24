@@ -7,6 +7,7 @@ use App\Traits\HasPublicId;
 use App\Traits\HasUuid;
 use Database\Factories\ExtensionFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -103,6 +104,23 @@ class Extension extends Model
         return $this->morphMany(File::class, 'subject', 'subject_type', 'subject_uuid', 'uuid')
             ->where('type', File::TYPE_SCREENSHOT)
             ->orderBy('created_at');
+    }
+
+    /** Most screenshots a listing can have. */
+    public const MAX_SCREENSHOTS = 8;
+
+    /**
+     * The loaded screenshots in display order: `meta.order` (set by the publisher's reorder),
+     * then upload time. Imported screenshots have no order and keep their upload order.
+     *
+     * @return Collection<int, File>
+     */
+    public function orderedScreenshots(): Collection
+    {
+        return $this->screenshots->sortBy([
+            fn (File $a, File $b) => ($a->meta['order'] ?? PHP_INT_MAX) <=> ($b->meta['order'] ?? PHP_INT_MAX),
+            fn (File $a, File $b) => [$a->created_at, $a->id] <=> [$b->created_at, $b->id],
+        ])->values();
     }
 
     public function packages(): HasMany

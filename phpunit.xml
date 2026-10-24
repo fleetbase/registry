@@ -19,6 +19,8 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- Test-only key: website session tests encrypt cookies, with or without a .env. -->
+        <env name="APP_KEY" value="base64:OFANl8ewZ9kLHPJjY0y5+1DKrq2HfJeJRBpmDnxyFwY="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>

@@ -19,12 +19,17 @@ class AccountResource extends FleetbaseResource
             'timezone' => $this->timezone,
             'status' => $this->status,
             'email_verified_at' => $this->email_verified_at,
+            'is_staff' => $this->relationLoaded('organizations')
+                ? $this->organizations->contains(fn ($organization) => $organization->is_staff === true)
+                : $this->resource->isStaff(),
             'organizations' => $this->whenLoaded('organizations', fn () => $this->organizations->map(fn ($organization) => [
                 'id' => $organization->public_id,
                 'slug' => $organization->slug,
                 'name' => $organization->name,
                 'role' => $organization->pivot->role,
                 'is_personal' => $organization->is_personal,
+                'is_staff' => (bool) $organization->is_staff,
+                'verified_at' => $organization->verified_at,
             ])->all()),
             'last_login_at' => $this->last_login_at,
             'updated_at' => $this->updated_at,

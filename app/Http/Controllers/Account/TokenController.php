@@ -15,14 +15,20 @@ use Illuminate\Http\Request;
 class TokenController extends Controller
 {
     /**
-     * GET /v1/account/tokens — the caller's tokens, newest first, masked.
+     * GET /v1/account/tokens — the caller's tokens, newest first, masked. Website session
+     * tokens (`flbs_`) are not listed; they end with their session.
      */
     public function index(Request $request)
     {
         /** @var Account $account */
         $account = $request->user();
 
-        $tokens = $account->tokens()->with('organization')->whereNull('revoked_at')->orderByDesc('created_at')->get();
+        $tokens = $account->tokens()
+            ->with('organization')
+            ->whereNull('revoked_at')
+            ->where('prefix', '!=', Token::PREFIX_SESSION)
+            ->orderByDesc('created_at')
+            ->get();
 
         return TokenResource::collection($tokens);
     }
@@ -75,7 +81,10 @@ class TokenController extends Controller
         /** @var Account $account */
         $account = $request->user();
 
-        $token = $account->tokens()->where(fn ($q) => $q->where('public_id', $id)->orWhere('uuid', $id))->first();
+        $token = $account->tokens()
+            ->where('prefix', '!=', Token::PREFIX_SESSION)
+            ->where(fn ($q) => $q->where('public_id', $id)->orWhere('uuid', $id))
+            ->first();
 
         if (! $token) {
             return response()->error('Token not found.', 404);

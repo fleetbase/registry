@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Publisher;
 
 use App\Http\Requests\Publisher\CreateExtensionRequest;
 use App\Http\Requests\Publisher\UpdateExtensionRequest;
+use App\Http\Requests\Publisher\UpdatePriceRequest;
+use App\Http\Resources\PriceResource;
 use App\Http\Resources\PublisherExtensionResource;
 use App\Models\Category;
 use App\Models\Event;
@@ -20,10 +22,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 class ExtensionController extends PublisherController
 {
-    public const DETAIL = ['organization', 'category', 'packages', 'price'];
+    public const DETAIL = ['organization', 'category', 'packages', 'price', 'icon', 'screenshots'];
 
     public function __construct(protected PackageNamespaces $namespaces) {}
 
@@ -32,8 +35,9 @@ class ExtensionController extends PublisherController
      */
     public function index(Request $request): JsonResponse
     {
+        // Releases give My extensions its live version and the latest release's status.
         $extensions = Extension::query()
-            ->with(self::DETAIL)
+            ->with([...self::DETAIL, 'releases'])
             ->whereIn('organization_uuid', $this->publishableOrganizations($request))
             ->orderBy('name')
             ->get();
@@ -139,6 +143,38 @@ class ExtensionController extends PublisherController
         }
 
         return new PublisherExtensionResource($extension->load(self::DETAIL));
+    }
+
+    /**
+     * PUT /v1/publisher/extensions/{slug}/price — `{model, amount, currency}`. Paid pricing
+     * needs the organization's Stripe Connect account. The price takes effect at once; under
+     * D6 a price that differs from the last release's snapshot sends the next release to
+     * human review.
+     */
+    public function price(UpdatePriceRequest $request, string $slug): PublisherExtensionResource
+    {
+        $extension = $this->findExtension($request, $slug, ['organization', 'price']);
+        $model = $request->input('model');
+
+        if ($model !== Price::MODEL_FREE && blank($extension->organization?->stripe_connect_id)) {
+            throw new UnprocessableEntityHttpException('Paid pricing opens when Stripe Connect payouts ship (Phase 4).');
+        }
+
+        $attributes = $model === Price::MODEL_FREE
+            ? ['model' => Price::MODEL_FREE, 'amount' => 0, 'currency' => $request->input('currency') ?? $extension->price?->currency ?? 'USD', 'on_sale' => false, 'sale_amount' => null]
+            : ['model' => $model, 'amount' => (int) $request->input('amount'), 'currency' => $request->input('currency')];
+
+        $before = $extension->price ? (new PriceResource($extension->price))->resolve($request) : null;
+        $price = $extension->price ?? $extension->price()->make();
+        $price->fill($attributes)->save();
+
+        Event::record('extension.price_changed', $extension, $this->account($request), ['from' => $before, 'to' => $attributes]);
+
+        if ($extension->status === Extension::STATUS_PUBLISHED) {
+            CatalogCache::flush();
+        }
+
+        return new PublisherExtensionResource($extension->fresh(self::DETAIL));
     }
 
     /**
