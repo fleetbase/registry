@@ -141,6 +141,20 @@ function makeRelease(ExtensionPackage $package, string $version, string $channel
 }
 
 /**
+ * Attach a prebuilt engine dist (makeDist) to a release, with the `dist` meta the dist
+ * check records.
+ */
+function attachDist(Release $release, string $enginePackage, array $builtAgainst = ['@fleetbase/ember-ui' => '0.4.6', '@fleetbase/ember-core' => '0.3.2']): File
+{
+    $file = app(ReleaseStorage::class)->store(makeDist($enginePackage, $release->version, ['manifest' => ['builtAgainst' => $builtAgainst]]), File::TYPE_ENGINE_DIST, $release, [
+        'name' => basename($enginePackage).'-'.$release->version.'-dist.tgz',
+    ]);
+    $release->forceFill(['engine_dist_file_uuid' => $file->uuid])->mergeMeta(['dist' => ['name' => $enginePackage, 'version' => $release->version, 'schema' => 1, 'built_against' => $builtAgainst]])->save();
+
+    return $file;
+}
+
+/**
  * Issue an instance token and authenticate subsequent requests with it.
  */
 function actingAsInstance(Instance $instance): string

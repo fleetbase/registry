@@ -18,6 +18,7 @@ class LicenceResource extends FleetbaseResource
             'extension' => $this->whenLoaded('extension', fn () => $this->extension ? (new ExtensionReferenceResource($this->extension))->resolve($request) : null),
             'organization' => $this->whenLoaded('organization', fn () => $this->organization ? ['id' => $this->organization->public_id, 'slug' => $this->organization->slug, 'name' => $this->organization->name] : null),
             'purchase' => $this->whenLoaded('purchase', fn () => $this->purchase?->public_id),
+            'receipt_url' => $this->whenLoaded('purchase', fn () => $this->purchase?->receipt_url),
             'kind' => $this->kind,
             'status' => $this->status,
             'max_activations' => $this->max_activations,

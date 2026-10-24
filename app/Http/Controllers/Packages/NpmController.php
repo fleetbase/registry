@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Packages;
 
 use App\Models\Account;
 use App\Models\ExtensionPackage;
+use App\Models\Release;
 use App\Services\Packages\NpmPackument;
 use App\Services\ReleaseStorage;
 use Illuminate\Http\JsonResponse;
@@ -54,6 +55,28 @@ class NpmController extends PackageController
             ['Content-Type' => 'application/octet-stream'],
             $this->archiveCacheHeaders(! $resolved->extension->isPaid()),
         ));
+    }
+
+    /**
+     * GET /npm/{name}/-/dist/{version}
+     *
+     * The release's prebuilt engine dist (`fleetbase-build-engine-release` output, as uploaded
+     * with `flb publish`), which the console installs as a runtime engine without a rebuild.
+     * Not part of the npm protocol: npm clients never ask for it. Gated like the tarball;
+     * catalog releases carry its size, sha256 and builtAgainst under `dist`.
+     */
+    public function dist(Request $request, string $package, string $version): Response
+    {
+        $resolved = $this->resolvePackage($request, ExtensionPackage::KIND_NPM, $package);
+
+        $release = $resolved->extension->releases()
+            ->whereIn('status', [Release::STATUS_PUBLISHED, Release::STATUS_YANKED])
+            ->where('version', $version)
+            ->with('engineDist')
+            ->first();
+        abort_if($release?->engineDist === null, 404, 'Dist not found.');
+
+        return $this->storage->download($release->engineDist, $request, $this->archiveCacheHeaders(! $resolved->extension->isPaid()));
     }
 
     /**

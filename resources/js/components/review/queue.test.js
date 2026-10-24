@@ -19,6 +19,7 @@ function release(overrides = {}) {
 describe('queueAge', () => {
     it('shows hours under a day as new', () => {
         expect(queueAge(release({ submitted_at: at(0, 5) }), NOW)).toMatchObject({ label: '5 h', state: 'new', text: 'new' });
+        expect(queueAge(release({ submitted_at: at(0, 2 / 60) }), NOW).label).toBe('2 min');
         expect(queueAge(release({ submitted_at: at(0, 5) }), NOW).percent).toBeLessThan(10);
     });
 
@@ -50,6 +51,12 @@ describe('filterReleases', () => {
     it('treats a release as first when its listing is not published', () => {
         expect(isFirstRelease(first)).toBe(true);
         expect(isFirstRelease(update)).toBe(false);
+    });
+
+    it('keeps a first release first once it is published and the listing is live', () => {
+        expect(isFirstRelease(release({ previous_version: null, status: 'published' }))).toBe(true);
+        expect(updateLabel(release({ previous_version: null, status: 'published' }))).toBe('First release');
+        expect(isFirstRelease(release({ previous_version: '0.1.0', status: 'published' }))).toBe(false);
     });
 
     it('filters first releases, updates, failed checks and paid', () => {

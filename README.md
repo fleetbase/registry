@@ -215,6 +215,12 @@ default here is 12) because Laravel's `hashed` cast refuses hashes above the con
 | `GET /v1/catalog/extensions?q=&category=&pricing=&hosting=&console=&compatible=&sort=&page=&limit=` | Paged listings with publisher, category, latest release, install count, compat, price, package names. `console=<version>` adds `compatibility: {console, compatible, newest_compatible}` to each item (does the latest release work, and the newest published release that does); with `compatible=1` only listings that have such a release |
 | `GET /v1/catalog/extensions/{slug}` | Full listing, screenshots, publisher, versions summary |
 | `GET /v1/catalog/extensions/{slug}/releases?channel=` | Published (and yanked) releases: versions, channels, dates, sizes, notes, compat |
+
+Catalog releases (`latest_release`, each `versions` entry, `/releases`) and the instance
+`updates` releases carry `dist`: `null`, or `{size, sha256, integrity, built_against}` for
+a release with a prebuilt engine dist, where `built_against` holds the
+`@fleetbase/ember-ui` and `@fleetbase/ember-core` versions it was built with. The archive
+is `GET /npm/{engine}/-/dist/{version}`, behind the licence gate.
 | `GET /v1/catalog/publishers/{slug}` | Publisher profile and their published extensions |
 | `GET /v1/catalog/categories` | Categories with published extension counts |
 
@@ -232,6 +238,7 @@ carry npm's `error` string beside the usual `errors` array.
 | --- | --- |
 | `GET /npm/{name}` | Packument from published, non-yanked releases: `versions` (stored `package.json` + `dist.tarball`, `dist.shasum`, `dist.integrity`), `dist-tags` (`latest` = highest stable, `beta` = highest beta; `latest` falls back to the highest beta when nothing is stable), `time`. Scoped names work encoded (`@scope%2fname`) or not. ETag, 304 |
 | `GET /npm/{name}/-/{basename}-{version}.tgz` | The engine tarball. Yanked versions stay downloadable for lockfiles |
+| `GET /npm/{name}/-/dist/{version}` | The release's prebuilt engine dist as uploaded (`fleetbase-build-engine-release` output, tar or tar.gz), which a console installs as a runtime engine without a rebuild. Not an npm protocol route. `X-Checksum-Sha256`, ETag, 304; 404 when the release has no dist. Yanked versions stay downloadable. Catalog releases carry its `dist: {size, sha256, integrity, built_against}` |
 | `PUT`/`POST`/`DELETE`/`PATCH /npm/…` | 405: publish with `flb publish` |
 | `GET /npm/-/ping`, `GET /npm/-/whoami` | `npm ping`, `npm whoami` |
 | `GET /composer/packages.json` | `metadata-url`, `available-packages` (every package with a published release) |
@@ -254,8 +261,8 @@ Client setup:
 
 with `COMPOSER_AUTH='{"bearer": {"registry.fleetbase.io": "flbp_…"}}'` for paid packages.
 
-**Licence gate.** Free packages are open. For a paid package the packument, tarball, p2
-and dist routes need `Authorization: Bearer` with a personal token carrying the `install`
+**Licence gate.** Free packages are open. For a paid package the packument, tarball, prebuilt dist,
+p2 and Composer dist routes need `Authorization: Bearer` with a personal token carrying the `install`
 scope or an instance token (`flbi_…`). The token's organizations are its pinned
 organization, or every organization of the account when it is not pinned; access is
 granted when one of them owns the extension or holds an active, unexpired licence. 401

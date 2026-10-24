@@ -115,6 +115,36 @@ it('keeps yanked tarballs downloadable for existing lockfiles', function () {
     $this->get('/npm/@acme%2froute-optimizer-engine')->assertNotFound();
 });
 
+it('serves the prebuilt dist of a release, verified by the sha256 catalog releases carry', function () {
+    $package = npmPackage();
+    $release = makeRelease($package, '1.0.0');
+    $file = attachDist($release, $package->name);
+
+    $response = $this->get('/npm/@acme/route-optimizer-engine/-/dist/1.0.0')->assertOk()
+        ->assertHeader('Content-Type', 'application/gzip')
+        ->assertHeader('X-Checksum-Sha256', $file->checksum)
+        ->assertHeader('ETag', '"'.$file->checksum.'"');
+
+    expect(hash('sha256', $response->streamedContent()))->toBe($file->checksum)
+        ->and($response->headers->get('Cache-Control'))->toContain('immutable');
+
+    $this->get('/npm/@acme%2froute-optimizer-engine/-/dist/1.0.0')->assertOk();
+    $this->withHeader('If-None-Match', '"'.$file->checksum.'"')->get('/npm/@acme/route-optimizer-engine/-/dist/1.0.0')->assertStatus(304);
+});
+
+it('keeps the dist of a yanked release downloadable and 404s releases without one', function () {
+    $package = npmPackage();
+    attachDist(makeRelease($package, '1.0.0', status: Release::STATUS_YANKED), $package->name);
+    makeRelease($package, '1.1.0');
+    attachDist(makeRelease($package, '2.0.0', status: Release::STATUS_IN_REVIEW), $package->name);
+
+    $this->get('/npm/@acme/route-optimizer-engine/-/dist/1.0.0')->assertOk();
+    $this->get('/npm/@acme/route-optimizer-engine/-/dist/1.1.0')->assertNotFound()->assertJsonPath('error', 'Dist not found.');
+    $this->get('/npm/@acme/route-optimizer-engine/-/dist/2.0.0')->assertNotFound();
+    $this->get('/npm/@acme/route-optimizer-engine/-/dist/9.9.9')->assertNotFound();
+    $this->get('/npm/@acme/missing-engine/-/dist/1.0.0')->assertNotFound()->assertJsonPath('error', 'Package not found.');
+});
+
 it('returns npm-readable 404s', function () {
     $package = npmPackage();
     makeRelease($package, '1.0.0', status: Release::STATUS_IN_REVIEW);

@@ -6,12 +6,14 @@ use App\Models\ExtensionPackage;
 use App\Models\Instance;
 use App\Models\Licence;
 use App\Models\Organization;
+use App\Models\Release;
 use App\Models\Token;
 use Illuminate\Support\Str;
 
 const PAID_ROUTES = [
     'npm packument' => '/npm/@acme%2fpro-engine',
     'npm tarball' => '/npm/@acme/pro-engine/-/pro-engine-1.0.0.tgz',
+    'npm dist' => '/npm/@acme/pro-engine/-/dist/1.0.0',
     'composer p2' => '/composer/p2/acme/pro-api.json',
     'composer p2 ~dev' => '/composer/p2/acme/pro-api~dev.json',
     'composer dist' => '/composer/dist/acme/pro-api/1.0.0.tar',
@@ -25,7 +27,7 @@ function paidExtension(): Extension
     $npm = makePackage(ExtensionPackage::KIND_NPM, '@acme/pro-engine', paid: true);
     $extension = $npm->extension;
     $composer = $extension->packages()->create(['kind' => ExtensionPackage::KIND_COMPOSER, 'name' => 'acme/pro-api']);
-    makeRelease($npm, '1.0.0');
+    attachDist(makeRelease($npm, '1.0.0'), $npm->name);
     makeRelease($composer, '1.0.0');
 
     return $extension;
@@ -58,6 +60,8 @@ it('leaves free packages open without a token, even with a bad one', function ()
 
     $this->get('/npm/@acme%2ffree-engine')->assertOk();
     $this->get('/npm/@acme/free-engine/-/free-engine-1.0.0.tgz')->assertOk();
+    attachDist(Release::query()->where('extension_uuid', $npm->extension_uuid)->firstOrFail(), $npm->name);
+    $this->get('/npm/@acme/free-engine/-/dist/1.0.0')->assertOk();
     $this->get('/composer/p2/acme/free-api.json')->assertOk();
     $this->get('/composer/dist/acme/free-api/1.0.0.tar')->assertOk();
 
@@ -148,6 +152,7 @@ it('accepts an instance token of a licensed organization', function () {
     $instance = Instance::factory()->create(['organization_uuid' => $organization->uuid, 'token_hash' => Token::hash($plain)]);
 
     $this->withHeader('Authorization', 'Bearer '.$plain)->get('/npm/@acme%2fpro-engine')->assertOk();
+    $this->withHeader('Authorization', 'Bearer '.$plain)->get('/npm/@acme/pro-engine/-/dist/1.0.0')->assertOk();
 
     $instance->forceFill(['status' => 'revoked'])->save();
     $this->withHeader('Authorization', 'Bearer '.$plain)->get('/npm/@acme%2fpro-engine')->assertUnauthorized();

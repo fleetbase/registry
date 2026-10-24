@@ -133,6 +133,27 @@ it('shows one extension with description, links, versions and screenshots', func
     $this->getJson('/v1/catalog/extensions/'.$extension->public_id)->assertOk()->assertJsonPath('slug', 'acme-tracker');
 });
 
+it('carries the prebuilt dist size, sha256 and builtAgainst on catalog releases', function () {
+    $extension = catalogExtension(['slug' => 'acme-tracker'], ['version' => '1.0.0']);
+    $engine = $extension->packages()->where('kind', 'npm')->value('name');
+    $latest = Release::factory()->published()->create(['extension_uuid' => $extension->uuid, 'version' => '1.1.0', 'published_at' => now()->addMinute()]);
+    $file = attachDist($latest, $engine, ['@fleetbase/ember-ui' => '0.4.6', '@fleetbase/ember-core' => '0.3.26']);
+    $dist = ['size' => (int) $file->size, 'sha256' => $file->checksum, 'integrity' => $file->integrity, 'built_against' => ['@fleetbase/ember-ui' => '0.4.6', '@fleetbase/ember-core' => '0.3.26']];
+
+    $this->getJson('/v1/catalog/extensions')->assertOk()->assertJsonPath('data.0.latest_release.dist', $dist);
+
+    $detail = $this->getJson('/v1/catalog/extensions/acme-tracker')->assertOk()->assertJsonPath('latest_release.dist', $dist);
+    $versions = collect($detail->json('versions'))->keyBy('version');
+    expect($versions['1.1.0']['dist'])->toBe($dist)
+        ->and($versions['1.0.0']['dist'])->toBeNull();
+
+    $releases = collect($this->getJson('/v1/catalog/extensions/acme-tracker/releases')->assertOk()->json('releases'))->keyBy('version');
+    expect($releases['1.1.0']['dist'])->toBe($dist)
+        ->and($releases['1.0.0']['dist'])->toBeNull();
+
+    Cache::flush();
+});
+
 it('returns 404 for unknown or unpublished extensions', function () {
     Extension::factory()->create(['slug' => 'draft-only']);
 

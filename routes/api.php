@@ -187,6 +187,11 @@ Route::prefix('npm')->name('npm.')->middleware('throttle:packages')->group(funct
     Route::get('-/ping', [NpmController::class, 'ping'])->name('ping');
     Route::get('-/whoami', [NpmController::class, 'whoami'])->name('whoami');
 
+    Route::get('{package}/-/dist/{version}', [NpmController::class, 'dist'])
+        ->middleware('licence:npm')
+        ->where(['package' => NpmController::NAME_PATTERN, 'version' => '[A-Za-z0-9.+_-]+'])
+        ->name('dist');
+
     Route::get('{package}/-/{file}', [NpmController::class, 'tarball'])
         ->middleware('licence:npm')
         ->where(['package' => NpmController::NAME_PATTERN, 'file' => '[A-Za-z0-9._~+-]+\\.tgz'])

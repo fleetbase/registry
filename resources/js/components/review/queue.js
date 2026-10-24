@@ -4,7 +4,8 @@ import { isPaid, toDate } from '../../lib/format';
 /** Fleetbase aims to decide within this many business days of submission. */
 export const TARGET_BUSINESS_DAYS = 3;
 
-const HOUR = 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
+const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
 /** When the release joined the queue: its submission, else its last change. */
@@ -29,7 +30,7 @@ export function businessDaysSince(value, now = new Date()) {
 }
 
 /**
- * The age column: `5 h` or `4 d`, a bar filled against the 3-business-day target, and a word.
+ * The age column: `12 min`, `5 h` or `4 d`, a bar filled against the 3-business-day target, and a word.
  * Under a day it is new (green), within the target amber, past it red.
  */
 export function queueAge(release, now = new Date()) {
@@ -38,7 +39,7 @@ export function queueAge(release, now = new Date()) {
         return { label: '–', state: 'new', text: 'new', percent: 0, business: 0 };
     }
     const elapsed = Math.max(0, now.getTime() - at.getTime());
-    const label = elapsed < DAY ? `${Math.max(1, Math.floor(elapsed / HOUR))} h` : `${Math.floor(elapsed / DAY)} d`;
+    const label = elapsed < HOUR ? `${Math.max(1, Math.floor(elapsed / MINUTE))} min` : elapsed < DAY ? `${Math.floor(elapsed / HOUR)} h` : `${Math.floor(elapsed / DAY)} d`;
     const business = businessDaysSince(at, now);
     const state = business > TARGET_BUSINESS_DAYS ? 'over' : elapsed < DAY ? 'new' : 'in';
     const used = elapsed < DAY ? elapsed / DAY : business;
@@ -49,11 +50,15 @@ export function queueAge(release, now = new Date()) {
 
 /**
  * A first release has no live version before it. The admin API says so with
- * `previous_version`; without it, a release whose listing is not live yet counts as first.
+ * `previous_version`; without one, an unpublished release on a live listing updates it (its
+ * earlier releases were yanked), while a published release is the one that made the listing live.
  */
 export function isFirstRelease(release) {
     if (release?.previous_version) {
         return false;
+    }
+    if (release?.status === 'published') {
+        return true;
     }
     return (release?.extension?.status ?? null) !== 'published';
 }
