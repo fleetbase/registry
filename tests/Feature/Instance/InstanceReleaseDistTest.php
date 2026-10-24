@@ -47,7 +47,7 @@ it('names the download in dist.url on update releases, with size, sha256 and bui
     expect($row['installed']['dist'])->toBeNull()
         ->and($row['latest']['version'])->toBe('1.1.0')
         ->and($row['latest']['dist'])->toBe([
-            'url' => 'http://localhost/v1/instances/me/releases/'.$latest->public_id.'/dist',
+            'url' => route('v1.instances.me.releases.dist', ['release' => $latest->public_id]),
             'size' => (int) $file->size,
             'sha256' => $file->checksum,
             'integrity' => $file->integrity,
