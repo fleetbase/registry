@@ -1014,6 +1014,8 @@ class RegistryImporter
                     'installed_by' => 'cloud-import',
                     'started_at' => $createdAt,
                     'finished_at' => $installed ? $createdAt : ($this->date($row->deleted_at ?? null) ?? $this->date($row->updated_at ?? null) ?? $createdAt),
+                    'installed_at' => $createdAt,
+                    'uninstalled_at' => $installed ? null : ($this->date($row->deleted_at ?? null) ?? $this->date($row->updated_at ?? null) ?? $createdAt),
                     'created_at' => $createdAt,
                 ], 'installs');
 

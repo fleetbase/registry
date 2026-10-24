@@ -20,6 +20,9 @@ return [
     // Cache lifetime for public catalog responses, in seconds.
     'catalog_cache_seconds' => (int) env('REGISTRY_CATALOG_CACHE_SECONDS', 60),
 
+    // Cache lifetime for publisher analytics reports (Studio Insights), in seconds.
+    'analytics_cache_seconds' => (int) env('REGISTRY_ANALYTICS_CACHE_SECONDS', 60),
+
     // Package namespaces (npm scope / Composer vendor) only an organization flagged
     // `is_staff` may own. Grant the flag with `php artisan registry:staff <org>`.
     'reserved_scopes' => ['fleetbase'],

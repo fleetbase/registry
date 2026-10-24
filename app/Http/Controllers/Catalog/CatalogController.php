@@ -11,7 +11,6 @@ use App\Http\Resources\PublisherResource;
 use App\Http\Resources\ReleaseResource;
 use App\Models\Category;
 use App\Models\Extension;
-use App\Models\Install;
 use App\Models\Organization;
 use App\Models\Release;
 use App\Support\CatalogCache;
@@ -156,7 +155,7 @@ class CatalogController extends Controller
     {
         return $query
             ->with(['organization', 'category', 'icon', 'price', 'packages', 'latestRelease.engineDist'])
-            ->withCount(['installs' => fn ($q) => $q->where('status', Install::STATUS_INSTALLED)]);
+            ->withCount(['installs' => fn ($q) => $q->active()]);
     }
 
     /**

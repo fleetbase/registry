@@ -18,12 +18,14 @@ use App\Http\Controllers\Instance\PurchaseController;
 use App\Http\Controllers\Organization\BillingController;
 use App\Http\Controllers\Organization\OrganizationController;
 use App\Http\Controllers\Organization\PayoutController;
+use App\Http\Controllers\Organization\StatsController as OrganizationStatsController;
 use App\Http\Controllers\Organization\StripeConnectController;
 use App\Http\Controllers\Packages\ComposerController;
 use App\Http\Controllers\Packages\NpmController;
 use App\Http\Controllers\Publisher\ExtensionController as PublisherExtensionController;
 use App\Http\Controllers\Publisher\ListingMediaController;
 use App\Http\Controllers\Publisher\ReleaseController as PublisherReleaseController;
+use App\Http\Controllers\Publisher\StatsController as PublisherStatsController;
 use App\Http\Controllers\Purchase\CheckoutController;
 use App\Http\Controllers\Webhook\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -41,7 +43,9 @@ use Illuminate\Support\Facades\Route;
 | Instance routes: Authorization: Bearer flbi_… (instance token), except
 | `instances/register`, which takes a registration code in the body.
 | Publisher routes: personal token (or website session) with the `publish` scope and the
-| owner, admin or publisher role in the listing's organization.
+| owner, admin or publisher role in the listing's organization. That includes a listing's
+| analytics (`extensions/{slug}/stats`); `organizations/{slug}/stats` sums every listing of
+| an organization for its owners, admins, publishers and billing members.
 | Admin routes: personal token (or website session) with the `review` scope, member of an
 | `is_staff` organization. Finance (`admin/finance`, refunds) sits behind the same middleware.
 | Commerce: organization Stripe Connect, payouts and billing take a personal token or the
@@ -108,6 +112,8 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::get('organizations/{slug}/payouts/transactions.csv', [PayoutController::class, 'export'])->name('organizations.payouts.export');
         Route::get('organizations/{slug}/billing/purchases', [BillingController::class, 'purchases'])->name('organizations.billing.purchases');
         Route::get('organizations/{slug}/billing/licences', [BillingController::class, 'licences'])->name('organizations.billing.licences');
+        Route::get('organizations/{slug}/stats', [OrganizationStatsController::class, 'show'])->name('organizations.stats');
+        Route::get('organizations/{slug}/stats.csv', [OrganizationStatsController::class, 'export'])->name('organizations.stats.export');
 
         Route::post('purchases/checkout', [CheckoutController::class, 'checkout'])->name('purchases.checkout');
         Route::get('purchases/{handoff}', [CheckoutController::class, 'show'])->name('purchases.show');
@@ -120,6 +126,8 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::get('extensions/{slug}', [PublisherExtensionController::class, 'show'])->name('extensions.show');
         Route::patch('extensions/{slug}', [PublisherExtensionController::class, 'update'])->name('extensions.update');
         Route::put('extensions/{slug}/price', [PublisherExtensionController::class, 'price'])->name('extensions.price');
+        Route::get('extensions/{slug}/stats', [PublisherStatsController::class, 'show'])->name('extensions.stats');
+        Route::get('extensions/{slug}/stats.csv', [PublisherStatsController::class, 'export'])->name('extensions.stats.export');
         Route::post('extensions/{slug}/icon', [ListingMediaController::class, 'storeIcon'])->middleware('throttle:upload')->name('extensions.icon.store');
         Route::delete('extensions/{slug}/icon', [ListingMediaController::class, 'destroyIcon'])->name('extensions.icon.destroy');
         Route::post('extensions/{slug}/screenshots', [ListingMediaController::class, 'storeScreenshot'])->middleware('throttle:upload')->name('extensions.screenshots.store');
