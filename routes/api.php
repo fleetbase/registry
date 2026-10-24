@@ -5,6 +5,7 @@ use App\Http\Controllers\Account\GithubController as AccountGithubController;
 use App\Http\Controllers\Account\InstanceCodeController;
 use App\Http\Controllers\Account\TokenController;
 use App\Http\Controllers\Admin\FacilitatorFeeController;
+use App\Http\Controllers\Admin\FinanceController;
 use App\Http\Controllers\Admin\LicenceController as AdminLicenceController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Auth\AuthController;
@@ -42,7 +43,7 @@ use Illuminate\Support\Facades\Route;
 | Publisher routes: personal token (or website session) with the `publish` scope and the
 | owner, admin or publisher role in the listing's organization.
 | Admin routes: personal token (or website session) with the `review` scope, member of an
-| `is_staff` organization.
+| `is_staff` organization. Finance (`admin/finance`, refunds) sits behind the same middleware.
 | Commerce: organization Stripe Connect, payouts and billing take a personal token or the
 | website session; checkout runs from an instance (flbi_) or the website; Stripe posts signed
 | webhooks to `webhooks/stripe` (no session, no CSRF, no token).
@@ -150,6 +151,10 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::patch('licences/{licence}', [AdminLicenceController::class, 'update'])->name('licences.update');
         Route::get('facilitator-fees', [FacilitatorFeeController::class, 'index'])->name('facilitator-fees.index');
         Route::post('facilitator-fees', [FacilitatorFeeController::class, 'store'])->name('facilitator-fees.store');
+        Route::get('finance', [FinanceController::class, 'summary'])->name('finance');
+        Route::get('finance/purchases', [FinanceController::class, 'purchases'])->name('finance.purchases');
+        Route::get('finance/monthly.csv', [FinanceController::class, 'export'])->name('finance.export');
+        Route::post('purchases/{purchase}/refund', [FinanceController::class, 'refund'])->name('purchases.refund');
     });
 
     // Instances authenticate with flbi_ tokens only: never a session or CSRF.

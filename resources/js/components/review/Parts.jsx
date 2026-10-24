@@ -9,16 +9,17 @@ import { api } from '../../lib/api';
 
 const SELECTED = { background: 'var(--surface)', color: 'var(--ink)', boxShadow: 'var(--e1), 0 0 0 1px var(--line)' };
 
-/** The console's sections: Waiting, To publish, Decided, Failed checks. */
+/** The console's sections: Waiting, To publish, Decided, Failed checks, Finance. */
 export function ReviewTabs({ current, counts = {} }) {
     const tabs = [
         { key: 'waiting', href: '/review', label: `Waiting · ${counts.waiting ?? 0}` },
         { key: 'publish', href: '/review/publish', label: `To publish · ${counts.publish ?? 0}` },
         { key: 'decided', href: '/review?tab=decided', label: 'Decided' },
         { key: 'failed', href: '/review?tab=failed', label: 'Failed checks' },
+        { key: 'finance', href: '/review/finance', label: 'Finance' },
     ];
     return (
-        <nav className="seg" aria-label="Queue" style={{ flexWrap: 'wrap' }}>
+        <nav className="seg" aria-label="Review console" style={{ flexWrap: 'wrap' }}>
             {tabs.map((tab) => (
                 <Link key={tab.key} href={tab.href} aria-current={tab.key === current ? 'page' : undefined} data-tab={tab.key} style={{ minHeight: 44, ...(tab.key === current ? SELECTED : {}) }}>
                     {tab.label}

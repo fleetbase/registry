@@ -55,6 +55,7 @@ Route::middleware('auth:web')->group(function () {
     Route::get('review', [ReviewPageController::class, 'queue'])->name('review');
     Route::get('review/publish', [ReviewPageController::class, 'pending'])->name('review.pending');
     Route::get('review/releases/{release}', [ReviewPageController::class, 'release'])->name('review.release');
+    Route::get('review/finance', [ReviewPageController::class, 'finance'])->name('review.finance');
 });
 
 // Everything else is a 404: an Inertia page on the website, the JSON envelope under /v1 (any

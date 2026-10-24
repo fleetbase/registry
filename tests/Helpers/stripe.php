@@ -130,6 +130,13 @@ function fakeStripe(): FakeStripeHttpClient
             ]);
         })
         ->on('get', '/v1/payment_intents/(pi_\w+)', fn ($params, $path) => stripeFixture('payment_intent', ['id' => basename($path)]))
+        ->on('post', '/v1/refunds', fn ($params) => stripeFixture('refund', [
+            'id' => $id('re'),
+            'amount' => (int) $params['amount'],
+            'payment_intent' => $params['payment_intent'],
+            'reason' => $params['reason'] ?? null,
+            'metadata' => $params['metadata'] ?? [],
+        ]))
         ->on('get', '/v1/balance', stripeFixture('balance'))
         ->on('get', '/v1/payouts', stripeFixture('payouts'));
 

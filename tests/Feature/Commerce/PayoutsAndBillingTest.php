@@ -5,32 +5,8 @@ use App\Models\Extension;
 use App\Models\FacilitatorFee;
 use App\Models\Licence;
 use App\Models\Membership;
-use App\Models\Organization;
 use App\Models\Purchase;
 use Illuminate\Support\Carbon;
-
-/**
- * A purchase of the listing by the organization, as the webhook writes it.
- */
-function recordedSale(Extension $listing, Organization $buyer, int $total = 5292, int $fee = 490, array $attributes = []): Purchase
-{
-    $purchase = Purchase::create(array_merge([
-        'extension_uuid' => $listing->uuid,
-        'buyer_organization_uuid' => $buyer->uuid,
-        'amount_total' => $total,
-        'fee_amount' => $fee,
-        'net_amount' => $total - $fee,
-        'currency' => 'USD',
-        'status' => Purchase::STATUS_PAID,
-        'stripe_checkout_session_id' => 'cs_test_'.uniqid(),
-        'stripe_payment_intent_id' => 'pi_test_'.uniqid(),
-        'receipt_url' => 'https://pay.stripe.com/receipts/payment/x',
-        'meta' => ['amount_subtotal' => 4900, 'amount_tax' => 392, 'fee_rate_bps' => 1000, 'source' => 'website'],
-    ], $attributes));
-    Licence::create(['extension_uuid' => $listing->uuid, 'organization_uuid' => $buyer->uuid, 'purchase_uuid' => $purchase->uuid, 'kind' => Licence::KIND_PAID, 'max_activations' => 5, 'status' => Licence::STATUS_ACTIVE]);
-
-    return $purchase;
-}
 
 it('shows the publisher balance, schedule and payouts from the connected account', function () {
     [$owner, $publisher] = sellableListing();
