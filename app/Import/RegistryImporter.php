@@ -13,12 +13,14 @@ use App\Models\File;
 use App\Models\Install;
 use App\Models\Instance;
 use App\Models\Licence;
+use App\Models\LicenceActivation;
 use App\Models\Membership;
 use App\Models\Model;
 use App\Models\Organization;
 use App\Models\Price;
 use App\Models\Purchase;
 use App\Models\Release;
+use App\Support\CloudPlatform;
 use App\Support\Compat;
 use App\Support\Semver;
 use Illuminate\Database\Connection;
@@ -43,6 +45,27 @@ use Illuminate\Support\Str;
 class RegistryImporter
 {
     public const DEFAULT_PAID_SEATS = 5;
+
+    /** `registry_extensions.status` → `extensions.status`; anything else imports as a draft. */
+    public const EXTENSION_STATUSES = [
+        'pending' => Extension::STATUS_DRAFT,
+        'awaiting_review' => Extension::STATUS_IN_REVIEW,
+        'in_review' => Extension::STATUS_IN_REVIEW,
+        'approved' => Extension::STATUS_APPROVED,
+        'rejected' => Extension::STATUS_REJECTED,
+        'published' => Extension::STATUS_PUBLISHED,
+        'unpublished' => Extension::STATUS_UNPUBLISHED,
+    ];
+
+    /** `registry_extension_bundles.status` → `releases.status`; anything else imports as uploaded. */
+    public const RELEASE_STATUSES = [
+        'pending' => Release::STATUS_UPLOADED,
+        'awaiting_review' => Release::STATUS_IN_REVIEW,
+        'in_review' => Release::STATUS_IN_REVIEW,
+        'approved' => Release::STATUS_APPROVED,
+        'published' => Release::STATUS_PUBLISHED,
+        'rejected' => Release::STATUS_REJECTED,
+    ];
 
     protected ImportReport $report;
 
@@ -100,14 +123,19 @@ class RegistryImporter
     /** @var array<string, Release> source bundle uuid => release */
     protected array $releaseMap = [];
 
-    /** @var array<string, Instance> company uuid => synthetic instance */
-    protected array $instances = [];
+    /** The cloud instance every cloud install and seat attaches to. */
+    protected ?Instance $cloudInstance = null;
 
+    /**
+     * @param  string|null  $cloudHost  host the cloud API registers with (`registry.cloud.host`), so
+     *                                  its first registration rotates onto the imported instance
+     */
     public function __construct(
         protected Connection $source,
         protected string $sourceDisk,
         protected string $targetDisk,
         protected bool $dryRun = false,
+        protected ?string $cloudHost = null,
     ) {
         $this->report = new ImportReport($dryRun);
     }
@@ -592,15 +620,7 @@ class RegistryImporter
 
     protected function mapExtensionStatus(object $row): string
     {
-        $status = match ($row->status ?? null) {
-            'pending' => Extension::STATUS_DRAFT,
-            'awaiting_review', 'in_review' => Extension::STATUS_IN_REVIEW,
-            'approved' => Extension::STATUS_APPROVED,
-            'rejected' => Extension::STATUS_REJECTED,
-            'published' => Extension::STATUS_PUBLISHED,
-            'unpublished' => Extension::STATUS_UNPUBLISHED,
-            default => null,
-        };
+        $status = self::EXTENSION_STATUSES[$row->status ?? ''] ?? null;
 
         if ($status === null) {
             $this->report->anomaly('unknown_status', ['table' => 'registry_extensions', 'uuid' => $row->uuid, 'status' => $row->status ?? null, 'mapped_to' => Extension::STATUS_DRAFT]);
@@ -831,14 +851,7 @@ class RegistryImporter
 
     protected function mapReleaseStatus(object $bundle): string
     {
-        $status = match ($bundle->status ?? null) {
-            'pending' => Release::STATUS_UPLOADED,
-            'awaiting_review', 'in_review' => Release::STATUS_IN_REVIEW,
-            'approved' => Release::STATUS_APPROVED,
-            'published' => Release::STATUS_PUBLISHED,
-            'rejected' => Release::STATUS_REJECTED,
-            default => null,
-        };
+        $status = self::RELEASE_STATUSES[$bundle->status ?? ''] ?? null;
 
         if ($status === null) {
             $this->report->anomaly('unknown_status', ['table' => 'registry_extension_bundles', 'uuid' => $bundle->uuid, 'status' => $bundle->status ?? null, 'mapped_to' => Release::STATUS_UPLOADED]);
@@ -962,9 +975,10 @@ class RegistryImporter
     // ---------------------------------------------------------------------
 
     /**
-     * One synthetic cloud instance per company; soft-deleted installs become
-     * `uninstalled` rows. Live installs claim a licence seat on the company's
-     * instance (the paid licence from the purchase, or an automatic free licence).
+     * Cloud installs attach to the one cloud instance (kind `cloud`, see `CloudPlatform`), one
+     * row per company: each install is for the company's organization, and soft-deleted installs
+     * become `uninstalled` rows. Live installs claim a seat on the cloud instance for the
+     * company's organization (its paid licence from the purchase, or an automatic free licence).
      */
     protected function importInstalls(): void
     {
@@ -972,13 +986,14 @@ class RegistryImporter
         $deactivate = app(DeactivateLicence::class);
 
         $groups = $this->installs->groupBy(fn ($i) => ($i->company_uuid ?? '').'|'.($i->extension_uuid ?? ''));
+        $instance = $groups->isNotEmpty() ? $this->cloudInstance() : null;
 
         foreach ($groups as $rows) {
             $first = $rows->first();
             $extension = $this->extensionMap[$first->extension_uuid ?? ''] ?? null;
-            $instance = $this->syntheticInstance($first->company_uuid ?? null);
+            $organization = $this->companyOrganizations[$first->company_uuid ?? ''] ?? null;
 
-            if (! $extension || ! $instance) {
+            if (! $extension || ! $organization) {
                 foreach ($rows as $row) {
                     $this->report->anomaly('missing_reference', [
                         'table' => 'registry_extension_installs', 'uuid' => $row->uuid,
@@ -991,6 +1006,7 @@ class RegistryImporter
                 continue;
             }
 
+            $instance->actAs($organization);
             $release = $this->installedRelease($first->extension_uuid, $extension);
             $live = $rows->filter(fn ($r) => ! $this->date($r->deleted_at ?? null))
                 ->sortByDesc(fn ($r) => [(string) ($r->created_at ?? ''), (int) ($r->id ?? 0)]);
@@ -1008,6 +1024,7 @@ class RegistryImporter
                 $install = $this->save(Install::query()->where('source_uuid', $row->uuid)->first() ?? new Install, [
                     'source_uuid' => $row->uuid,
                     'instance_uuid' => $instance->uuid,
+                    'organization_uuid' => $organization->uuid,
                     'extension_uuid' => $extension->uuid,
                     'release_uuid' => $release?->uuid,
                     'status' => $installed ? Install::STATUS_INSTALLED : Install::STATUS_UNINSTALLED,
@@ -1033,7 +1050,7 @@ class RegistryImporter
                 continue;
             }
 
-            $licencesBefore = Licence::query()->where('extension_uuid', $extension->uuid)->where('organization_uuid', $instance->organization_uuid)->count();
+            $licencesBefore = Licence::query()->where('extension_uuid', $extension->uuid)->where('organization_uuid', $organization->uuid)->count();
 
             try {
                 $activation = $activate($instance, $extension, $release);
@@ -1043,7 +1060,7 @@ class RegistryImporter
                 continue;
             }
 
-            if (Licence::query()->where('extension_uuid', $extension->uuid)->where('organization_uuid', $instance->organization_uuid)->count() > $licencesBefore) {
+            if (Licence::query()->where('extension_uuid', $extension->uuid)->where('organization_uuid', $organization->uuid)->count() > $licencesBefore) {
                 $this->report->count('licences', ImportReport::CREATED);
             }
 
@@ -1054,34 +1071,81 @@ class RegistryImporter
                 $this->report->count('licence_activations', ImportReport::UNCHANGED);
             }
         }
+
+        $instance?->actAs(null);
     }
 
-    protected function syntheticInstance(?string $companyUuid): ?Instance
+    /**
+     * The cloud instance: the one registered from `$cloudHost` (or the placeholder an earlier run
+     * created), else a placeholder in the cloud organization with that host and no token. The
+     * cloud API's first registration rotates onto it (D17), so imported installs and seats are
+     * already there when the new console starts. Instances from earlier runs that made one
+     * synthetic instance per company are retired into it.
+     */
+    protected function cloudInstance(): Instance
     {
-        if ($companyUuid === null || $companyUuid === '') {
-            return null;
+        if ($this->cloudInstance) {
+            return $this->cloudInstance;
         }
 
-        if (isset($this->instances[$companyUuid])) {
-            return $this->instances[$companyUuid];
+        $organization = CloudPlatform::organization();
+        $instance = CloudPlatform::instance($organization, $this->cloudHost);
+
+        if ($instance) {
+            $this->report->count('instances', ImportReport::UNCHANGED);
+        } else {
+            $instance = $this->save(new Instance, [
+                'organization_uuid' => $organization->uuid,
+                'name' => 'Fleetbase Cloud',
+                'host' => $this->cloudHost,
+                'kind' => Instance::KIND_CLOUD,
+                'status' => Instance::STATUS_ACTIVE,
+                'meta' => ['platform' => true, 'source' => 'import'],
+            ], 'instances');
         }
 
-        $organization = $this->companyOrganizations[$companyUuid] ?? null;
-        if (! $organization) {
-            return null;
+        $this->retireSyntheticInstances($instance);
+
+        return $this->cloudInstance = $instance;
+    }
+
+    /**
+     * Earlier importer runs created one synthetic cloud instance per company (`meta.synthetic`).
+     * Their seats move to the cloud instance (dropped where it already holds that licence) and
+     * they are revoked; their install rows move when this run updates them by `source_uuid`.
+     */
+    protected function retireSyntheticInstances(Instance $cloud): void
+    {
+        $synthetic = Instance::query()
+            ->where('kind', Instance::KIND_CLOUD)
+            ->where('status', Instance::STATUS_ACTIVE)
+            ->whereKeyNot($cloud->getKey())
+            ->get()
+            ->filter(fn (Instance $instance) => ($instance->meta['synthetic'] ?? false) === true);
+
+        foreach ($synthetic as $instance) {
+            $held = LicenceActivation::query()->where('instance_uuid', $cloud->uuid)->whereNull('deactivated_at')->pluck('licence_uuid');
+
+            LicenceActivation::query()
+                ->where('instance_uuid', $instance->uuid)
+                ->whereNull('deactivated_at')
+                ->whereIn('licence_uuid', $held)
+                ->update(['deactivated_at' => now(), 'updated_at' => now()]);
+
+            $moved = LicenceActivation::query()
+                ->where('instance_uuid', $instance->uuid)
+                ->whereNull('deactivated_at')
+                ->update(['instance_uuid' => $cloud->uuid, 'updated_at' => now()]);
+
+            if ($moved > 0) {
+                $this->report->count('licence_activations', ImportReport::UPDATED, $moved);
+            }
+
+            $this->save($instance, [
+                'status' => Instance::STATUS_REVOKED,
+                'meta' => array_merge($instance->meta ?? [], ['retired_into' => $cloud->public_id]),
+            ], 'instances');
         }
-
-        $company = $this->companies->get($companyUuid);
-        $instance = Instance::withTrashed()->where('source_uuid', $companyUuid)->where('kind', Instance::KIND_CLOUD)->first() ?? new Instance;
-
-        return $this->instances[$companyUuid] = $this->save($instance, [
-            'source_uuid' => $companyUuid,
-            'organization_uuid' => $organization->uuid,
-            'name' => ($company->name ?? $organization->name).' (Fleetbase Cloud)',
-            'kind' => Instance::KIND_CLOUD,
-            'status' => Instance::STATUS_ACTIVE,
-            'meta' => array_filter(['synthetic' => true, 'source' => 'companies', 'company_public_id' => $company->public_id ?? null]),
-        ], 'instances');
     }
 
     /**
@@ -1201,6 +1265,8 @@ class RegistryImporter
      */
     protected function persist(EloquentModel $model, string $table, bool $created = false): EloquentModel
     {
+        $this->keepEquivalentJson($model);
+
         $outcome = match (true) {
             $created || ! $model->exists => ImportReport::CREATED,
             $model->isDirty() => ImportReport::UPDATED,
@@ -1214,6 +1280,40 @@ class RegistryImporter
         $this->report->count($table, $outcome);
 
         return $model;
+    }
+
+    /**
+     * MySQL stores JSON with its object keys reordered, and Eloquent compares JSON attributes with
+     * key order, so a re-run would count every row with a JSON column as updated. Put back the
+     * stored value of any JSON attribute that only differs in key order.
+     */
+    protected function keepEquivalentJson(EloquentModel $model): void
+    {
+        if (! $model->exists) {
+            return;
+        }
+
+        foreach (array_keys($model->getDirty()) as $key) {
+            if ($model->hasCast($key, ['array', 'json', 'object', 'collection', 'encrypted:array', 'encrypted:json'])
+                && $this->sortedKeys($model->getAttribute($key)) === $this->sortedKeys($model->getOriginal($key))) {
+                $model->setAttribute($key, $model->getOriginal($key));
+            }
+        }
+    }
+
+    protected function sortedKeys(mixed $value): mixed
+    {
+        if (is_object($value)) {
+            $value = json_decode(json_encode($value), true);
+        }
+        if (! is_array($value)) {
+            return $value;
+        }
+        if (! array_is_list($value)) {
+            ksort($value);
+        }
+
+        return array_map(fn ($item) => $this->sortedKeys($item), $value);
     }
 
     /**

@@ -60,8 +60,14 @@ return [
             'report' => false,
         ],
 
-        // Read-only view of the cloud API's file bucket, used by `registry:import`.
-        'import_source' => [
+        // Read-only view of the cloud API's file bucket, used by `registry:import`. A local folder
+        // with IMPORT_SOURCE_DRIVER=local (cutover rehearsals, scripts/rehearse-cutover.sh).
+        'import_source' => env('IMPORT_SOURCE_DRIVER', 's3') === 'local' ? [
+            'driver' => 'local',
+            'root' => env('IMPORT_SOURCE_ROOT', storage_path('app/import-source')),
+            'throw' => false,
+            'report' => false,
+        ] : [
             'driver' => 's3',
             'key' => env('IMPORT_SOURCE_AWS_ACCESS_KEY_ID', env('AWS_ACCESS_KEY_ID')),
             'secret' => env('IMPORT_SOURCE_AWS_SECRET_ACCESS_KEY', env('AWS_SECRET_ACCESS_KEY')),

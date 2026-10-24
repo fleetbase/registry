@@ -94,6 +94,9 @@ class SourceDatabase
                 'password' => isset($parts['pass']) ? urldecode($parts['pass']) : '',
                 'charset' => $query['charset'] ?? 'utf8mb4',
                 'collation' => $query['collation'] ?? 'utf8mb4_unicode_ci',
+                // ?unix_socket=/path (a local rehearsal), ?ssl_ca=/path/to/rds-ca.pem (a TLS-only database)
+                'unix_socket' => $query['unix_socket'] ?? '',
+                'options' => isset($query['ssl_ca']) ? [\PDO::MYSQL_ATTR_SSL_CA => $query['ssl_ca']] : [],
                 'prefix' => '',
                 'strict' => false,
             ];
