@@ -114,6 +114,7 @@ it('registers an instance with a code and returns the instance token once', func
     $response = $this->postJson('/v1/instances/register', registrationPayload(strtolower($code->plainTextCode)))
         ->assertCreated()
         ->assertJsonPath('token_type', 'Bearer')
+        ->assertJsonPath('rotated', false)
         ->assertJsonPath('instance.name', 'Acme production')
         ->assertJsonPath('instance.kind', 'self_hosted')
         ->assertJsonPath('instance.console_version', '0.7.2')
@@ -183,6 +184,7 @@ it('rotates the same instance when it registers again with its previous token', 
         'name' => 'Acme renamed',
         'console_version' => '0.7.3',
     ]))->assertOk()
+        ->assertJsonPath('rotated', true)
         ->assertJsonPath('instance.id', $instance->public_id)
         ->assertJsonPath('instance.name', 'Acme renamed')
         ->assertJsonPath('instance.console_version', '0.7.3');
@@ -228,9 +230,60 @@ it('creates a new instance when the previous token is unknown or revoked', funct
 
     $this->postJson('/v1/instances/register', registrationPayload(InstanceRegistrationCode::mint($organization, $account)->plainTextCode, ['previous_token' => $previousToken]))
         ->assertCreated();
-    $this->postJson('/v1/instances/register', registrationPayload(InstanceRegistrationCode::mint($organization, $account)->plainTextCode, ['previous_token' => 'flbi_unknown']))
+    $this->postJson('/v1/instances/register', registrationPayload(InstanceRegistrationCode::mint($organization, $account)->plainTextCode, ['previous_token' => 'flbi_unknown', 'host' => 'staging.acme.test']))
         ->assertCreated();
 
     expect(Instance::count())->toBe(3)
         ->and($instance->fresh()->status)->toBe(Instance::STATUS_REVOKED);
+});
+
+it('rotates the active instance of the organization on the same host when no token is presented', function () {
+    [$account, $organization] = accountWithOrganization();
+    [$instance, $previousToken, $install, $activation] = installedInstance($organization);
+    $instance->forceFill(['host' => 'https://Fleet.Acme.test/'])->save();
+
+    $response = $this->postJson('/v1/instances/register', registrationPayload(InstanceRegistrationCode::mint($organization, $account)->plainTextCode, [
+        'host' => 'fleet.acme.test',
+    ]))->assertOk()
+        ->assertJsonPath('rotated', true)
+        ->assertJsonPath('instance.id', $instance->public_id)
+        ->assertJsonPath('instance.host', 'fleet.acme.test');
+
+    expect(Instance::count())->toBe(1)
+        ->and($install->fresh()->instance_uuid)->toBe($instance->uuid)
+        ->and($activation->fresh()->deactivated_at)->toBeNull()
+        ->and(Event::where('kind', 'instance.reregistered')->first()->payload['matched_by'] ?? null)->toBe('host');
+
+    $this->withHeader('Authorization', 'Bearer '.$previousToken)->getJson('/v1/instances/me')->assertStatus(401);
+    $this->withHeader('Authorization', 'Bearer '.$response->json('token'))->getJson('/v1/instances/me')
+        ->assertOk()->assertJsonPath('instance.id', $instance->public_id);
+});
+
+it('creates a new instance for a new host, or the same host in another organization', function () {
+    [$account, $organization] = accountWithOrganization();
+    [$instance, $previousToken] = installedInstance($organization);
+    $instance->forceFill(['host' => 'fleet.acme.test'])->save();
+    [$otherAccount, $otherOrganization] = accountWithOrganization();
+
+    $this->postJson('/v1/instances/register', registrationPayload(InstanceRegistrationCode::mint($organization, $account)->plainTextCode, ['host' => 'eu.acme.test']))
+        ->assertCreated()->assertJsonPath('rotated', false);
+    $this->postJson('/v1/instances/register', registrationPayload(InstanceRegistrationCode::mint($otherOrganization, $otherAccount)->plainTextCode, ['host' => 'fleet.acme.test']))
+        ->assertCreated()->assertJsonPath('instance.organization.id', $otherOrganization->public_id);
+
+    expect(Instance::count())->toBe(3)
+        ->and($instance->fresh()->status)->toBe(Instance::STATUS_ACTIVE)
+        ->and($instance->fresh()->token_hash)->toBe(hash('sha256', $previousToken));
+});
+
+it('does not match a revoked instance or an empty host', function () {
+    [$account, $organization] = accountWithOrganization();
+    $revoked = Instance::factory()->create(['organization_uuid' => $organization->uuid, 'host' => 'fleet.acme.test', 'status' => Instance::STATUS_REVOKED]);
+    Instance::factory()->create(['organization_uuid' => $organization->uuid, 'host' => null]);
+
+    $this->postJson('/v1/instances/register', registrationPayload(InstanceRegistrationCode::mint($organization, $account)->plainTextCode))
+        ->assertCreated();
+    $this->postJson('/v1/instances/register', registrationPayload(InstanceRegistrationCode::mint($organization, $account)->plainTextCode, ['host' => null]))
+        ->assertCreated();
+
+    expect(Instance::count())->toBe(4)->and($revoked->fresh()->status)->toBe(Instance::STATUS_REVOKED);
 });
