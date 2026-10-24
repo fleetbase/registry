@@ -156,7 +156,15 @@ and dist routes need `Authorization: Bearer` with a personal token carrying the 
 scope or an instance token (`flbi_…`). The token's organizations are its pinned
 organization, or every organization of the account when it is not pinned; access is
 granted when one of them owns the extension or holds an active, unexpired licence. 401
-without a usable token, 403 with one. Paid responses are `Cache-Control: private`.
+without a usable token (a revoked instance counts as none), 403 with one. Paid responses
+are `Cache-Control: private`.
+
+Downloads check the organization's licence only, not a seat on the calling instance.
+Seats are claimed when the instance reports the install (`POST /v1/instances/me/installs`
+with `installing`, which returns 403 when the licence has no free seat), and a personal
+`install` token of the same organization could fetch the package anyway, so a seat check
+at download time would add no enforcement. It would also break downloads from developer
+machines and CI, which have no instance.
 
 **Package store.** `App\Services\ReleaseStorage` writes objects to the
 `REGISTRY_STORAGE_DISK` disk under `tarballs/`, `dist/`, `icons/` and `screenshots/`,

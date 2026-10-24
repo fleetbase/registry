@@ -139,18 +139,29 @@ it('lets the publishing organization install its own paid extension', function (
     $this->get('/composer/dist/acme/pro-api/1.0.0.tar')->assertOk();
 });
 
-it('accepts an instance token of a licensed organization', function () {
+it('accepts an instance token of a licensed organization without a seat on the instance', function () {
     $extension = paidExtension();
     $organization = Organization::factory()->create();
     grantLicence($extension, $organization);
 
-    $plain = Token::PREFIX_INSTANCE.Str::random(40);
-    $instance = Instance::factory()->create(['organization_uuid' => $organization->uuid, 'token_hash' => Token::hash($plain)]);
+    $instance = Instance::factory()->create(['organization_uuid' => $organization->uuid]);
+    $plain = $instance->issueToken();
+    expect($instance->activations()->count())->toBe(0);
 
     $this->withHeader('Authorization', 'Bearer '.$plain)->get('/npm/@acme%2fpro-engine')->assertOk();
+    $this->withHeader('Authorization', 'Bearer '.$plain)->get('/composer/dist/acme/pro-api/1.0.0.tar')->assertOk();
 
-    $instance->forceFill(['status' => 'revoked'])->save();
+    $instance->forceFill(['status' => Instance::STATUS_REVOKED])->save();
     $this->withHeader('Authorization', 'Bearer '.$plain)->get('/npm/@acme%2fpro-engine')->assertUnauthorized();
+});
+
+it('refuses an instance token of an unlicensed organization', function () {
+    paidExtension();
+    $instance = Instance::factory()->create();
+    $plain = $instance->issueToken();
+
+    $this->withHeader('Authorization', 'Bearer '.$plain)->get('/npm/@acme%2fpro-engine')->assertForbidden();
+    $this->withHeader('Authorization', 'Bearer '.Token::PREFIX_INSTANCE.Str::random(40))->get('/npm/@acme%2fpro-engine')->assertUnauthorized();
 });
 
 it('keeps paid packages listed in packages.json', function () {
