@@ -50,6 +50,12 @@ class Instance extends Model implements AuthenticatableContract
 
     protected $casts = ['last_seen_at' => 'datetime', 'meta' => 'array'];
 
+    /**
+     * The cloud company's organization this request acts for (cloud platform instances only; see
+     * `CloudPlatform`). Never persisted.
+     */
+    protected ?Organization $tenant = null;
+
     protected static function newFactory(): InstanceFactory
     {
         return InstanceFactory::new();
@@ -181,6 +187,45 @@ class Instance extends Model implements AuthenticatableContract
     public function isActive(): bool
     {
         return $this->status === self::STATUS_ACTIVE;
+    }
+
+    /**
+     * The Fleetbase Cloud instance: registered with the platform secret (or created for it by the
+     * importer). It serves every cloud company, so it may act for their organizations.
+     */
+    public function isPlatform(): bool
+    {
+        return $this->kind === self::KIND_CLOUD && ($this->meta['platform'] ?? false) === true;
+    }
+
+    /**
+     * Act for a cloud company's organization for the rest of this request: its licences, installs
+     * and checkouts. Only the platform instance can; null goes back to its own organization.
+     */
+    public function actAs(?Organization $organization): static
+    {
+        $this->tenant = $organization !== null && $this->isPlatform() ? $organization : null;
+
+        return $this;
+    }
+
+    public function tenant(): ?Organization
+    {
+        return $this->tenant;
+    }
+
+    /**
+     * The organization whose licences and installs this request uses: the tenant when the platform
+     * instance acts for one, else the instance's own.
+     */
+    public function licensingOrganizationUuid(): string
+    {
+        return $this->tenant?->uuid ?? $this->organization_uuid;
+    }
+
+    public function licensingOrganization(): ?Organization
+    {
+        return $this->tenant ?? $this->organization;
     }
 
     public function touchLastSeen(?string $ip = null): void
