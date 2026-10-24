@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\Account\AccountController;
+use App\Http\Controllers\Account\GithubController as AccountGithubController;
 use App\Http\Controllers\Account\InstanceCodeController;
 use App\Http\Controllers\Account\TokenController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Catalog\CatalogController;
 use App\Http\Controllers\Instance\InstallController;
@@ -58,6 +60,8 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::post('register', [AuthController::class, 'register'])->name('register');
         Route::post('verify', [AuthController::class, 'verify'])->name('verify');
         Route::post('verify/resend', [AuthController::class, 'resendVerification'])->name('verify.resend');
+        Route::post('password/forgot', [PasswordResetController::class, 'forgot'])->name('password.forgot');
+        Route::post('password/reset', [PasswordResetController::class, 'reset'])->name('password.reset');
         Route::post('login', [AuthController::class, 'login'])->name('login');
         Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:token')->withoutMiddleware('throttle:auth')->name('logout');
 
@@ -71,6 +75,7 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::get('account', [AccountController::class, 'show'])->name('account');
         Route::patch('account', [AccountController::class, 'update'])->name('account.update');
         Route::post('account/password', [AccountController::class, 'password'])->name('account.password');
+        Route::delete('account/github', [AccountGithubController::class, 'destroy'])->name('account.github.destroy');
         Route::get('account/tokens', [TokenController::class, 'index'])->name('account.tokens.index');
         Route::post('account/tokens', [TokenController::class, 'store'])->name('account.tokens.store');
         Route::delete('account/tokens/{token}', [TokenController::class, 'destroy'])->name('account.tokens.destroy');
@@ -88,6 +93,7 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
     Route::prefix('publisher')->name('publisher.')->middleware(['auth:token,web', 'throttle:publish', 'scope:publish'])->group(function () {
         Route::get('extensions', [PublisherExtensionController::class, 'index'])->name('extensions.index');
         Route::post('extensions', [PublisherExtensionController::class, 'store'])->name('extensions.store');
+        Route::get('packages/availability', [PublisherExtensionController::class, 'availability'])->name('packages.availability');
         Route::get('extensions/{slug}', [PublisherExtensionController::class, 'show'])->name('extensions.show');
         Route::patch('extensions/{slug}', [PublisherExtensionController::class, 'update'])->name('extensions.update');
         Route::put('extensions/{slug}/price', [PublisherExtensionController::class, 'price'])->name('extensions.price');
@@ -102,6 +108,7 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::post('releases/{release}/submit', [PublisherReleaseController::class, 'submit'])->name('releases.submit');
         Route::post('releases/{release}/withdraw', [PublisherReleaseController::class, 'withdraw'])->name('releases.withdraw');
         Route::post('releases/{release}/yank', [PublisherReleaseController::class, 'yank'])->name('releases.yank');
+        Route::patch('releases/{release}', [PublisherReleaseController::class, 'update'])->name('releases.update');
     });
 
     Route::prefix('admin')->name('admin.')->middleware(['auth:token,web', 'throttle:api', 'scope:review', 'staff'])->group(function () {

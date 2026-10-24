@@ -35,7 +35,7 @@ class Account extends Model implements AuthenticatableContract
     protected string $publicIdType = 'acct';
 
     protected $fillable = [
-        'email', 'password', 'name', 'username', 'avatar_url', 'github_id', 'fleetbase_sub',
+        'email', 'password', 'name', 'username', 'avatar_url', 'github_id', 'github_login', 'fleetbase_sub',
         'email_verified_at', 'status', 'timezone', 'last_login_ip', 'last_login_at', 'meta',
     ];
 

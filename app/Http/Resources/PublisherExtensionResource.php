@@ -2,8 +2,10 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Release;
 use App\Releases\ListingReadiness;
 use App\Support\Http;
+use Illuminate\Support\Facades\Date;
 
 /**
  * A listing as its publisher sees it, with what it still needs before its first release
@@ -11,6 +13,8 @@ use App\Support\Http;
  */
 class PublisherExtensionResource extends FleetbaseResource
 {
+    protected const UNSUBMITTED = [Release::STATUS_UPLOADED, Release::STATUS_CHECKING, Release::STATUS_FAILED_CHECKS];
+
     public function toArray($request): array
     {
         $missing = app(ListingReadiness::class)->errors($this->resource);
@@ -45,6 +49,10 @@ class PublisherExtensionResource extends FleetbaseResource
                 'version' => $release->version,
                 'channel' => $release->channel,
                 'status' => $release->status,
+                // A withdrawn release keeps its old submission time in meta; it is not submitted now.
+                'submitted_at' => in_array($release->status, self::UNSUBMITTED, true) ? null : $release->metaValue('submission.submitted_at'),
+                // Set when the releases were loaded with ExtensionController::withDecidedAt.
+                'decided_at' => self::decidedAt($release->getAttributes()['decided_at'] ?? null),
                 'published_at' => $release->published_at,
                 'created_at' => $release->created_at,
             ])->values()->all()),
@@ -53,5 +61,10 @@ class PublisherExtensionResource extends FleetbaseResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
+    }
+
+    protected static function decidedAt(mixed $value): ?string
+    {
+        return $value === null ? null : Date::parse($value)->toJSON();
     }
 }

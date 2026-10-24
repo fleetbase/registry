@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    // Sign in with GitHub (Socialite). Shown on the website only when the id and secret are set.
+    'github' => [
+        'client_id' => env('GITHUB_CLIENT_ID'),
+        'client_secret' => env('GITHUB_CLIENT_SECRET'),
+        'redirect' => env('GITHUB_REDIRECT_URI') ?: rtrim((string) env('APP_URL', 'http://localhost'), '/').'/auth/github/callback',
+    ],
+
 ];

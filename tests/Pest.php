@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 require_once __DIR__.'/Helpers/releases.php';
+require_once __DIR__.'/Helpers/website.php';
 require_once __DIR__.'/Helpers/session.php';
 
 pest()->extend(TestCase::class)

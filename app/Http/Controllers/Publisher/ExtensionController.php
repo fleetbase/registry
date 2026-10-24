@@ -13,7 +13,8 @@ use App\Models\Extension;
 use App\Models\ExtensionPackage;
 use App\Models\Organization;
 use App\Models\Price;
-use App\Releases\PackageNamespaces;
+use App\Models\Review;
+use App\Releases\PackageNames;
 use App\Support\CatalogCache;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -28,7 +29,7 @@ class ExtensionController extends PublisherController
 {
     public const DETAIL = ['organization', 'category', 'packages', 'price', 'icon', 'screenshots'];
 
-    public function __construct(protected PackageNamespaces $namespaces) {}
+    public function __construct(protected PackageNames $names) {}
 
     /**
      * GET /v1/publisher/extensions — listings of every organization the caller publishes for.
@@ -37,7 +38,7 @@ class ExtensionController extends PublisherController
     {
         // Releases give My extensions its live version and the latest release's status.
         $extensions = Extension::query()
-            ->with([...self::DETAIL, 'releases'])
+            ->with([...self::DETAIL, 'releases' => fn ($q) => self::withDecidedAt($q)])
             ->whereIn('organization_uuid', $this->publishableOrganizations($request))
             ->orderBy('name')
             ->get();
@@ -51,7 +52,7 @@ class ExtensionController extends PublisherController
     public function show(Request $request, string $slug): PublisherExtensionResource
     {
         $extension = $this->findExtension($request, $slug, self::DETAIL);
-        $extension->load(['releases' => fn ($q) => $q->orderByDesc('created_at')->orderByDesc('id')]);
+        $extension->load(['releases' => fn ($q) => self::withDecidedAt($q)->orderByDesc('created_at')->orderByDesc('id')]);
 
         return new PublisherExtensionResource($extension);
     }
@@ -79,7 +80,7 @@ class ExtensionController extends PublisherController
                 }
             }
 
-            $this->attachPackages($existing, $existing->organization()->firstOrFail(), $packages);
+            $this->attachPackages($request, $existing, $existing->organization()->firstOrFail(), $packages);
 
             return (new PublisherExtensionResource($existing->load(self::DETAIL)))->response()->setStatusCode(200);
         }
@@ -94,12 +95,12 @@ class ExtensionController extends PublisherController
             }
 
             // A listing of this organization with the slug and none of these names: claim them.
-            $this->attachPackages($bySlug, $organization, $packages);
+            $this->attachPackages($request, $bySlug, $organization, $packages);
 
             return (new PublisherExtensionResource($bySlug->load(self::DETAIL)))->response()->setStatusCode(200);
         }
 
-        $this->assertClaimable($organization, $packages);
+        $this->assertClaimable($request, $organization, $packages);
 
         $extension = DB::transaction(function () use ($request, $account, $organization, $slug, $packages) {
             $extension = Extension::create(array_merge($request->listingAttributes(), [
@@ -121,6 +122,37 @@ class ExtensionController extends PublisherController
         Event::record('extension.created', $extension, $account, ['packages' => $packages]);
 
         return (new PublisherExtensionResource($extension->load(self::DETAIL)))->response()->setStatusCode(201);
+    }
+
+    /**
+     * GET /v1/publisher/packages/availability?organization=&npm=&composer= — whether the
+     * organization can claim each name for a new listing, by the rules `store` applies:
+     * `{npm: {name, available, reason}, composer: {…}}` for the names given.
+     */
+    public function availability(Request $request): JsonResponse
+    {
+        $request->merge(array_map(PackageNames::normalize(...), $request->only(ExtensionPackage::KINDS)));
+        $request->validate([
+            'organization' => ['nullable', 'string', 'max:191'],
+            'npm' => ['nullable', 'required_without:composer', 'string', 'max:1000'],
+            'composer' => ['nullable', 'required_without:npm', 'string', 'max:1000'],
+        ]);
+
+        $organization = $this->targetOrganization($request, $request->query('organization'));
+        $publishable = $this->publishableOrganizations($request);
+        $result = [];
+
+        foreach (ExtensionPackage::KINDS as $kind) {
+            $name = $request->input($kind);
+            if (! is_string($name) || $name === '') {
+                continue;
+            }
+
+            $reason = $this->names->problem($organization, $kind, $name, $publishable);
+            $result[$kind] = ['name' => $name, 'available' => $reason === null, 'reason' => $reason];
+        }
+
+        return response()->json($result);
     }
 
     /**
@@ -178,6 +210,15 @@ class ExtensionController extends PublisherController
     }
 
     /**
+     * Each release's `decided_at`: when it was last approved or rejected (one subquery, so
+     * the release summaries need not load every review row).
+     */
+    public static function withDecidedAt($query)
+    {
+        return $query->withMax(['reviews as decided_at' => fn ($q) => $q->whereIn('action', [Review::ACTION_APPROVE, Review::ACTION_REJECT])], 'created_at');
+    }
+
+    /**
      * The one listing that owns any of the names, or null. Names spread over two listings
      * answer 409.
      */
@@ -212,7 +253,7 @@ class ExtensionController extends PublisherController
      * Add package kinds the listing does not have yet. A different name for a kind the
      * listing already has is a rename, which this endpoint does not do.
      */
-    protected function attachPackages(Extension $extension, Organization $organization, array $packages): void
+    protected function attachPackages(Request $request, Extension $extension, Organization $organization, array $packages): void
     {
         $current = $extension->packages()->pluck('name', 'kind');
         $new = [];
@@ -225,18 +266,23 @@ class ExtensionController extends PublisherController
             }
         }
 
-        $this->assertClaimable($organization, $new);
+        $this->assertClaimable($request, $organization, $new);
         foreach ($new as $kind => $name) {
             $extension->packages()->create(['kind' => $kind, 'name' => $name]);
         }
     }
 
-    protected function assertClaimable(Organization $organization, array $packages): void
+    /**
+     * Refuse names the organization may not claim, with the reasons the availability check
+     * gives (`PackageNames::problem`).
+     */
+    protected function assertClaimable(Request $request, Organization $organization, array $packages): void
     {
+        $publishable = $this->publishableOrganizations($request);
         $errors = [];
         foreach ($packages as $kind => $name) {
-            if ($messages = $this->namespaces->errors($organization, $kind, $name)) {
-                $errors['packages.'.$kind] = $messages;
+            if ($problem = $this->names->problem($organization, $kind, $name, $publishable)) {
+                $errors['packages.'.$kind] = [$problem];
             }
         }
 

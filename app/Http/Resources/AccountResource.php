@@ -16,6 +16,9 @@ class AccountResource extends FleetbaseResource
             'username' => $this->username,
             'email' => $this->email,
             'avatar_url' => $this->avatar_url,
+            'github_login' => $this->github_login,
+            // False for accounts created with GitHub until they set one with Forgot password.
+            'has_password' => $this->password !== null,
             'timezone' => $this->timezone,
             'status' => $this->status,
             'email_verified_at' => $this->email_verified_at,

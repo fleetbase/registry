@@ -42,6 +42,28 @@ class Compat
         return $constraint->matches(new Constraint('==', $parser->normalize($version)));
     }
 
+    /**
+     * The newest published version of each extension that works with a console version, keyed
+     * by extension uuid; extensions with no such release are left out. `$extensionUuids` limits
+     * the extensions looked at (null: all).
+     *
+     * @param  iterable<string>|null  $extensionUuids
+     * @return array<string, string>
+     */
+    public static function newestCompatible(string $consoleVersion, ?iterable $extensionUuids = null): array
+    {
+        return Release::query()
+            ->where('status', Release::STATUS_PUBLISHED)
+            ->when($extensionUuids !== null, fn ($query) => $query->whereIn('extension_uuid', collect($extensionUuids)->all()))
+            ->get(['extension_uuid', 'version', 'compat'])
+            ->groupBy('extension_uuid')
+            ->map(fn (Collection $releases) => static::latest(
+                $releases->filter(fn (Release $release) => static::satisfies($consoleVersion, data_get($release->compat, 'console')))
+            )?->version)
+            ->filter()
+            ->all();
+    }
+
     public static function releaseIsCompatible(Release $release, ?string $consoleVersion, ?string $apiVersion): bool
     {
         $compat = $release->compat ?? [];

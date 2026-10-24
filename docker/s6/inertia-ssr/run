@@ -1,0 +1,12 @@
+#!/command/with-contenv sh
+# Inertia's server-side renderer: Laravel posts each first page load to it on 127.0.0.1:13714
+# and falls back to rendering in the browser when it is not running. The bundle is built by
+# the image's assets stage (npm run build) and carries its own dependencies.
+cd /var/www/html || exit 1
+
+if [ "${INERTIA_SSR_ENABLED:-true}" = "false" ] || [ ! -f bootstrap/ssr/ssr.js ]; then
+    echo "inertia-ssr: disabled or bootstrap/ssr/ssr.js missing; pages render in the browser."
+    exec sleep infinity
+fi
+
+exec node bootstrap/ssr/ssr.js

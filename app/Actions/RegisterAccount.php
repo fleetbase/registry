@@ -15,25 +15,34 @@ use Illuminate\Support\Str;
 
 /**
  * Creates an account with its personal organization and sends the verification code.
+ *
+ * Input: name, email, password and optional username and organization_name (POST
+ * /v1/auth/register). Sign in with GitHub also passes `email_verified` (the account starts
+ * active and no code is sent), no password, `generate_username` false (no username unless one
+ * is given; the organization slug then comes from `slug`), and `avatar_url`.
  */
 class RegisterAccount
 {
     public function __invoke(array $input, ?string $ip = null): Account
     {
-        $account = DB::transaction(function () use ($input, $ip) {
-            $username = $input['username'] ?? $this->uniqueUsername($input['email']);
+        $verified = (bool) ($input['email_verified'] ?? false);
+
+        $account = DB::transaction(function () use ($input, $ip, $verified) {
+            $username = $input['username'] ?? (($input['generate_username'] ?? true) ? $this->uniqueUsername($input['email']) : null);
 
             $account = Account::create([
                 'name' => $input['name'],
                 'email' => Str::lower($input['email']),
                 'username' => $username,
-                'password' => $input['password'],
-                'status' => Account::STATUS_PENDING_VERIFICATION,
+                'password' => $input['password'] ?? null,
+                'avatar_url' => $input['avatar_url'] ?? null,
+                'status' => $verified ? Account::STATUS_ACTIVE : Account::STATUS_PENDING_VERIFICATION,
+                'email_verified_at' => $verified ? now() : null,
                 'last_login_ip' => $ip,
             ]);
 
             $organization = Organization::create([
-                'slug' => $this->uniqueSlug($username),
+                'slug' => $this->uniqueSlug($username ?? $input['slug'] ?? Str::before($input['email'], '@')),
                 'name' => $input['organization_name'] ?? $input['name'],
                 'is_personal' => true,
             ]);
@@ -49,7 +58,9 @@ class RegisterAccount
             return $account;
         });
 
-        $this->sendVerificationCode($account);
+        if (! $verified) {
+            $this->sendVerificationCode($account);
+        }
 
         return $account;
     }

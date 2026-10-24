@@ -23,12 +23,14 @@ Phase 1, Workstreams A to C, and Phase 2 Workstream E:
 | Instance API: registration codes, register, me, updates, installs, licence seats | done |
 | `registry:import` from the cloud registry-bridge tables (dry run, anomaly report, tarball copy) | done |
 | Releases pipeline: publisher API, upload, queued checks, state machine, D6 review policy, staff review API, publishing | done |
-| Website backend (Workstream F): cookie sessions, organizations and members, listing media and pricing, staff downloads and review items, SPA fallback | done; the website itself is in progress |
+| Website backend (Workstream F): cookie sessions, organizations and members, listing media and pricing, staff downloads and review items | done |
+| Website (Workstream F): Inertia (React) catalog, account, Studio and review console, light and dark | done |
 | CLI v2 (G), Stripe (Phase 4) | later workstreams |
 
 ## Stack
 
-Laravel 12 on PHP 8.3, MySQL 8, S3-compatible object storage. The Fleetbase core-api
+Laravel 12 on PHP 8.3, MySQL 8, S3-compatible object storage. The website is Inertia v3 with
+React 19, Tailwind v4 and Vite, served by the same Laravel app. The Fleetbase core-api
 conventions the plan relies on (`Model` with UUID keys and public ids, `HasUuid`,
 `HasPublicId`, the `Money` cast, `Http\Filter\Filter`, `FleetbaseResource`) are ported
 into `app/` with the same names and behaviour, so code written against them reads like
@@ -58,14 +60,30 @@ docker compose up --build
 | Mailpit (verification emails) | http://localhost:8025 |
 | MySQL | localhost:3307 (registry / registry) |
 
+The website needs its assets. Build them once, or run Vite beside `artisan serve` for hot
+reload (Node 22). `docker compose` mounts the checkout, so build on the host there too:
+
+```bash
+npm install
+npm run build                    # public/build (client) and bootstrap/ssr (SSR bundle)
+php artisan inertia:start-ssr    # optional: server-side rendering on 127.0.0.1:13714
+npm run dev                      # or: Vite dev server with hot reload
+```
+
 Release checks run on the queue. `docker compose` starts a worker; with `php artisan serve`
 run `php artisan queue:work` beside it (or set `QUEUE_CONNECTION=sync`).
 
 Run the tests:
 
 ```bash
-composer test
+composer test        # Pest
+npm test             # Vitest (components and page logic)
+npm run lint         # ESLint
+npm run test:e2e     # Playwright smoke test (run npm run build first)
 ```
+
+The Playwright test boots its own server (`scripts/e2e-server.sh`: a fresh SQLite database in
+`storage/e2e`, `registry:seed-website`, a synchronous queue) on port 8123.
 
 `php artisan registry:seed-website [--json]` (never in production) adds what the website's
 smoke test needs on top of that: `staff@registry.test` in a staff organization and
@@ -84,6 +102,40 @@ tests/Conformance/packages.sh http://127.0.0.1:8000
 
 CI runs the same script in the `package-conformance` job.
 
+## Website
+
+The website lives in this app: Laravel routes in `routes/web.php` render Inertia pages from
+`app/Http/Controllers/Web`, and every path that is not `/v1`, `/npm`, `/composer` or `/up` is
+a website page (unknown paths render the website's 404).
+
+- **Reads.** Page controllers call the `/v1` API controllers in process
+  (`WebController::api`), so page props have exactly the API's JSON shapes and share the
+  catalog cache.
+- **Writes.** Pages call `/v1` from the browser with the session cookie and the `XSRF-TOKEN`
+  header (`resources/js/lib/api.js`), then reload their props.
+- **Sessions.** Signing in (`POST /v1/auth/session`) puts an `flbs_` token in the Laravel
+  session; the `web` guard resolves it. Website routes use `auth:web`, which redirects to
+  `/sign-in`.
+- **Console version.** The "works with my console" checks read `?console=` or the
+  `registry_console` cookie (unencrypted, so the page can read it too), set by `POST /console`.
+- **Pages.** `resources/js/pages` (Discover, Extension, Publisher, Auth, Account, Studio,
+  Review), shared components in `resources/js/components`, the layout in
+  `resources/js/layouts/SiteLayout.jsx`, the design tokens in `resources/css/registry.css`
+  (`data-theme` on `<html>`: light, dark, or the system setting).
+- **SSR.** `npm run build` also builds `bootstrap/ssr/ssr.js`, one self-contained file run
+  with Node. The Docker image runs it as an s6 service (`docker/s6/inertia-ssr`) beside nginx
+  and php-fpm, so first page loads arrive rendered; `INERTIA_SSR_ENABLED=false` turns it off.
+  Whenever the renderer is not running, pages render in the browser instead.
+
+| Path | Page |
+| --- | --- |
+| `/`, `/extensions/{slug}`, `/publishers/{slug}` | Discover, extension, publisher |
+| `/sign-in`, `/register`, `/verify`, `/forgot-password` | Account access |
+| `/auth/github`, `/auth/github/callback` | Sign in with GitHub (redirects; see below) |
+| `/account/profile`, `/account/organizations/{slug?}`, `/account/tokens` | Account |
+| `/studio`, `/studio/new`, `/studio/{slug}` (listing), `/studio/{slug}/releases[/{id}]`, `/studio/{slug}/review`, `/studio/{slug}/history`, `/studio/insights` | Publisher Studio |
+| `/review`, `/review/publish`, `/review/releases/{id}` | Staff review console |
+
 ## API overview
 
 All routes live under `/v1`. Errors use the Fleetbase envelope `{"errors": ["..."]}`;
@@ -97,6 +149,8 @@ validation failures add a `fields` map. Resources are returned unwrapped; paged 
 | `POST /v1/auth/register` | name, email, password, optional username. Creates the account (status `pending_verification`) and a personal organization, emails a 6-digit code |
 | `POST /v1/auth/verify` | email + code. Activates the account |
 | `POST /v1/auth/verify/resend` | email. Sends a new code for unverified accounts |
+| `POST /v1/auth/password/forgot` | email. Always 202 with the same body; an existing, unsuspended account gets a 6-digit reset code by email (30 minutes) |
+| `POST /v1/auth/password/reset` | email, code, password, password_confirmation (registration's password rule). Sets the password, revokes every token and website session of the account, marks the email verified. 422 on `code` when it is wrong, used or expired |
 | `POST /v1/auth/login` | email + password (+ token_name, scopes, expires_in_days). Returns a personal token once |
 | `POST /v1/auth/logout` | Revokes the token used for the request |
 | `GET /v1/auth/session` | The website's session: `{authenticated, account}`. Always 200; sets the session and `XSRF-TOKEN` cookies |
@@ -105,6 +159,7 @@ validation failures add a `fields` map. Resources are returned unwrapped; paged 
 | `GET /v1/account` | The caller's account with organizations, roles and `is_staff` |
 | `PATCH /v1/account` | name, username, timezone |
 | `POST /v1/account/password` | current_password, password, password_confirmation. Also ends the account's other website sessions |
+| `DELETE /v1/account/github` | Disconnects GitHub; returns the account. 422 when GitHub is not connected, or (`code: password_required`) when the account has no password to sign in with |
 | `GET /v1/account/tokens` | The caller's tokens, masked (`flbp_…a1b2`) |
 | `POST /v1/account/tokens` | name, scopes (`read`, `publish`, `install`, `instance:register`, `review`, `*`), expires_in_days (max 365), optional organization. Plaintext returned once |
 | `DELETE /v1/account/tokens/{id}` | Revoke |
@@ -126,6 +181,22 @@ cookie (and `/v1/auth/session` itself) run through Laravel's session and CSRF mi
 POST, PUT, PATCH and DELETE need `X-XSRF-TOKEN` (419 otherwise). Bearer clients, the catalog and
 the instance API never get cookies. Set `SESSION_SECURE_COOKIE=true` behind HTTPS.
 
+**Codes.** Verification and password-reset codes are six digits, one live code per account and
+purpose (a verification code never resets a password), valid 30 minutes and dead after five
+wrong guesses; the `auth` rate limit (10 a minute per IP, 5 per email and IP) covers every
+route that takes one.
+
+**Sign in with GitHub.** Set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` (a GitHub OAuth app
+whose callback is `GITHUB_REDIRECT_URI`, by default `{APP_URL}/auth/github/callback`); the
+website shows "Continue with GitHub" only then (`auth.providers.github`). `GET /auth/github`
+asks for `read:user user:email`. The callback signs in the account linked to that GitHub user,
+else the account whose email is the GitHub user's verified primary email (and links it), else
+creates an account (personal organization, the GitHub login as username when free, email
+verified, no password), then signs the website in like `POST /v1/auth/session`. Signed in
+already, the callback connects GitHub to the current account instead (refused when another
+account has that GitHub user). Suspended accounts, a cancelled or expired GitHub round trip and
+a GitHub user without a verified email go back to `/sign-in` with a message.
+
 Tokens are `flbp_` + 40 random characters, stored as SHA-256, expiring, scoped and revocable.
 Send them as `Authorization: Bearer flbp_…`. Passwords are bcrypt hashes checked with
 `Hash::check`, the same as core-api's `Auth::checkPassword`, so cloud users import without
@@ -136,7 +207,7 @@ default here is 12) because Laravel's `hashed` cast refuses hashes above the con
 
 | Method and path | Returns |
 | --- | --- |
-| `GET /v1/catalog/extensions?q=&category=&pricing=&hosting=&sort=&page=&limit=` | Paged listings with publisher, category, latest release, install count, compat, price, package names |
+| `GET /v1/catalog/extensions?q=&category=&pricing=&hosting=&console=&compatible=&sort=&page=&limit=` | Paged listings with publisher, category, latest release, install count, compat, price, package names. `console=<version>` adds `compatibility: {console, compatible, newest_compatible}` to each item (does the latest release work, and the newest published release that does); with `compatible=1` only listings that have such a release |
 | `GET /v1/catalog/extensions/{slug}` | Full listing, screenshots, publisher, versions summary |
 | `GET /v1/catalog/extensions/{slug}/releases?channel=` | Published (and yanked) releases: versions, channels, dates, sizes, notes, compat |
 | `GET /v1/catalog/publishers/{slug}` | Publisher profile and their published extensions |
@@ -212,8 +283,9 @@ releases answer 404.
 
 | Method and path | Purpose |
 | --- | --- |
-| `GET /v1/publisher/extensions` | The caller's listings, with package names, price and `readiness` |
+| `GET /v1/publisher/extensions` | The caller's listings, with package names, price, `readiness` and release summaries (`submitted_at`, `decided_at`: last approved or rejected) |
 | `POST /v1/publisher/extensions` | name, `packages: {npm, composer}` (one or both), optional slug, organization and listing fields. Creates a draft listing with a free price (201). Idempotent on package names: names that already belong to one of the caller's listings return it (200) and add any package kind it lacks; a different name for a kind it has, names spread over two listings, or names of another publisher answer 409 |
+| `GET /v1/publisher/packages/availability` | Query `organization` (slug; default as for create), `npm` and/or `composer`. For each name given, `{name, available, reason}` under `npm`/`composer`, by the rules create applies (format, reserved `@fleetbase`/`fleetbase`, the organization's namespaces, names already registered; a name one of the caller's listings holds is not available for a new one) |
 | `GET /v1/publisher/extensions/{slug}` | Listing with its releases |
 | `PATCH /v1/publisher/extensions/{slug}` | Listing fields (name, subtitle, description, promotional_text, category, tags, languages, hosting, website/repo/support/privacy/tos URLs, copyright, fa_icon). No review |
 | `POST`/`DELETE /v1/publisher/extensions/{slug}/icon` | Multipart `icon` (PNG, JPG or WebP, up to 1 MB) replaces the icon; DELETE removes it |
@@ -223,6 +295,7 @@ releases answer 404.
 | `GET /v1/publisher/extensions/{slug}/releases` | Every release with its checks |
 | `POST /v1/publisher/extensions/{slug}/releases` | Multipart: `manifest` (extension.json), `engine` (npm tarball, gzipped) and/or `api` (Composer tar or tar.gz), optional `dist` (the `<name>/` folder from ember-core's `fleetbase-build-engine-release`, tarred), optional `channel` (`stable`, `beta`; default from the manifest), `notes`, `submit` (submit as soon as the checks pass). Returns the release (201) |
 | `GET /v1/publisher/releases/{id}` | Files, checks, submission state, review policy outcome, the review timeline with reasons and items |
+| `PATCH /v1/publisher/releases/{id}` | `notes` (nullable, up to 20,000 characters, as on upload). Any status but `yanked` (422). No review; a published release's notes show in the catalog at once |
 | `POST /v1/publisher/releases/{id}/submit` | 200 once submitted (or published, see D6); 202 while checks are still running, then it is submitted when they pass; 422 with reasons when checks failed or the listing is not ready |
 | `POST /v1/publisher/releases/{id}/withdraw` | Out of review, back to `uploaded`. Optional reason |
 | `POST /v1/publisher/releases/{id}/yank` | Published → yanked: gone from metadata and the catalog's latest version; the archives stay downloadable for lockfiles. Optional reason |
@@ -301,11 +374,11 @@ checks are emailed too.
 
 | Method and path | Purpose |
 | --- | --- |
-| `GET /v1/admin/releases?status=&extension=&limit=` | The review queue, oldest first. Default statuses `submitted`, `in_review`, `approved` |
-| `GET /v1/admin/releases/{id}` | A release with checks, policy reasons and timeline |
+| `GET /v1/admin/releases?status=&extension=&limit=` | The review queue, oldest first. Default statuses `submitted`, `in_review`, `approved`. Each release has `previous_version`: the extension's latest published (not yanked) release before it, null for a first release |
+| `GET /v1/admin/releases/{id}` | A release with checks, policy reasons and timeline, `previous_version`, and `previous` (`id`, `version`, `published_at`, `compat`, `manifest`, `size_bytes` of that release, or null). The claim, approve, reject and publish responses have the same shape |
 | `POST /v1/admin/releases/{id}/claim` | submitted → in_review |
 | `POST /v1/admin/releases/{id}/approve` | Optional `reason`, `items`; publishes unless `publish: false` |
-| `POST /v1/admin/releases/{id}/reject` | Required `reason` and `items: [{code, passed, note?}]` (at least one) |
+| `POST /v1/admin/releases/{id}/reject` | Required `reason` and `items: [{code, passed, note?}]` (at least one). From submitted, in_review or approved (request changes on an approval before it is published); otherwise 409 |
 | `POST /v1/admin/releases/{id}/publish` | An approved release |
 | `POST /v1/admin/extensions/{slug}/suspend` | Required `reason`. The listing leaves the catalog and the package endpoints; uploads and publishing stop |
 | `POST /v1/admin/extensions/{slug}/unsuspend` | Optional `reason`. Restores the status saved at suspension |
@@ -431,12 +504,13 @@ app/
   Http/Controllers/Packages/   npm and Composer endpoints
   Http/Controllers/Publisher/  publisher extensions and releases
   Http/Controllers/Admin/      staff review API
+  Http/Controllers/Web/        website pages (Inertia), reading through the /v1 controllers
   Jobs/RunReleaseChecks.php    queued release checks
   Releases/                    pipeline, state machine, review policy (D6), listing readiness,
                                namespace rules, manifest schema, checks, archive inspection, secrets
   Import/                      importer: SQL dump loader, source connection, mapping, report
   Http/Filter/                 request-driven query filters (ExtensionFilter)
-  Http/Middleware/             scope:…, licence:npm|composer
+  Http/Middleware/             scope:…, licence:npm|composer, HandleInertiaRequests (shared props)
   Http/Resources/              Fleetbase-style JSON resources
   Models/                      one model per table; Model.php is the base
   Services/                    ReleaseStorage, LicenceGate, Packages/ (packument, Composer metadata)
@@ -448,7 +522,10 @@ database/seeders/              CategorySeeder (41 categories from registry-bridg
 docker/                        compose helpers
 legacy/                        the Verdaccio registry (v1)
 resources/schemas/            extension.json JSON Schema (copy of registry-bridge's)
-tests/Feature/{Auth,Catalog,Packages,Instance,Import,Releases}  Pest feature tests (SQLite in memory)
+resources/js/                  website: pages/, components/, layouts/, lib/ (Inertia + React)
+resources/css/                 Tailwind entry and the design tokens (registry.css)
+e2e/, playwright.config.js     Playwright smoke test; scripts/e2e-server.sh boots its server
+tests/Feature/{Auth,Catalog,Packages,Instance,Import,Releases,Website}  Pest feature tests (SQLite in memory)
 tests/Conformance/packages.sh  real npm and Composer clients against a running service
 tests/Fixtures/import/         mysqldump fixture of the cloud registry tables
 ```

@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AccountResource;
 use App\Models\Account;
 use App\Models\Event;
-use App\Models\Token;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -56,24 +55,7 @@ class SessionController extends Controller
             return $account;
         }
 
-        // Signing in over an existing session replaces its token.
-        SessionGuard::token($request)?->revoke();
-
-        $token = Token::issue(
-            $account,
-            'web session '.now()->toDateString(),
-            [Token::SCOPE_ALL],
-            now()->addMinutes(SessionGuard::lifetimeMinutes()),
-            null,
-            Token::PREFIX_SESSION,
-        );
-        $token->plainTextToken = null;
-
-        $request->session()->regenerate();
-        $request->session()->put(SessionGuard::SESSION_KEY, $token->uuid);
-
-        $account->forceFill(['last_login_at' => now(), 'last_login_ip' => $request->ip()])->save();
-        Event::record('account.login', $account, $account, ['token' => $token->public_id, 'via' => 'session'], $request->ip());
+        SessionGuard::signIn($request, $account);
 
         return response()->json([
             'account' => (new AccountResource($account->load('organizations')))->resolve($request),

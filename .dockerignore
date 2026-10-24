@@ -14,3 +14,9 @@ database/*.sqlite*
 !.env.example
 tests
 *.md
+public/build
+public/hot
+bootstrap/ssr
+playwright-report
+test-results
+storage/e2e

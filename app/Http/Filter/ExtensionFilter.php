@@ -6,11 +6,14 @@ use App\Models\Category;
 use App\Models\Extension;
 use App\Models\Install;
 use App\Models\Price;
+use App\Support\Compat;
+use App\Support\Semver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
 /**
- * Catalog query parameters: q, category, pricing, hosting, publisher, sort.
+ * Catalog query parameters: q, category, pricing, hosting, publisher, tag, compatible (with
+ * console), sort.
  */
 class ExtensionFilter extends Filter
 {
@@ -102,6 +105,21 @@ class ExtensionFilter extends Filter
     public function tag(string $tag): void
     {
         $this->builder->whereJsonContains('tags', $tag);
+    }
+
+    /**
+     * `compatible=1` with `console=<version>`: only listings with a published release that works
+     * with that console version (the release the console would install). Ignored without a valid
+     * console version.
+     */
+    public function compatible(string $compatible): void
+    {
+        $console = $this->request->input('console');
+        if (! filter_var($compatible, FILTER_VALIDATE_BOOLEAN) || ! is_string($console) || ! Semver::valid($console)) {
+            return;
+        }
+
+        $this->builder->whereIn('extensions.uuid', array_keys(Compat::newestCompatible($console)));
     }
 
     /**
