@@ -2,10 +2,12 @@
 
 namespace App\Http\Requests\Publisher;
 
+use App\Models\Extension;
 use App\Models\ExtensionPackage;
 use App\Releases\PackageNames;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CreateExtensionRequest extends FormRequest
 {
@@ -34,6 +36,7 @@ class CreateExtensionRequest extends FormRequest
             'name' => ['required', 'string', 'min:2', 'max:120'],
             'slug' => ['nullable', 'string', 'min:2', 'max:100', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/'],
             'organization' => ['nullable', 'string', 'max:191'],
+            'visibility' => ['nullable', Rule::in(Extension::VISIBILITIES)],
             'packages' => ['required', 'array'],
             'packages.npm' => ['nullable', 'required_without:packages.composer', 'string', self::packageName(ExtensionPackage::KIND_NPM)],
             'packages.composer' => ['nullable', 'required_without:packages.npm', 'string', self::packageName(ExtensionPackage::KIND_COMPOSER)],

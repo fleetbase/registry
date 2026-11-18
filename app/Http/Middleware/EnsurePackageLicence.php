@@ -12,8 +12,9 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * `licence:npm` / `licence:composer` on package metadata and archive routes.
  *
- * Free packages pass straight through. Paid packages need a bearer token whose organization
- * holds an active licence (see LicenceGate): 401 without a usable token, 403 with one.
+ * Free public packages pass straight through. Paid packages need a bearer token whose
+ * organization holds an active licence (see LicenceGate): 401 without a usable token, 403 with
+ * one. Private packages need a token with access and answer 404 otherwise, like an unknown name.
  * Unknown packages also pass through so the controller answers 404. The resolved package
  * is handed to the controller as a request attribute.
  */
@@ -32,7 +33,7 @@ class EnsurePackageLicence
 
         $request->attributes->set(PackageController::PACKAGE_ATTRIBUTE, $package);
 
-        if (! $package->extension->isPaid()) {
+        if (! $package->extension->isPaid() && ! $package->extension->isPrivate()) {
             return $next($request);
         }
 
@@ -41,7 +42,7 @@ class EnsurePackageLicence
             return $next($request);
         }
 
-        $headers = ['Cache-Control' => 'private, no-store'];
+        $headers = ['Cache-Control' => 'private, no-store', 'Vary' => 'Authorization'];
         if ($decision['status'] === LicenceGate::STATUS_UNAUTHENTICATED) {
             $headers['WWW-Authenticate'] = 'Bearer realm="Fleetbase Registry"';
         }

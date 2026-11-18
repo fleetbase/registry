@@ -53,6 +53,7 @@ class ReleaseController extends PublisherController
             $request->input('notes'),
             $request->uploads(),
             $request->boolean('submit'),
+            $this->trustedPublisherMeta($request),
         );
 
         return (new ReleaseDetailResource(self::releaseDetail($release->fresh())))->response()->setStatusCode(201);
@@ -123,5 +124,15 @@ class ReleaseController extends PublisherController
         $release = $this->pipeline->yank($this->findRelease($request, $release), $this->account($request), $request->input('reason'));
 
         return new ReleaseDetailResource(self::releaseDetail($release));
+    }
+
+    /**
+     * Uploaded by a GitHub Actions workflow through trusted publishing: say which.
+     */
+    protected function trustedPublisherMeta(Request $request): array
+    {
+        $publisher = $this->account($request)->currentToken()?->trustedPublisher;
+
+        return $publisher ? ['trusted_publisher' => ['id' => $publisher->public_id, 'repository' => $publisher->repository, 'workflow' => $publisher->workflow]] : [];
     }
 }

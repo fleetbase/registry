@@ -12,6 +12,7 @@
     "require": {
         "php": "^8.2",
         "composer/semver": "^3.4",
+        "firebase/php-jwt": "^7.0",
         "inertiajs/inertia-laravel": "^3.0",
         "laravel/framework": "^12.0",
         "laravel/socialite": "^5.31",

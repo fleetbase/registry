@@ -107,3 +107,7 @@
     .sd-rel-group { grid-template-columns: minmax(0, 1fr); gap: 12px; }
     .sd-savebar { top: 8px; }
 }
+
+/* Access */
+.tbl tr.sd-dim td { opacity: .6; }
+.tbl tr.sd-dim:hover td, .tbl tr.sd-dim:focus-within td { opacity: 1; }

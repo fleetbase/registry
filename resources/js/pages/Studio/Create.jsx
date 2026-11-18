@@ -41,6 +41,7 @@ export default function StudioCreate({ categories = [] }) {
     const [org, setOrg] = useState(() => (organizations.find((o) => !o.is_personal) ?? organizations[0])?.slug ?? null);
     const [category, setCategory] = useState('');
     const [hosting, setHosting] = useState('both');
+    const [isPrivate, setIsPrivate] = useState(false);
     const [editing, setEditing] = useState(false);
     const [names, setNames] = useState({ npm: '', composer: '' });
     const [busy, setBusy] = useState(false);
@@ -73,6 +74,7 @@ export default function StudioCreate({ categories = [] }) {
                 packages: { npm: packages.npm.trim() || undefined, composer: packages.composer.trim() || undefined },
                 category: category || undefined,
                 hosting,
+                ...(isPrivate ? { visibility: 'private' } : {}),
             });
             router.visit(`/studio/${created.slug}`);
         } catch (e) {
@@ -219,6 +221,21 @@ export default function StudioCreate({ categories = [] }) {
                             </div>
                         </div>
 
+                        <div className="field">
+                            <label className="row" style={{ gap: 10, alignItems: 'flex-start', minHeight: 44, cursor: 'pointer' }}>
+                                <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} style={{ marginTop: 3 }} aria-describedby="private-help" data-private />
+                                <span className="col" style={{ gap: 2 }}>
+                                    <span className="label" style={{ margin: 0 }}>
+                                        Private extension
+                                    </span>
+                                    <span id="private-help" className="help">
+                                        Never listed in the catalog. Only your organization and organizations you grant access can see and install it. Releases skip the Fleetbase review but still run every automated check. You can change this later under Access.
+                                    </span>
+                                </span>
+                            </label>
+                            {fieldError('visibility') && <span className="err">{fieldError('visibility')}</span>}
+                        </div>
+
                         <div className="row between wrapflex" style={{ borderTop: '1px solid var(--line)', paddingTop: 20 }}>
                             <span className="small muted">
                                 Prefer the CLI? <code>flb publish</code> creates the listing from extension.json.
@@ -242,7 +259,7 @@ export default function StudioCreate({ categories = [] }) {
                             </div>
                             <p className="small muted">Your short description goes here.</p>
                             <div className="row between xs muted">
-                                <span>Draft · not published</span>
+                                <span>{isPrivate ? 'Private draft' : 'Draft · not published'}</span>
                                 <span>{categoryName ?? 'No category yet'}</span>
                             </div>
                         </div>

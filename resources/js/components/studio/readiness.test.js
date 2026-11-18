@@ -91,6 +91,17 @@ describe('readiness', () => {
         expect(readiness(complete, [{ id: 'r4', version: '0.2.0', status: 'rejected', created_at: '2026-10-12T00:00:00Z' }]).ready).toBe(true);
     });
 
+    it('needs only a name for a private listing, and everything when it is going public', () => {
+        const draft = { name: 'Client tools', status: 'draft', visibility: 'private' };
+        expect(readiness(draft, passed)).toMatchObject({ missing: [], ready: true, total: 2 });
+        expect(readiness({ ...draft, name: 'abc' }, passed).missing).toEqual(['The listing needs a name longer than 3 characters.']);
+
+        const goingPublic = readiness({ ...draft, status: 'published', pending_visibility: 'public' }, passed);
+        expect(goingPublic.ready).toBe(false);
+        expect(goingPublic.missing).toContain('The listing needs a subtitle.');
+        expect(readiness({ ...complete, status: 'published', visibility: 'private', pending_visibility: 'public' }, passed).ready).toBe(true);
+    });
+
     it('counts code points like mb_strlen', () => {
         expect(trimmedLength(' 🚚🚚 ')).toBe(2);
         expect(trimmedLength(null)).toBe(0);

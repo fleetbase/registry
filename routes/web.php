@@ -51,6 +51,7 @@ Route::middleware('auth:web')->group(function () {
     Route::get('studio/{slug}/releases/{release}', [StudioPageController::class, 'release'])->name('studio.release');
     Route::get('studio/{slug}/review', [StudioPageController::class, 'review'])->name('studio.review');
     Route::get('studio/{slug}/history', [StudioPageController::class, 'history'])->name('studio.history');
+    Route::get('studio/{slug}/access', [StudioPageController::class, 'access'])->name('studio.access');
 
     Route::get('review', [ReviewPageController::class, 'queue'])->name('review');
     Route::get('review/publish', [ReviewPageController::class, 'pending'])->name('review.pending');

@@ -5,12 +5,11 @@ namespace App\Services;
 use App\Models\Account;
 use App\Models\Extension;
 use App\Models\Instance;
-use App\Models\Licence;
 use App\Models\Token;
 use Illuminate\Http\Request;
 
 /**
- * Decides whether a package request may read a paid extension.
+ * Decides whether a package request may read a paid or private extension.
  *
  * The bearer credential resolves to one or more organizations:
  *   - personal token (`flbp_…`) with the `install` scope: the token's organization when it
@@ -18,9 +17,14 @@ use Illuminate\Http\Request;
  *   - instance token (`flbi_…`): the instance's organization, resolved by
  *     `Instance::findByToken()` so hashing and revocation live on the model.
  * Access is granted when one of those organizations owns the extension or holds an active,
- * unexpired licence for it. Seats (licence activations) are not checked here: they are
- * claimed when the instance reports the install (`POST /v1/instances/me/installs`).
- * Free extensions never reach this check.
+ * unexpired licence for it that covers the caller (`ExtensionAccess::holdsAccess`: a grant
+ * limited to instances only covers those instances; a private extension only counts grants and
+ * paid licences). Seats (licence activations) are not checked here: they are claimed when the
+ * instance reports the install (`POST /v1/instances/me/installs`).
+ *
+ * Paid public extensions answer 401 without a usable token and 403 without a licence. Private
+ * extensions answer 404 to every refused caller, so their names never leak. Free public
+ * extensions never reach this check.
  */
 class LicenceGate
 {
@@ -30,6 +34,12 @@ class LicenceGate
 
     public const STATUS_FORBIDDEN = 403;
 
+    public const STATUS_NOT_FOUND = 404;
+
+    public const NOT_FOUND_MESSAGE = 'Package not found.';
+
+    public function __construct(protected ExtensionAccess $access) {}
+
     /**
      * @return array{status: int, message: ?string}
      */
@@ -37,39 +47,32 @@ class LicenceGate
     {
         $plain = (string) $request->bearerToken();
         if ($plain === '') {
-            return $this->deny(self::STATUS_UNAUTHENTICATED, "{$extension->name} is a paid extension. Send a registry token with the install scope as `Authorization: Bearer <token>`.");
+            return $this->deny($extension, self::STATUS_UNAUTHENTICATED, "{$extension->name} is a paid extension. Send a registry token with the install scope as `Authorization: Bearer <token>`.");
         }
 
         $credential = $this->resolve($plain, $request);
         if ($credential === null) {
-            return $this->deny(self::STATUS_UNAUTHENTICATED, 'The registry token is invalid, expired or revoked.');
+            return $this->deny($extension, self::STATUS_UNAUTHENTICATED, 'The registry token is invalid, expired or revoked.');
         }
 
         if ($credential instanceof Token && ! $credential->can(Token::SCOPE_INSTALL)) {
-            return $this->deny(self::STATUS_FORBIDDEN, "This token does not have the 'install' scope.");
+            return $this->deny($extension, self::STATUS_FORBIDDEN, "This token does not have the 'install' scope.");
         }
 
-        $organizations = $this->organizationsFor($credential);
-        if (in_array($extension->organization_uuid, $organizations, true) || $this->hasActiveLicence($extension, $organizations)) {
+        $instance = $credential instanceof Instance ? $credential : null;
+        if ($this->access->holdsAccess($extension, $this->organizationsFor($credential), $instance)) {
             return ['status' => self::STATUS_ALLOWED, 'message' => null];
         }
 
-        return $this->deny(self::STATUS_FORBIDDEN, "Your organization does not hold an active licence for {$extension->name}.");
+        return $this->deny($extension, self::STATUS_FORBIDDEN, "Your organization does not hold an active licence for {$extension->name}.");
     }
 
     /**
      * @param  list<string>  $organizationUuids
      */
-    public function hasActiveLicence(Extension $extension, array $organizationUuids): bool
+    public function hasActiveLicence(Extension $extension, array $organizationUuids, ?Instance $instance = null): bool
     {
-        if ($organizationUuids === []) {
-            return false;
-        }
-
-        return Licence::query()->active()
-            ->where('extension_uuid', $extension->uuid)
-            ->whereIn('organization_uuid', $organizationUuids)
-            ->exists();
+        return $this->access->holdsAccess($extension, $organizationUuids, $instance);
     }
 
     protected function resolve(string $plain, Request $request): Token|Instance|null
@@ -96,15 +99,15 @@ class LicenceGate
             return [$credential->organization_uuid];
         }
 
-        if ($credential->organization_uuid) {
-            return [$credential->organization_uuid];
-        }
-
-        return $credential->account->memberships()->pluck('organization_uuid')->all();
+        return ExtensionAccess::tokenOrganizations($credential);
     }
 
-    protected function deny(int $status, string $message): array
+    protected function deny(Extension $extension, int $status, string $message): array
     {
+        if ($extension->isPrivate()) {
+            return ['status' => self::STATUS_NOT_FOUND, 'message' => self::NOT_FOUND_MESSAGE];
+        }
+
         return ['status' => $status, 'message' => $message];
     }
 }

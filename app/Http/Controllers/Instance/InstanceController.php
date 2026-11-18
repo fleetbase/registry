@@ -16,6 +16,8 @@ use App\Models\Licence;
 use App\Models\LicenceActivation;
 use App\Models\Organization;
 use App\Models\Release;
+use App\Services\ExtensionAccess;
+use App\Services\Viewer;
 use App\Support\Compat;
 use App\Support\Semver;
 use Illuminate\Http\JsonResponse;
@@ -136,7 +138,9 @@ class InstanceController extends Controller
     /**
      * GET /v1/instances/me/updates?channel=stable|beta — every extension installed on
      * the instance with its installed release and the newest published release whose
-     * `compat` ranges accept the instance's console and API versions.
+     * `compat` ranges accept the instance's console and API versions. A private extension the
+     * instance can no longer see (its grant was revoked) reports no `latest` and
+     * `access: false`, so the console stops offering updates.
      */
     public function updates(Request $request): JsonResponse
     {
@@ -154,15 +158,21 @@ class InstanceController extends Controller
             ->get()
             ->filter(fn (Install $install) => $install->extension !== null);
 
+        $access = app(ExtensionAccess::class);
+        $viewer = Viewer::forInstance($instance);
+        $visible = $installs->pluck('extension')->unique('uuid')
+            ->filter(fn ($extension) => $access->canSee($viewer, $extension))
+            ->pluck('uuid');
+
         $published = Release::query()
             ->published()
-            ->whereIn('extension_uuid', $installs->pluck('extension_uuid')->unique())
+            ->whereIn('extension_uuid', $visible)
             ->whereIn('channel', $channels)
             ->with('engineDist')
             ->get()
             ->groupBy('extension_uuid');
 
-        $data = $installs->map(function (Install $install) use ($instance, $published, $request) {
+        $data = $installs->map(function (Install $install) use ($instance, $published, $visible, $request) {
             $compatible = ($published->get($install->extension_uuid) ?? collect())
                 ->filter(fn (Release $release) => Compat::releaseIsCompatible($release, $instance->console_version, $instance->api_version));
             $latest = Compat::latest($compatible);
@@ -172,6 +182,7 @@ class InstanceController extends Controller
                 'installed' => $install->release ? (new ReleaseResource($install->release))->resolve($request) : null,
                 'latest' => $latest ? (new ReleaseResource($latest))->resolve($request) : null,
                 'update_available' => $latest !== null && Semver::isNewer($latest->version, $install->release?->version),
+                'access' => $visible->contains($install->extension_uuid),
             ];
         })->values();
 

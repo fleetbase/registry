@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Publisher;
 
+use App\Models\Extension;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateExtensionRequest extends FormRequest
 {
@@ -15,6 +17,9 @@ class UpdateExtensionRequest extends FormRequest
 
     public function rules(): array
     {
-        return array_merge(['name' => ['sometimes', 'string', 'min:2', 'max:120']], $this->listingRules());
+        return array_merge([
+            'name' => ['sometimes', 'string', 'min:2', 'max:120'],
+            'visibility' => ['sometimes', Rule::in(Extension::VISIBILITIES)],
+        ], $this->listingRules());
     }
 }

@@ -26,7 +26,7 @@ class TokenController extends Controller
         $tokens = $account->tokens()
             ->with('organization')
             ->whereNull('revoked_at')
-            ->where('prefix', '!=', Token::PREFIX_SESSION)
+            ->whereNotIn('prefix', [Token::PREFIX_SESSION, Token::PREFIX_TRUSTED])
             ->orderByDesc('created_at')
             ->get();
 
@@ -82,7 +82,7 @@ class TokenController extends Controller
         $account = $request->user();
 
         $token = $account->tokens()
-            ->where('prefix', '!=', Token::PREFIX_SESSION)
+            ->whereNotIn('prefix', [Token::PREFIX_SESSION, Token::PREFIX_TRUSTED])
             ->where(fn ($q) => $q->where('public_id', $id)->orWhere('uuid', $id))
             ->first();
 

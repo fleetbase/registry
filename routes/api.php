@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\SessionController;
+use App\Http\Controllers\Auth\TrustedPublishingController;
 use App\Http\Controllers\Catalog\CatalogController;
 use App\Http\Controllers\Instance\InstallController;
 use App\Http\Controllers\Instance\InstanceController;
@@ -22,10 +23,12 @@ use App\Http\Controllers\Organization\StatsController as OrganizationStatsContro
 use App\Http\Controllers\Organization\StripeConnectController;
 use App\Http\Controllers\Packages\ComposerController;
 use App\Http\Controllers\Packages\NpmController;
+use App\Http\Controllers\Publisher\AccessController;
 use App\Http\Controllers\Publisher\ExtensionController as PublisherExtensionController;
 use App\Http\Controllers\Publisher\ListingMediaController;
 use App\Http\Controllers\Publisher\ReleaseController as PublisherReleaseController;
 use App\Http\Controllers\Publisher\StatsController as PublisherStatsController;
+use App\Http\Controllers\Publisher\TrustedPublisherController;
 use App\Http\Controllers\Purchase\CheckoutController;
 use App\Http\Controllers\Webhook\StripeWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -43,7 +46,9 @@ use Illuminate\Support\Facades\Route;
 | Instance routes: Authorization: Bearer flbi_… (instance token), except
 | `instances/register`, which takes a registration code in the body.
 | Publisher routes: personal token (or website session) with the `publish` scope and the
-| owner, admin or publisher role in the listing's organization. That includes a listing's
+| owner, admin or publisher role in the listing's organization (access grants, visibility and
+| trusted publishers: owner or admin). A trusted publishing token (`flbt_`, from
+| `auth/oidc/github`) reaches only its extension's release routes (TokenGuard::TRUSTED_ROUTES). That includes a listing's
 | analytics (`extensions/{slug}/stats`); `organizations/{slug}/stats` sums every listing of
 | an organization for its owners, admins, publishers and billing members.
 | Admin routes: personal token (or website session) with the `review` scope, member of an
@@ -81,6 +86,9 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:token')->withoutMiddleware('throttle:auth')->name('logout');
 
         // The publisher website's cookie session. Always stateful; POST and DELETE need X-XSRF-TOKEN.
+        // Trusted publishing: a GitHub Actions OIDC token for a short-lived publish token.
+        Route::post('oidc/github', [TrustedPublishingController::class, 'github'])->withoutMiddleware(['stateful', 'throttle:auth'])->middleware('throttle:oidc')->name('oidc.github');
+
         Route::get('session', [SessionController::class, 'show'])->withoutMiddleware('throttle:auth')->middleware('throttle:api')->name('session.show');
         Route::post('session', [SessionController::class, 'store'])->name('session.store');
         Route::delete('session', [SessionController::class, 'destroy'])->withoutMiddleware('throttle:auth')->middleware('throttle:api')->name('session.destroy');
@@ -137,6 +145,14 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::post('extensions/{slug}/releases', [PublisherReleaseController::class, 'store'])->middleware('throttle:upload')->name('releases.store');
         Route::get('releases/{release}', [PublisherReleaseController::class, 'show'])->name('releases.show');
         Route::post('releases/{release}/submit', [PublisherReleaseController::class, 'submit'])->name('releases.submit');
+        Route::get('extensions/{slug}/access', [AccessController::class, 'show'])->name('extensions.access.show');
+        Route::post('extensions/{slug}/access', [AccessController::class, 'store'])->name('extensions.access.store');
+        Route::patch('extensions/{slug}/access/{grant}', [AccessController::class, 'update'])->name('extensions.access.update');
+        Route::delete('extensions/{slug}/access/{grant}', [AccessController::class, 'destroy'])->name('extensions.access.destroy');
+        Route::get('access/organizations/{organization}', [AccessController::class, 'organization'])->name('access.organization');
+        Route::get('extensions/{slug}/trusted-publishers', [TrustedPublisherController::class, 'index'])->name('extensions.trusted-publishers.index');
+        Route::post('extensions/{slug}/trusted-publishers', [TrustedPublisherController::class, 'store'])->name('extensions.trusted-publishers.store');
+        Route::delete('extensions/{slug}/trusted-publishers/{id}', [TrustedPublisherController::class, 'destroy'])->name('extensions.trusted-publishers.destroy');
         Route::post('releases/{release}/withdraw', [PublisherReleaseController::class, 'withdraw'])->name('releases.withdraw');
         Route::post('releases/{release}/yank', [PublisherReleaseController::class, 'yank'])->name('releases.yank');
         Route::patch('releases/{release}', [PublisherReleaseController::class, 'update'])->name('releases.update');
@@ -153,6 +169,10 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::post('releases/{release}/publish', [ReviewController::class, 'publish'])->name('releases.publish');
         Route::post('extensions/{slug}/suspend', [ReviewController::class, 'suspend'])->name('extensions.suspend');
         Route::post('extensions/{slug}/unsuspend', [ReviewController::class, 'unsuspend'])->name('extensions.unsuspend');
+        Route::get('extensions/{slug}/access', [AccessController::class, 'show'])->name('extensions.access.show');
+        Route::post('extensions/{slug}/access', [AccessController::class, 'store'])->name('extensions.access.store');
+        Route::patch('extensions/{slug}/access/{grant}', [AccessController::class, 'update'])->name('extensions.access.update');
+        Route::delete('extensions/{slug}/access/{grant}', [AccessController::class, 'destroy'])->name('extensions.access.destroy');
         Route::get('licences', [AdminLicenceController::class, 'index'])->name('licences.index');
         Route::post('licences/{licence}/revoke', [AdminLicenceController::class, 'revoke'])->name('licences.revoke');
         Route::post('licences/{licence}/reinstate', [AdminLicenceController::class, 'reinstate'])->name('licences.reinstate');

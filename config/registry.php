@@ -70,6 +70,15 @@ return [
         ],
     ],
 
+    'trusted_publishing' => [
+        // The `aud` GitHub Actions OIDC tokens must carry. Empty means the registry's host name
+        // (REGISTRY_PUBLIC_URL, else APP_URL), which `flb publish` requests by default.
+        'audience' => env('REGISTRY_OIDC_AUDIENCE'),
+        'github_jwks_url' => env('REGISTRY_GITHUB_JWKS_URL', 'https://token.actions.githubusercontent.com/.well-known/jwks'),
+        // Lifetime of the `flbt_` publish token an exchange returns, in minutes.
+        'token_minutes' => (int) env('REGISTRY_TRUSTED_PUBLISHING_TOKEN_MINUTES', 15),
+    ],
+
     'import' => [
         // Disk holding the cloud `files` objects (bundles, icons) that `registry:import` copies.
         'source_disk' => env('REGISTRY_IMPORT_SOURCE_DISK', 'import_source'),

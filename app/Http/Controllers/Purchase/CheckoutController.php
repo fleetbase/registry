@@ -10,6 +10,8 @@ use App\Http\Resources\CheckoutResource;
 use App\Models\Checkout;
 use App\Models\Event;
 use App\Models\Extension;
+use App\Services\ExtensionAccess;
+use App\Services\Viewer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -39,7 +41,7 @@ class CheckoutController extends Controller
         $this->assertRole($organization, self::BILLING_ROLES, 'Only organization owners, admins and billing members can buy extensions.');
 
         $extension = Extension::findByIdentifier($request->input('extension'));
-        if (! $extension) {
+        if (! $extension || ! app(ExtensionAccess::class)->canSee(new Viewer([$organization->uuid]), $extension)) {
             return response()->error('Extension not found.', 404);
         }
 

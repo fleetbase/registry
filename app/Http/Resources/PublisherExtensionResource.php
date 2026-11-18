@@ -27,6 +27,8 @@ class PublisherExtensionResource extends FleetbaseResource
             'description' => $this->description,
             'promotional_text' => $this->promotional_text,
             'status' => $this->status,
+            'visibility' => $this->visibility ?? 'public',
+            'pending_visibility' => $this->resource->pendingVisibility(),
             'hosting' => $this->hosting,
             'organization' => $this->whenLoaded('organization', fn () => ['id' => $this->organization->public_id, 'slug' => $this->organization->slug, 'name' => $this->organization->name]),
             'category' => $this->whenLoaded('category', fn () => $this->category ? ['id' => $this->category->public_id, 'slug' => $this->category->slug, 'name' => $this->category->name] : null),

@@ -12,6 +12,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 /**
  * A licence belongs to an organization and is activated per instance (seat = instance).
  * Free extensions get one automatically on first install so every path checks one thing.
+ *
+ * A `grant` licence is access the owner (or staff) gave an organization at no charge: how a
+ * private extension reaches its clients. `instance_uuids` limits it to some of the
+ * organization's instances; null means all of them (and the organization's personal tokens).
  */
 class Licence extends Model
 {
@@ -23,6 +27,11 @@ class Licence extends Model
 
     public const KIND_PAID = 'paid';
 
+    /** Access given by the extension's owner or staff, at no charge (private extensions, comps). */
+    public const KIND_GRANT = 'grant';
+
+    public const KINDS = [self::KIND_FREE, self::KIND_PAID, self::KIND_GRANT];
+
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_REVOKED = 'revoked';
@@ -31,11 +40,11 @@ class Licence extends Model
 
     protected string $publicIdType = 'lic';
 
-    protected $fillable = ['extension_uuid', 'organization_uuid', 'purchase_uuid', 'kind', 'max_activations', 'status', 'expires_at', 'meta'];
+    protected $fillable = ['extension_uuid', 'organization_uuid', 'purchase_uuid', 'kind', 'max_activations', 'instance_uuids', 'status', 'expires_at', 'meta'];
 
     protected $hidden = ['id'];
 
-    protected $casts = ['max_activations' => 'integer', 'expires_at' => 'datetime', 'meta' => 'array'];
+    protected $casts = ['max_activations' => 'integer', 'instance_uuids' => 'array', 'expires_at' => 'datetime', 'meta' => 'array'];
 
     public function extension(): BelongsTo
     {
@@ -84,6 +93,32 @@ class Licence extends Model
     public function seatsUsed(): int
     {
         return $this->activeActivations()->count();
+    }
+
+    public function isGrant(): bool
+    {
+        return $this->kind === self::KIND_GRANT;
+    }
+
+    /**
+     * Whether the licence is limited to some instances (`instance_uuids`).
+     */
+    public function isInstanceLimited(): bool
+    {
+        return is_array($this->instance_uuids) && $this->instance_uuids !== [];
+    }
+
+    /**
+     * Whether this licence covers the caller: any caller of its organization, unless it is
+     * limited to instances; then only those instances (personal tokens are refused).
+     */
+    public function covers(?Instance $instance): bool
+    {
+        if (! $this->isInstanceLimited()) {
+            return true;
+        }
+
+        return $instance !== null && in_array($instance->uuid, $this->instance_uuids, true);
     }
 
     public function hasFreeSeat(): bool

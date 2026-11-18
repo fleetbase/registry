@@ -83,6 +83,9 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(5)->by('email:'.strtolower((string) $request->input('email')).':'.$request->ip()),
         ]);
 
+        // GitHub-hosted runners share addresses; a release workflow exchanges once per run.
+        RateLimiter::for('oidc', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
+
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->uuid ?: $request->ip()));
 
         RateLimiter::for('instances', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->uuid ?: $request->ip()));

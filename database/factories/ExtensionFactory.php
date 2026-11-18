@@ -56,6 +56,11 @@ class ExtensionFactory extends Factory
         ]);
     }
 
+    public function private(): static
+    {
+        return $this->state(fn () => ['visibility' => Extension::VISIBILITY_PRIVATE]);
+    }
+
     public function hosting(string $hosting): static
     {
         return $this->state(fn () => ['hosting' => $hosting]);
