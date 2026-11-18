@@ -43,3 +43,20 @@ it('compares a dist against host modules like the installer does', function (str
     'unpinned: major differs' => ['minor', ['ember-source' => '6.0.0'], false],
     'missing host version' => ['exact', [], true],
 ]);
+
+it('bounds automatic updates by policy', function (string $installed, string $candidate, string $policy, bool $within) {
+    expect(Compat::withinPolicy($installed, $candidate, $policy))->toBe($within);
+})->with([
+    'patch: patch bump' => ['1.2.3', '1.2.9', 'patch', true],
+    'patch: minor bump' => ['1.2.3', '1.3.0', 'patch', false],
+    'minor: minor bump' => ['1.2.3', '1.9.0', 'minor', true],
+    'minor: major bump' => ['1.2.3', '2.0.0', 'minor', false],
+    'minor: 0.x minor bump may break' => ['0.3.1', '0.4.0', 'minor', false],
+    'minor: 0.x patch bump' => ['0.3.1', '0.3.4', 'minor', true],
+    'not newer' => ['1.2.3', '1.2.3', 'minor', false],
+    'older' => ['1.2.3', '1.2.0', 'patch', false],
+    'prerelease of a later version' => ['1.2.3', '1.2.4-beta.1', 'patch', false],
+    'prerelease to its release' => ['1.2.3-beta.1', '1.2.3', 'patch', true],
+    'none' => ['1.2.3', '1.2.4', 'none', false],
+    'unparseable installed' => ['dev-main', '1.2.4', 'minor', false],
+]);

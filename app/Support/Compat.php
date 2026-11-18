@@ -72,6 +72,35 @@ class Compat
             && static::satisfies($apiVersion, data_get($compat, 'api'));
     }
 
+    public const UPDATE_PATCH = 'patch';
+
+    public const UPDATE_MINOR = 'minor';
+
+    /**
+     * Whether `$candidate` is newer than `$installed` and inside an automatic update policy:
+     * `patch` keeps major and minor (`~1.2.3`), `minor` follows caret rules (`^1.2.3`: same major,
+     * and same minor while the major is 0, as 0.x minors may break). Prereleases are never
+     * inside a policy unless the installed version is a prerelease of the same major.minor.patch.
+     */
+    public static function withinPolicy(?string $installed, ?string $candidate, string $policy): bool
+    {
+        $from = Semver::parse((string) Semver::normalize($installed));
+        $to = Semver::parse((string) Semver::normalize($candidate));
+        if ($from === null || $to === null || ! Semver::isNewer($candidate, $installed)) {
+            return false;
+        }
+
+        if ($to['prerelease'] !== [] && [$to['major'], $to['minor'], $to['patch']] !== [$from['major'], $from['minor'], $from['patch']]) {
+            return false;
+        }
+
+        return match ($policy) {
+            self::UPDATE_PATCH => $to['major'] === $from['major'] && $to['minor'] === $from['minor'],
+            self::UPDATE_MINOR => $to['major'] === $from['major'] && ($from['major'] > 0 || $to['minor'] === $from['minor']),
+            default => false,
+        };
+    }
+
     /** Host packages a prebuilt dist is pinned to (`dist.built_against`). */
     public const PINNED_HOST_PACKAGES = ['@fleetbase/ember-ui', '@fleetbase/ember-core'];
 

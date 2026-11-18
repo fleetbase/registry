@@ -136,7 +136,9 @@ class InstanceController extends Controller
     /**
      * GET /v1/instances/me/updates?channel=stable|beta — every extension installed on
      * the instance with its installed release and the newest published release whose
-     * `compat` ranges accept the instance's console and API versions.
+     * `compat` ranges accept the instance's console and API versions. `latest_patch` and
+     * `latest_minor` are the newest such releases newer than the installed one within a patch
+     * or minor update policy (`Compat::withinPolicy`), for installers that update on their own.
      */
     public function updates(Request $request): JsonResponse
     {
@@ -166,12 +168,17 @@ class InstanceController extends Controller
             $compatible = ($published->get($install->extension_uuid) ?? collect())
                 ->filter(fn (Release $release) => Compat::releaseIsCompatible($release, $instance->console_version, $instance->api_version));
             $latest = Compat::latest($compatible);
+            $installed = $install->release?->version;
+            $patch = $installed !== null ? Compat::latest($compatible->filter(fn (Release $release) => Compat::withinPolicy($installed, $release->version, Compat::UPDATE_PATCH))) : null;
+            $minor = $installed !== null ? Compat::latest($compatible->filter(fn (Release $release) => Compat::withinPolicy($installed, $release->version, Compat::UPDATE_MINOR))) : null;
 
             return [
                 'extension' => (new ExtensionReferenceResource($install->extension))->resolve($request),
                 'installed' => $install->release ? (new ReleaseResource($install->release))->resolve($request) : null,
                 'latest' => $latest ? (new ReleaseResource($latest))->resolve($request) : null,
-                'update_available' => $latest !== null && Semver::isNewer($latest->version, $install->release?->version),
+                'latest_patch' => $patch ? (new ReleaseResource($patch))->resolve($request) : null,
+                'latest_minor' => $minor ? (new ReleaseResource($minor))->resolve($request) : null,
+                'update_available' => $latest !== null && Semver::isNewer($latest->version, $installed),
             ];
         })->values();
 
