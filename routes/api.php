@@ -12,6 +12,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\Catalog\CatalogController;
+use App\Http\Controllers\Instance\CompatibilityController;
 use App\Http\Controllers\Instance\InstallController;
 use App\Http\Controllers\Instance\InstanceController;
 use App\Http\Controllers\Instance\PurchaseController;
@@ -41,7 +42,8 @@ use Illuminate\Support\Facades\Route;
 | Package routes (/npm, /composer) sit outside /v1 because npm and Composer
 | clients address them as registry roots.
 | Instance routes: Authorization: Bearer flbi_… (instance token), except
-| `instances/register`, which takes a registration code in the body.
+| `instances/register`, which takes a registration code in the body. Staff read any instance's
+| pre-upgrade compatibility at `admin/instances/{id}/compatibility`.
 | Publisher routes: personal token (or website session) with the `publish` scope and the
 | owner, admin or publisher role in the listing's organization. That includes a listing's
 | analytics (`extensions/{slug}/stats`); `organizations/{slug}/stats` sums every listing of
@@ -163,6 +165,7 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::get('finance/purchases', [FinanceController::class, 'purchases'])->name('finance.purchases');
         Route::get('finance/monthly.csv', [FinanceController::class, 'export'])->name('finance.export');
         Route::post('purchases/{purchase}/refund', [FinanceController::class, 'refund'])->name('purchases.refund');
+        Route::get('instances/{instance}/compatibility', [CompatibilityController::class, 'show'])->name('instances.compatibility');
     });
 
     // Instances authenticate with flbi_ tokens only: never a session or CSRF.
@@ -172,6 +175,7 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::middleware(['auth:instance', 'throttle:instances'])->group(function () {
             Route::get('me', [InstanceController::class, 'me'])->name('me');
             Route::get('me/updates', [InstanceController::class, 'updates'])->name('me.updates');
+            Route::get('me/compatibility', [CompatibilityController::class, 'me'])->name('me.compatibility');
             Route::post('me/installs', [InstallController::class, 'store'])->name('me.installs.store');
             Route::delete('me/installs/{extension}', [InstallController::class, 'destroy'])->where('extension', '.+')->name('me.installs.destroy');
             Route::post('me/purchases/checkout', [PurchaseController::class, 'checkout'])->name('me.purchases.checkout');
