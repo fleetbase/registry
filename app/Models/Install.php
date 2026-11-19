@@ -32,7 +32,7 @@ class Install extends Model
     protected $table = 'installs';
 
     protected $fillable = [
-        'instance_uuid', 'extension_uuid', 'release_uuid', 'previous_release_uuid', 'status', 'installed_by', 'error',
+        'instance_uuid', 'organization_uuid', 'extension_uuid', 'release_uuid', 'previous_release_uuid', 'status', 'installed_by', 'error',
         'started_at', 'finished_at', 'installed_at', 'uninstalled_at', 'replaced_at',
     ];
 
@@ -51,9 +51,27 @@ class Install extends Model
         return InstallFactory::new();
     }
 
+    /**
+     * An install is for its instance's organization unless it says otherwise (the cloud instance
+     * installs for the company it acts for).
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Install $install) {
+            if ($install->organization_uuid === null && $install->instance_uuid !== null) {
+                $install->organization_uuid = Instance::withTrashed()->where('uuid', $install->instance_uuid)->value('organization_uuid');
+            }
+        });
+    }
+
     public function instance(): BelongsTo
     {
         return $this->belongsTo(Instance::class, 'instance_uuid', 'uuid');
+    }
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'organization_uuid', 'uuid');
     }
 
     public function extension(): BelongsTo

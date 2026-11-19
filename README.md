@@ -27,6 +27,7 @@ Phase 1, Workstreams A to C, and Phase 2 Workstream E:
 | Website (Workstream F): Inertia (React) catalog, account, Studio and review console, light and dark | done |
 | Commerce (Phase 4, K to M): Stripe Connect Express, prices mirrored to Stripe, Checkout from instances and the website, webhooks, payouts and billing APIs and pages, staff finance and refunds | done |
 | Publisher analytics: listing and organization stats APIs with CSV, Studio Insights | done |
+| Cloud cutover (Phase 5, O): the cloud instance (signed registration, per-company tenancy), cutover freeze, importer on one cloud instance with `--verify`, [runbook](docs/cutover.md) and rehearsal scripts | done |
 | CLI v2 (G), staff finance view | later workstreams |
 
 ## Stack
@@ -422,6 +423,26 @@ disables a token.
 | `GET /v1/instances/me/updates?channel=` | Every extension installed on the instance: the installed release, the newest compatible published release, `update_available`. `channel=beta` includes beta releases |
 | `POST /v1/instances/me/installs` | Body: `extension` (slug, `ext_` id or an npm/Composer package name), `version` or `release` (`rel_` id), `status` (`installing`, `installed`, `failed`), optional `error`, `installed_by`. Returns `{install, activation}` |
 | `DELETE /v1/instances/me/installs/{extension}` | Reports an uninstall (scoped npm names work in the path). Returns `{install, deactivated}` |
+| `POST /v1/instances/register/cloud` | Fleetbase Cloud only. No bearer token and no code: signed with the platform secret (below). Body: `host` (required), optional `name`, `console_version`, `api_version`, `previous_token`. Same response as `register` |
+| `GET /v1/instances/me/tenant-installs?page=&per_page=` | Cloud instance only: every installed extension per cloud company (`company_uuid`, `extension`, `packages`, `release`), 500 a page |
+
+**Fleetbase Cloud.** The cloud console's API registers one instance per deployment (kind `cloud`,
+`meta.platform`) in the organization `REGISTRY_CLOUD_ORGANIZATION`, on boot and without a code:
+`X-Registry-Timestamp` (unix seconds, within 5 minutes), `X-Registry-Nonce` (16 to 64 characters,
+single use) and `X-Registry-Signature: v1=<hex HMAC-SHA256 of "{timestamp}.{nonce}.{body}" with
+REGISTRY_CLOUD_PLATFORM_SECRET>`. A missing secret answers 403, a bad, expired or replayed
+signature 401. Re-registration rotates the same instance by `previous_token`, else by host (D17),
+else it adopts the tokenless instance `registry:import` prepared. That instance serves every cloud
+company: `X-Registry-Tenant: <company uuid>` on any instance route makes it act for that company's
+organization (licences in `me`, install rows and seats, checkouts and hand-offs); an unknown company
+gets an organization named from `X-Registry-Tenant-Name`. Other instances never act for anyone. The
+package gate lets the cloud instance download a paid package while one of its companies holds an
+active seat on it.
+
+**Maintenance.** `php artisan registry:maintenance on [--message=]` (or `REGISTRY_MAINTENANCE=true`)
+answers 503 `{errors: [message], maintenance: true}` with `Retry-After` on publishing (publisher
+writes, review approve and publish) and on both checkouts, for the cutover window
+([docs/cutover.md](docs/cutover.md)). Catalog, packages, installs and Stripe webhooks keep working.
 
 Re-registration:
 
@@ -704,11 +725,14 @@ php artisan registry:import --from=mysql://reader:secret@cloud-replica:3306/flee
 
 | Option | Meaning |
 | --- | --- |
-| `--from` | `mysql://user:pass@host:3306/db` (or `mariadb://`), `sqlite:///path/file.sqlite`, or a path to a `.sql` / `.sql.gz` dump. Dumps are loaded into a temporary SQLite file without a MySQL server; mysqldump's extended inserts and one-tuple-per-line dumps both work, and statements for other tables are skipped |
+| `--from` | `mysql://user:pass@host:3306/db` (or `mariadb://`; `?unix_socket=` and `?ssl_ca=` accepted), `sqlite:///path/file.sqlite`, a path to a `.sql` / `.sql.gz` dump, or `disk:path` for a dump on a filesystem disk (`import_source:registry-cutover/cloud.sql.gz`). Dumps are loaded into a temporary SQLite file without a MySQL server; mysqldump's extended inserts and one-tuple-per-line dumps both work, and statements for other tables are skipped. `scripts/cloud-registry-dump.sh` dumps exactly the rows the importer reads |
 | `--dry-run` | Runs the whole mapping in a transaction that is rolled back, so the counts and anomalies are exactly what a real run would produce |
 | `--source-disk` | Filesystem disk holding the cloud `files` objects. Default `REGISTRY_IMPORT_SOURCE_DISK` (`import_source`, an S3 disk configured by `IMPORT_SOURCE_AWS_*`) |
 | `--report` | Also writes the full report, every anomaly included, as JSON |
 | `--examples` | Anomaly examples printed per type (default 10) |
+| `--memory-limit` | PHP memory limit for the run (default `512M`, never lowered; the source tables are held in memory). The peak is printed and kept in the report |
+| `--cloud-host` | Host the cloud API registers with (default `REGISTRY_CLOUD_HOST`); cloud installs attach to that host's cloud instance |
+| `--verify` | Compares source and target instead of importing; exits 1 on drift. A dry run against the target must create or update nothing; every extension, release, purchase, licence and install has its row except the ones the importer skips; a seeded sample of rows (`--sample`, default 25; `--seed`, default today) matches field by field, tarballs by SHA-256 of the source object, the copy and its record |
 
 What it writes:
 
@@ -721,7 +745,7 @@ What it writes:
 | `registry_extensions` | `extensions`, `prices`, `extension_packages` | Package names from the current bundle's `package.json` and `composer.json`, then older bundles, then the Phase 0 `package_name` column; listings with no bundle and no package name become drafts; `self_managed` maps to hosting `self_hosted`; icon and screenshots copied |
 | `registry_extension_bundles` | `releases` | Version from `extension.json`; `bundle_number` kept in `manifest`; status pending → uploaded, awaiting_review → in_review, approved, published, rejected; `compat` from `extension.json` when present. The bundle archive is copied to `tarballs/imported/…` as a `source_bundle` file with a SHA-256 checksum; a bundle whose file is missing imports as `yanked` |
 | `registry_extension_purchases` | `purchases`, `licences` | One paid licence per purchase with 5 seats; a soft-deleted purchase revokes its licence |
-| `registry_extension_installs` | `instances`, `installs`, `licence_activations` | One synthetic cloud instance per company (no token); soft-deleted installs become `uninstalled`; live installs claim a seat on the paid licence or an automatic free licence |
+| `registry_extension_installs` | `instances`, `installs`, `licence_activations` | One cloud instance for all companies (the cloud host's, else a tokenless placeholder its first registration adopts); each install is for its company's organization; soft-deleted installs become `uninstalled`; live installs claim a seat on the company's paid licence or an automatic free licence. Per-company instances from earlier runs are revoked and their seats moved |
 
 Idempotency: every imported row stores the uuid of its source row in `source_uuid`, and
 re-runs match on it and update in place; an unchanged source produces only "unchanged"
