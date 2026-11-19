@@ -429,7 +429,8 @@ disables a token.
 | --- | --- |
 | `POST /v1/instances/register` | No bearer token. Body: `code`, `name`, `kind` (`cloud` or `self_hosted`), optional `host`, `console_version`, `api_version`, `previous_token`. Redeems the code (single use, 15 minutes) and returns `{token, token_type, rotated, instance}`; the token is never shown again. 201 for a new instance, 200 when an existing one was rotated (see re-registration below) |
 | `GET /v1/instances/me` | The instance, its organization, and the organization's licences with `seats_used` and `activated_here` |
-| `GET /v1/instances/me/updates?channel=` | Every extension installed on the instance: the installed release, the newest compatible published release, `update_available`. `channel=beta` includes beta releases |
+| `GET /v1/instances/me/updates?channel=` | Every extension installed on the instance: the installed release, the newest compatible published release, `update_available`, and `latest_patch` / `latest_minor`: the newest compatible release newer than the installed one within a patch (`~x.y.z`) or minor (`^x.y.z`, so 0.x stays on its minor) update policy, or null. `channel=beta` includes beta releases |
+| `GET /v1/instances/me/compatibility?console=&api=&channel=&host[<package>]=&policy=` | Pre-upgrade check (see below): for a target console and/or API version, every installed extension with `installed_compatible`, the newest compatible published release (`compatible`), `compatible_release_exists` and an `action` (`keep`, `update`, `downgrade`, `blocked`). `meta.compatible` is false while any extension is `blocked`; `meta.blocking_extensions` lists their slugs. Staff read any instance at `GET /v1/admin/instances/{inst_id}/compatibility` with the same query |
 | `GET /v1/instances/me/releases/{release}/dist` | The release's prebuilt engine dist (`rel_` id), as `dist.url` names it. Free extensions: any active instance. Paid: 403 unless the instance's organization owns the extension or holds an active licence, checked on every request. `X-Checksum-Sha256`, ETag, 304; yanked releases stay downloadable; 404 when the release has no dist or the listing is suspended |
 | `POST /v1/instances/me/installs` | Body: `extension` (slug, `ext_` id or an npm/Composer package name), `version` or `release` (`rel_` id), `status` (`installing`, `installed`, `failed`), optional `error`, `installed_by`. Returns `{install, activation}` |
 | `DELETE /v1/instances/me/installs/{extension}` | Reports an uninstall (scoped npm names work in the path). Returns `{install, deactivated}` |
@@ -453,6 +454,25 @@ active seat on it.
 answers 503 `{errors: [message], maintenance: true}` with `Retry-After` on publishing (publisher
 writes, review approve and publish) and on both checkouts, for the cutover window
 ([docs/cutover.md](docs/cutover.md)). Catalog, packages, installs and Stripe webhooks keep working.
+
+Pre-upgrade compatibility (`me/compatibility`):
+
+- The target is the core an upgrade moves to: `console` is the console's `package.json`
+  version and `api` the installed `fleetbase/core-api` version, as an instance reports them at
+  registration. At least one is required; both must be versions (`v0.8.1` and `0.8` are fine,
+  `latest` or `dev-main` are 422), because an unparseable version matches every range.
+- Ranges are the release's `compat` (from `extension.json`), evaluated exactly like
+  `me/updates`. A side that is not given does not constrain. Only `published` releases are
+  offered; `channel=beta` adds beta releases. The installed release may be yanked and still
+  count as `keep` when its ranges accept the target.
+- `host[@fleetbase/ember-ui]=…&host[@fleetbase/ember-core]=…` (the versions the target
+  console ships) adds `dist: {built_against, compatible, reasons}` for the release the action
+  points at, compared like the installer's host-modules check (`policy=minor` by default, or
+  `exact`, `major`). A dist that does not fit never blocks: the installer rebuilds the engine.
+- Private extensions (once `extensions.visibility` exists) are described only to their own
+  organization's instances and to organizations with an active licence; other instances get
+  `{id, slug, name: null}` with `action: blocked`, `reason: no_access` and no release data.
+  Staff see everything.
 
 Re-registration:
 
@@ -853,6 +873,7 @@ app/
   Jobs/RunReleaseChecks.php    queued release checks
   Releases/                    pipeline, state machine, review policy (D6), listing readiness,
                                namespace rules, manifest schema, checks, archive inspection, secrets
+  Instances/                   CompatibilityReport (pre-upgrade check for an instance's installs)
   Import/                      importer: SQL dump loader, source connection, mapping, report
   Http/Filter/                 request-driven query filters (ExtensionFilter)
   Http/Middleware/             scope:…, licence:npm|composer, HandleInertiaRequests (shared props)

@@ -72,6 +72,80 @@ class Compat
             && static::satisfies($apiVersion, data_get($compat, 'api'));
     }
 
+    public const UPDATE_PATCH = 'patch';
+
+    public const UPDATE_MINOR = 'minor';
+
+    /**
+     * Whether `$candidate` is newer than `$installed` and inside an automatic update policy:
+     * `patch` keeps major and minor (`~1.2.3`), `minor` follows caret rules (`^1.2.3`: same major,
+     * and same minor while the major is 0, as 0.x minors may break). Prereleases are never
+     * inside a policy unless the installed version is a prerelease of the same major.minor.patch.
+     */
+    public static function withinPolicy(?string $installed, ?string $candidate, string $policy): bool
+    {
+        $from = Semver::parse((string) Semver::normalize($installed));
+        $to = Semver::parse((string) Semver::normalize($candidate));
+        if ($from === null || $to === null || ! Semver::isNewer($candidate, $installed)) {
+            return false;
+        }
+
+        if ($to['prerelease'] !== [] && [$to['major'], $to['minor'], $to['patch']] !== [$from['major'], $from['minor'], $from['patch']]) {
+            return false;
+        }
+
+        return match ($policy) {
+            self::UPDATE_PATCH => $to['major'] === $from['major'] && $to['minor'] === $from['minor'],
+            self::UPDATE_MINOR => $to['major'] === $from['major'] && ($from['major'] > 0 || $to['minor'] === $from['minor']),
+            default => false,
+        };
+    }
+
+    /** Host packages a prebuilt dist is pinned to (`dist.built_against`). */
+    public const PINNED_HOST_PACKAGES = ['@fleetbase/ember-ui', '@fleetbase/ember-core'];
+
+    /** Dist pin policies, as in ember-core's check-engine-compat and the bridge's PhpEngineCompat. */
+    public const HOST_POLICIES = ['exact', 'minor', 'major'];
+
+    /**
+     * Whether a prebuilt dist built against `$builtAgainst` loads in a console whose host modules
+     * are `$host` (package => version), under the same policies as ember-core's
+     * check-engine-compat and the bridge's install-time check (D3): `exact` needs the same pinned
+     * version, `minor` the same major and minor (the default), `major` the same major. Other
+     * packages only need the same major. A version missing on either side is not compared.
+     * Module lists are not stored on releases, so only versions are checked here; the installer
+     * still runs the full check and rebuilds the engine from source when the dist does not fit.
+     *
+     * @param  array<string, mixed>  $builtAgainst
+     * @param  array<string, mixed>  $host
+     * @return array{compatible: bool, reasons: list<string>}
+     */
+    public static function hostModules(array $builtAgainst, array $host, string $policy = 'minor'): array
+    {
+        $reasons = [];
+
+        foreach ($builtAgainst as $package => $built) {
+            $b = Semver::parse((string) Semver::normalize(is_scalar($built) ? (string) $built : null));
+            $h = Semver::parse((string) Semver::normalize(is_scalar($host[$package] ?? null) ? (string) $host[$package] : null));
+            if ($b === null || $h === null) {
+                continue;
+            }
+
+            $pinned = in_array($package, self::PINNED_HOST_PACKAGES, true);
+            $ok = match (true) {
+                $pinned && $policy === 'exact' => Semver::compare((string) $built, (string) $host[$package]) === 0,
+                $pinned && $policy === 'minor' => $b['major'] === $h['major'] && $b['minor'] === $h['minor'],
+                default => $b['major'] === $h['major'],
+            };
+
+            if (! $ok) {
+                $reasons[] = "{$package} {$built} (built against) is not compatible with {$host[$package]} (console)";
+            }
+        }
+
+        return ['compatible' => $reasons === [], 'reasons' => $reasons];
+    }
+
     /**
      * Whether a range parses with composer/semver. Empty means "any version".
      */

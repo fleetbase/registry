@@ -109,6 +109,30 @@ it('lists installed releases against the newest compatible published release', f
     expect($beta['fleet-insights']['latest']['version'])->toBe('1.11.0-beta.1');
 });
 
+it('offers the newest compatible release inside patch and minor update policies', function () {
+    $instance = Instance::factory()->create(['console_version' => '0.8.1', 'api_version' => '2.0.2']);
+    actingAsInstance($instance);
+
+    $extension = Extension::factory()->published()->create(['slug' => 'fleet-insights']);
+    installOn($instance, $extension, release($extension, '1.2.3'));
+    release($extension, '1.2.5');
+    release($extension, '1.2.6', ['console' => '>=0.9.0']);
+    release($extension, '1.4.0');
+    release($extension, '2.0.0');
+
+    $this->getJson('/v1/instances/me/updates')->assertOk()
+        ->assertJsonPath('data.0.latest.version', '2.0.0')
+        ->assertJsonPath('data.0.latest_patch.version', '1.2.5')
+        ->assertJsonPath('data.0.latest_minor.version', '1.4.0');
+
+    // Nothing newer inside the policy.
+    $current = Extension::factory()->published()->create();
+    installOn($instance, $current, release($current, '3.1.0'));
+    $rows = collect($this->getJson('/v1/instances/me/updates')->assertOk()->json('data'))->keyBy('extension.slug');
+    expect($rows[$current->slug]['latest_patch'])->toBeNull()
+        ->and($rows[$current->slug]['latest_minor'])->toBeNull();
+});
+
 it('does not constrain on versions the instance does not report', function () {
     $instance = Instance::factory()->create(['console_version' => null, 'api_version' => 'dev-main']);
     actingAsInstance($instance);
