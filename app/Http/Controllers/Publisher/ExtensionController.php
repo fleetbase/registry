@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Publisher;
 
+use App\Actions\ChangeExtensionVisibility;
 use App\Commerce\PriceCatalog;
 use App\Http\Requests\Publisher\CreateExtensionRequest;
 use App\Http\Requests\Publisher\UpdateExtensionRequest;
@@ -41,6 +42,7 @@ class ExtensionController extends PublisherController
         $extensions = Extension::query()
             ->with([...self::DETAIL, 'releases' => fn ($q) => self::withDecidedAt($q)])
             ->whereIn('organization_uuid', $this->publishableOrganizations($request))
+            ->when($this->account($request)->currentToken()?->extension_uuid, fn (Builder $q, string $uuid) => $q->where('uuid', $uuid))
             ->orderBy('name')
             ->get();
 
@@ -110,6 +112,7 @@ class ExtensionController extends PublisherController
                 'category_uuid' => $this->categoryUuid($request->input('category')),
                 'slug' => $slug,
                 'status' => Extension::STATUS_DRAFT,
+                'visibility' => $request->input('visibility') ?? Extension::VISIBILITY_PUBLIC,
                 'hosting' => $request->input('hosting', Extension::HOSTING_BOTH),
             ]));
             $extension->price()->create(['model' => Price::MODEL_FREE, 'amount' => 0, 'currency' => 'USD']);
@@ -157,12 +160,19 @@ class ExtensionController extends PublisherController
     }
 
     /**
-     * PATCH /v1/publisher/extensions/{slug} — listing copy, links, category, tags, hosting.
-     * Listing edits never need review.
+     * PATCH /v1/publisher/extensions/{slug} — listing copy, links, category, tags, hosting, and
+     * `visibility` (owners and admins; see ChangeExtensionVisibility: going public after a
+     * private release waits for a reviewed release, `pending_visibility`). Listing edits never
+     * need review.
      */
-    public function update(UpdateExtensionRequest $request, string $slug): PublisherExtensionResource
+    public function update(UpdateExtensionRequest $request, ChangeExtensionVisibility $visibility, string $slug): PublisherExtensionResource
     {
         $extension = $this->findExtension($request, $slug);
+        if ($request->has('visibility')) {
+            $this->assertManages($request, $extension);
+            $visibility($extension, $request->input('visibility'), $this->account($request));
+        }
+
         $attributes = $request->listingAttributes();
         if ($request->has('category')) {
             $attributes['category_uuid'] = $this->categoryUuid($request->input('category'));

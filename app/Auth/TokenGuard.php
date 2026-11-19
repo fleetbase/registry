@@ -19,9 +19,23 @@ use Illuminate\Http\Request;
  *
  * Tokens are SHA-256 hashed and matched against the stored hash; expired, revoked or
  * foreign-prefix tokens resolve to nobody. Each successful use stamps last-used data.
+ *
+ * Trusted publishing tokens (`flbt_`) also resolve an Account, but only on the release routes
+ * `flb publish` needs (`TRUSTED_ROUTES`); everywhere else they resolve to nobody. The publisher
+ * controllers then limit them to their one extension.
  */
 class TokenGuard
 {
+    /** Route names a trusted publishing token may reach. */
+    public const TRUSTED_ROUTES = [
+        'v1.publisher.extensions.index',
+        'v1.publisher.extensions.show',
+        'v1.publisher.releases.index',
+        'v1.publisher.releases.store',
+        'v1.publisher.releases.show',
+        'v1.publisher.releases.submit',
+    ];
+
     public const KIND_PERSONAL = 'personal';
 
     public const KIND_INSTANCE = 'instance';
@@ -40,12 +54,17 @@ class TokenGuard
 
     protected function resolveAccount(string $plain, Request $request): ?Account
     {
-        if ($plain === '' || ! str_starts_with($plain, Token::PREFIX_PERSONAL)) {
+        $trusted = str_starts_with($plain, Token::PREFIX_TRUSTED);
+        if ($plain === '' || (! str_starts_with($plain, Token::PREFIX_PERSONAL) && ! $trusted)) {
+            return null;
+        }
+
+        if ($trusted && ! in_array($request->route()?->getName(), self::TRUSTED_ROUTES, true)) {
             return null;
         }
 
         $token = Token::findActive($plain);
-        if (! $token) {
+        if (! $token || $token->prefix !== ($trusted ? Token::PREFIX_TRUSTED : Token::PREFIX_PERSONAL)) {
             return null;
         }
 

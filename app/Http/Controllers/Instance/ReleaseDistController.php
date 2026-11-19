@@ -45,8 +45,12 @@ class ReleaseDistController extends Controller
             return response()->error('This release has no prebuilt dist.', 404);
         }
 
-        $paid = $model->extension->isPaid();
+        $paid = $model->extension->isPaid() || $model->extension->isPrivate();
         if ($paid && ! $this->gate->allows($instance, $model->extension)) {
+            if ($model->extension->isPrivate()) {
+                return response()->error('Release not found.', 404)->header('Cache-Control', 'private, no-store');
+            }
+
             return response()->error("Your organization does not hold an active licence for {$model->extension->name}.", 403)
                 ->header('Cache-Control', 'private, no-store');
         }

@@ -7,19 +7,22 @@ use App\Http\Controllers\Catalog\CatalogController;
 use App\Http\Controllers\Organization\PayoutController;
 use App\Http\Controllers\Organization\StatsController as OrganizationStatsController;
 use App\Http\Controllers\Organization\StripeConnectController;
+use App\Http\Controllers\Publisher\AccessController;
 use App\Http\Controllers\Publisher\ExtensionController;
 use App\Http\Controllers\Publisher\ReleaseController;
 use App\Http\Controllers\Publisher\StatsController;
+use App\Http\Controllers\Publisher\TrustedPublisherController;
 use App\Models\Membership;
 use App\Models\Release;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Publisher Studio: my extensions, create, the listing editor, releases with live checks,
- * review status, history, payouts and insights.
+ * review status, history, access (visibility, grants, trusted publishing), payouts and insights.
  */
 class StudioPageController extends WebController
 {
@@ -114,6 +117,33 @@ class StudioPageController extends WebController
             'extension' => $listing['extension'],
             'releases' => $details,
             'truncated' => count($listing['releases']) > 20,
+        ]);
+    }
+
+    /**
+     * GET /studio/{slug}/access — visibility, the organizations granted access and trusted
+     * publishers. Owners and admins only: other publishing roles see why instead of an error.
+     */
+    public function access(Request $request, string $slug): Response
+    {
+        $extension = $this->api($request, "/v1/publisher/extensions/{$slug}", [], ExtensionController::class, 'show', ['slug' => $slug]);
+
+        try {
+            $access = $this->api($request, "/v1/publisher/extensions/{$slug}/access", [], AccessController::class, 'show', ['slug' => $slug]);
+        } catch (AccessDeniedHttpException $e) {
+            return Inertia::render('Studio/Access', [
+                'extension' => $extension,
+                'access' => null,
+                'trusted_publishers' => [],
+                'forbidden' => $e->getMessage(),
+            ]);
+        }
+
+        return Inertia::render('Studio/Access', [
+            'extension' => $extension,
+            'access' => $access,
+            'trusted_publishers' => fn () => $this->api($request, "/v1/publisher/extensions/{$slug}/trusted-publishers", [], TrustedPublisherController::class, 'index', ['slug' => $slug]),
+            'forbidden' => null,
         ]);
     }
 

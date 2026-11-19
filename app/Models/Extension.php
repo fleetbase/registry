@@ -53,6 +53,12 @@ class Extension extends Model
         self::STATUS_PUBLISHED, self::STATUS_UNPUBLISHED, self::STATUS_SUSPENDED,
     ];
 
+    public const VISIBILITY_PUBLIC = 'public';
+
+    public const VISIBILITY_PRIVATE = 'private';
+
+    public const VISIBILITIES = [self::VISIBILITY_PUBLIC, self::VISIBILITY_PRIVATE];
+
     protected $table = 'extensions';
 
     protected string $publicIdType = 'ext';
@@ -62,11 +68,13 @@ class Extension extends Model
     protected $fillable = [
         'organization_uuid', 'category_uuid', 'icon_file_uuid', 'created_by_account_uuid', 'slug', 'name',
         'subtitle', 'description', 'promotional_text', 'tags', 'languages', 'hosting', 'status',
-        'website_url', 'repo_url', 'support_url', 'privacy_url', 'tos_url', 'copyright', 'fa_icon',
+        'visibility', 'website_url', 'repo_url', 'support_url', 'privacy_url', 'tos_url', 'copyright', 'fa_icon',
         'published_at', 'meta',
     ];
 
     protected $hidden = ['id'];
+
+    protected $attributes = ['visibility' => self::VISIBILITY_PUBLIC];
 
     protected $casts = [
         'tags' => 'array',
@@ -167,6 +175,57 @@ class Extension extends Model
     public function purchases(): HasMany
     {
         return $this->hasMany(Purchase::class, 'extension_uuid', 'uuid');
+    }
+
+    public function grants(): HasMany
+    {
+        return $this->licences()->where('kind', Licence::KIND_GRANT);
+    }
+
+    public function trustedPublishers(): HasMany
+    {
+        return $this->hasMany(TrustedPublisher::class, 'extension_uuid', 'uuid');
+    }
+
+    /**
+     * Listings anyone may see: the catalog, search, publisher pages, category counts. Private
+     * listings join through `App\Services\ExtensionAccess::visible()` for callers with access.
+     */
+    public function scopePubliclyVisible(Builder $query): Builder
+    {
+        return $query->where($query->qualifyColumn('visibility'), self::VISIBILITY_PUBLIC);
+    }
+
+    public function isPrivate(): bool
+    {
+        return $this->visibility === self::VISIBILITY_PRIVATE;
+    }
+
+    /**
+     * `public` while a private listing waits for a human-reviewed release to go public
+     * (`meta.pending_visibility`); null otherwise.
+     */
+    public function pendingVisibility(): ?string
+    {
+        $pending = $this->meta['pending_visibility'] ?? null;
+
+        return $this->isPrivate() && $pending === self::VISIBILITY_PUBLIC ? $pending : null;
+    }
+
+    /**
+     * The visibility the next release is reviewed for: the pending one, else the current one.
+     */
+    public function targetVisibility(): string
+    {
+        return $this->pendingVisibility() ?? $this->visibility ?? self::VISIBILITY_PUBLIC;
+    }
+
+    /**
+     * Whether package metadata and archives may sit in shared caches: free and public only.
+     */
+    public function isPubliclyCacheable(): bool
+    {
+        return ! $this->isPrivate() && ! $this->isPaid();
     }
 
     public function scopePublished(Builder $query): Builder

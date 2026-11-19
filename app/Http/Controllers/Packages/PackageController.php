@@ -40,14 +40,17 @@ abstract class PackageController extends Controller
     }
 
     /**
-     * Free packages may sit in shared caches; paid ones are private and revalidated every
-     * time so a revoked licence takes effect on the next request.
+     * Free public packages may sit in shared caches; paid and private ones are private and
+     * revalidated every time so a revoked licence or grant takes effect on the next request.
+     * Responses always vary on Authorization: what a token sees can differ from the anonymous
+     * document (private packages in `packages.json`).
      */
     protected function cacheFor(SymfonyResponse $response, bool $public, int $maxAge): SymfonyResponse
     {
         if ($public) {
             $response->setPublic();
             $response->setMaxAge($maxAge);
+            $response->setVary('Authorization', false);
         } else {
             $response->setPrivate();
             $response->headers->addCacheControlDirective('no-cache');

@@ -18,6 +18,7 @@ require_once __DIR__.'/Helpers/session.php';
 require_once __DIR__.'/Helpers/stripe.php';
 require_once __DIR__.'/Helpers/commerce.php';
 require_once __DIR__.'/Helpers/analytics.php';
+require_once __DIR__.'/Helpers/access.php';
 require_once __DIR__.'/Helpers/cloud.php';
 
 pest()->extend(TestCase::class)
@@ -40,12 +41,12 @@ pest()->beforeEach(function () {
 pest()->beforeEach(function () {
     config(['registry.storage.disk' => 'packages']);
     Storage::fake('packages');
-})->in('Feature/Packages', 'Feature/Releases', 'Feature/Website');
+})->in('Feature/Packages', 'Feature/Releases', 'Feature/Website', 'Feature/Access');
 
 // Release checks never depend on a gitleaks binary on the machine running the tests.
 pest()->beforeEach(function () {
     config(['registry.releases.gitleaks_binary' => '']);
-})->in('Feature/Releases', 'Feature/Website');
+})->in('Feature/Releases', 'Feature/Website', 'Feature/Access');
 
 /**
  * Issue a token for the account and authenticate subsequent requests with it.

@@ -16,6 +16,11 @@ use App\Models\Release;
  * `meta.package_names` (else the names in its stored tarballs), its `meta.price` snapshot
  * taken at publish, and its manifest's `permissions`. A release with no price snapshot
  * (imported, or published before snapshots) counts as free.
+ *
+ * Private extensions: releases of a listing that is (and stays) private never need a human
+ * review; every automated check still runs. Releases published while private are no baseline
+ * for public review, and a private listing switching to public (`pending_visibility`) has its
+ * next release reviewed as a first release.
  */
 class ReviewPolicy
 {
@@ -30,26 +35,30 @@ class ReviewPolicy
     public const LISTING_NOT_PUBLISHED = 'listing_not_published';
 
     /**
-     * @return array{required: bool, reasons: array<string, string>}
+     * @return array{required: bool, reasons: array<string, string>, visibility: string}
      */
     public function evaluate(Release $release): array
     {
         $release->loadMissing('extension.price');
         $extension = $release->extension;
+        $visibility = $extension->targetVisibility();
         $reasons = [];
 
-        $previous = Release::query()
-            ->where('extension_uuid', $release->extension_uuid)
-            ->whereKeyNot($release->getKey())
-            ->released()
-            ->with(['engineTarball', 'apiTarball'])
-            ->orderByDesc('published_at')
-            ->orderByDesc('id')
-            ->first();
+        if ($visibility === Extension::VISIBILITY_PRIVATE) {
+            return ['required' => false, 'reasons' => [], 'visibility' => $visibility];
+        }
 
-        if ($previous === null) {
-            $reasons[self::FIRST_RELEASE] = 'This is the extension\'s first release.';
-        } else {
+        $previous = static::publicBaseline($release);
+
+        if ($extension->pendingVisibility() !== null) {
+            $reasons[self::FIRST_RELEASE] = 'The extension is switching from private to public: its first public release is reviewed like a first release.';
+        } elseif ($previous === null) {
+            $reasons[self::FIRST_RELEASE] = static::hasPrivateReleases($release)
+                ? 'This is the extension\'s first public release.'
+                : 'This is the extension\'s first release.';
+        }
+
+        if ($previous !== null) {
             $before = static::packageNames($previous);
             $after = static::packageNames($release);
             if ($before !== $after) {
@@ -73,7 +82,35 @@ class ReviewPolicy
             $reasons[self::LISTING_NOT_PUBLISHED] = "The listing is {$extension->status}.";
         }
 
-        return ['required' => $reasons !== [], 'reasons' => $reasons];
+        return ['required' => $reasons !== [], 'reasons' => $reasons, 'visibility' => $visibility];
+    }
+
+    /**
+     * The last released release that went out while the listing was public (releases without
+     * a `meta.visibility` snapshot predate private listings and count as public).
+     */
+    public static function publicBaseline(Release $release): ?Release
+    {
+        return static::releasedBefore($release)
+            ->with(['engineTarball', 'apiTarball'])
+            ->get()
+            ->first(fn (Release $previous) => $previous->metaValue('visibility') !== Extension::VISIBILITY_PRIVATE);
+    }
+
+    protected static function hasPrivateReleases(Release $release): bool
+    {
+        return static::releasedBefore($release)->get()
+            ->contains(fn (Release $previous) => $previous->metaValue('visibility') === Extension::VISIBILITY_PRIVATE);
+    }
+
+    protected static function releasedBefore(Release $release)
+    {
+        return Release::query()
+            ->where('extension_uuid', $release->extension_uuid)
+            ->whereKeyNot($release->getKey())
+            ->released()
+            ->orderByDesc('published_at')
+            ->orderByDesc('id');
     }
 
     /**

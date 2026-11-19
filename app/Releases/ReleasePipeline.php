@@ -72,8 +72,9 @@ class ReleasePipeline
      * submitted, failed its checks or was rejected replaces that release.
      *
      * @param  array<string, UploadedFile>  $uploads  `engine`, `api`, `dist`
+     * @param  array<string, mixed>  $meta  extra release meta (`trusted_publisher`)
      */
-    public function upload(Extension $extension, Account $account, array $manifest, string $channel, ?string $notes, array $uploads, bool $submit = false): Release
+    public function upload(Extension $extension, Account $account, array $manifest, string $channel, ?string $notes, array $uploads, bool $submit = false, array $meta = []): Release
     {
         $version = (string) $manifest['version'];
 
@@ -98,7 +99,7 @@ class ReleasePipeline
                     'api' => is_string($manifest['compat']['api'] ?? null) ? $manifest['compat']['api'] : null,
                 ]) ?: null,
                 'notes' => $notes,
-                'meta' => ['submission' => ['requested' => $submit, 'requested_by' => $submit ? $account->uuid : null, 'errors' => []]],
+                'meta' => $meta + ['submission' => ['requested' => $submit, 'requested_by' => $submit ? $account->uuid : null, 'errors' => []]],
             ]);
         } catch (UniqueConstraintViolationException) {
             throw new ConflictHttpException("Version {$version} is being uploaded by another request.");
@@ -267,7 +268,10 @@ class ReleasePipeline
         Event::record('release.submitted', $release, $actor, ['review_required' => $policy['required'], 'reasons' => array_keys($policy['reasons'])]);
 
         if (! $policy['required']) {
-            $release = $this->machine->apply($release, Review::ACTION_APPROVE, reason: 'Approved automatically: checks passed and nothing that review policy D6 covers changed.');
+            $reason = ($policy['visibility'] ?? null) === Extension::VISIBILITY_PRIVATE
+                ? 'Approved automatically: a private extension\'s releases need passing checks only.'
+                : 'Approved automatically: checks passed and nothing that review policy D6 covers changed.';
+            $release = $this->machine->apply($release, Review::ACTION_APPROVE, reason: $reason);
             $release = $this->publish($release, null);
         }
 
@@ -341,10 +345,11 @@ class ReleasePipeline
     }
 
     /**
-     * Publish an approved release: sets `published_at`, snapshots the price for the next
-     * D6 comparison, lists the extension if this is its first release, and flushes the
+     * Publish an approved release: sets `published_at`, snapshots the price and visibility for
+     * the next D6 comparison, lists the extension if this is its first release, and flushes the
      * catalog cache. npm dist-tags and Composer metadata are built from published releases,
-     * so they follow immediately.
+     * so they follow immediately. A private listing waiting to go public becomes public when a
+     * release that went through human review is published.
      */
     public function publish(Release $release, ?Account $staff): Release
     {
@@ -364,10 +369,21 @@ class ReleasePipeline
         }
 
         $now = now();
-        $meta = $release->mergeMeta(['price' => ReviewPolicy::priceSnapshot($extension->price)])->meta;
+        $goesPublic = $extension->pendingVisibility() !== null && (bool) $release->metaValue('review_policy.required');
+        $meta = $release->mergeMeta([
+            'price' => ReviewPolicy::priceSnapshot($extension->price),
+            'visibility' => $goesPublic ? Extension::VISIBILITY_PUBLIC : $extension->visibility,
+        ])->meta;
 
-        $release = DB::transaction(function () use ($release, $staff, $extension, $now, $meta) {
+        $release = DB::transaction(function () use ($release, $staff, $extension, $now, $meta, $goesPublic) {
             $release = $this->machine->apply($release, Review::ACTION_PUBLISH, $staff, Review::ACTOR_STAFF, attributes: ['published_at' => $now, 'meta' => $meta]);
+
+            if ($goesPublic) {
+                $extensionMeta = (array) $extension->meta;
+                unset($extensionMeta['pending_visibility']);
+                $extension->forceFill(['visibility' => Extension::VISIBILITY_PUBLIC, 'meta' => $extensionMeta ?: null])->save();
+                Event::record('extension.visibility_changed', $extension, $staff, ['from' => Extension::VISIBILITY_PRIVATE, 'to' => Extension::VISIBILITY_PUBLIC, 'release' => $release->public_id]);
+            }
 
             if (in_array($extension->status, [Extension::STATUS_DRAFT, Extension::STATUS_IN_REVIEW, Extension::STATUS_APPROVED, Extension::STATUS_REJECTED], true)) {
                 $extension->forceFill(['status' => Extension::STATUS_PUBLISHED, 'published_at' => $extension->published_at ?? $now])->save();

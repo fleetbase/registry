@@ -3,7 +3,7 @@ import { Link, router } from '@inertiajs/react';
 import SiteLayout from '../../layouts/SiteLayout';
 import Icon from '../../components/Icon';
 import { checksSummary } from '../../components/Checks';
-import { ListingStatus, ReleaseStatus, StatusChip } from '../../components/Status';
+import { ListingStatus, ReleaseStatus, StatusChip, VisibilityChip } from '../../components/Status';
 import { Field, Note } from '../../components/Ui';
 import { useToast } from '../../components/Toasts';
 import { StudioHeader } from '../../components/studio/StudioChrome';
@@ -61,7 +61,7 @@ export default function StudioEditor({ extension, releases = [], categories = []
 
     const pending = useMemo(() => changes(draft, saved), [draft, saved]);
     const dirty = Object.keys(pending).length > 0;
-    const ready = readiness({ ...draft, icon_url: extension.icon_url, status: extension.status }, releases);
+    const ready = readiness({ ...draft, icon_url: extension.icon_url, status: extension.status, visibility: extension.visibility, pending_visibility: extension.pending_visibility }, releases);
     const open = openRelease(releases);
     const missingLinks = ready.items.filter((item) => item.section === 's-links' && !item.ok).length;
     const set = (field) => (value) => setDraft((d) => ({ ...d, [field]: value }));
@@ -144,6 +144,7 @@ export default function StudioEditor({ extension, releases = [], categories = []
         { href: `/studio/${extension.slug}/releases`, label: 'Releases and checks' },
         { href: `/studio/${extension.slug}/review`, label: 'Review' },
         { href: `/studio/${extension.slug}/history`, label: 'History' },
+        { href: `/studio/${extension.slug}/access`, label: 'Access' },
     ];
 
     return (
@@ -152,6 +153,7 @@ export default function StudioEditor({ extension, releases = [], categories = []
                 <div style={{ marginBottom: 24 }}>
                     <StudioHeader extension={extension} title={extension.name} sub={<span className="mono">{[npm ?? composer ?? extension.slug, extension.status].join(' · ')}</span>}>
                         <ListingStatus status={extension.status} />
+                        <VisibilityChip extension={extension} />
                         {extension.status === 'published' && (
                             <Link href={`/extensions/${extension.slug}`} className="btn btn-sm">
                                 View public page
@@ -302,7 +304,7 @@ export default function StudioEditor({ extension, releases = [], categories = []
                                 <Field label="Terms of service" optional error={error('tos_url')}>
                                     {(id, aria) => <input id={id} {...aria} className="input" type="url" placeholder="https://" {...bind('tos_url')} />}
                                 </Field>
-                                <Field label="Copyright" error={error('copyright')} help={!ready.items.find((i) => i.key === 'copyright').ok ? 'Needed for review.' : undefined}>
+                                <Field label="Copyright" error={error('copyright')} help={ready.items.find((i) => i.key === 'copyright')?.ok === false ? 'Needed for review.' : undefined}>
                                     {(id, aria) => <input id={id} {...aria} className="input" placeholder={`© ${new Date().getFullYear()} ${extension.organization?.name ?? ''}`.trim()} maxLength={255} {...bind('copyright')} />}
                                 </Field>
                             </div>
@@ -334,7 +336,8 @@ export default function StudioEditor({ extension, releases = [], categories = []
 }
 
 function LinkField({ label, field, bind, error, ready, need }) {
-    const missing = !ready.items.find((item) => item.key === field)?.ok;
+    // A private listing does not need its links, so only a rule that is listed and failing counts.
+    const missing = ready.items.find((item) => item.key === field)?.ok === false;
     return (
         <Field label={label} error={error(field) ?? (missing ? need : null)}>
             {(id, aria) => <input id={id} {...aria} className={`input ${missing ? 'is-error' : ''}`} type="url" placeholder="https://" maxLength={255} {...bind(field)} />}

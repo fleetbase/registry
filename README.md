@@ -132,12 +132,13 @@ a website page (unknown paths render the website's 404).
 
 | Path | Page |
 | --- | --- |
-| `/`, `/extensions/{slug}`, `/publishers/{slug}` | Discover, extension, publisher |
+| `/`, `/extensions/{slug}`, `/publishers/{slug}` | Discover, extension, publisher (private listings only for members of an organization with access) |
 | `/sign-in`, `/register`, `/verify`, `/forgot-password` | Account access |
 | `/auth/github`, `/auth/github/callback` | Sign in with GitHub (redirects; see below) |
 | `/account/profile`, `/account/organizations/{slug?}`, `/account/tokens` | Account |
 | `/account/billing/{slug?}[?handoff=]` | Billing: purchases, receipts, licences and their instances; Finalizing after a website checkout |
 | `/studio`, `/studio/new`, `/studio/{slug}` (listing), `/studio/{slug}/releases[/{id}]`, `/studio/{slug}/review`, `/studio/{slug}/history` | Publisher Studio |
+| `/studio/{slug}/access` | Access: visibility (public or private), access grants to organizations and their instances, trusted publishers for GitHub Actions (owners and admins) |
 | `/studio/insights/{organization?}[?extension=&from=&to=&group=]` | Insights: installs, uninstalls, active instances, purchases and net revenue against the previous period, a trend chart, active installs by version, recent events, CSV (see Publisher analytics) |
 | `/studio/payouts/{slug?}` | Payouts: Stripe onboarding and account management (Connect.js), balance, schedule, sales and CSV |
 | `/review`, `/review/publish`, `/review/releases/{id}`, `/review/finance` | Staff review console (finance: fee revenue, refunds, disputes, per-publisher totals, refunds) |
@@ -301,7 +302,7 @@ releases answer 404.
 | `POST /v1/publisher/extensions` | name, `packages: {npm, composer}` (one or both), optional slug, organization and listing fields. Creates a draft listing with a free price (201). Idempotent on package names: names that already belong to one of the caller's listings return it (200) and add any package kind it lacks; a different name for a kind it has, names spread over two listings, or names of another publisher answer 409 |
 | `GET /v1/publisher/packages/availability` | Query `organization` (slug; default as for create), `npm` and/or `composer`. For each name given, `{name, available, reason}` under `npm`/`composer`, by the rules create applies (format, reserved `@fleetbase`/`fleetbase`, the organization's namespaces, names already registered; a name one of the caller's listings holds is not available for a new one) |
 | `GET /v1/publisher/extensions/{slug}` | Listing with its releases |
-| `PATCH /v1/publisher/extensions/{slug}` | Listing fields (name, subtitle, description, promotional_text, category, tags, languages, hosting, website/repo/support/privacy/tos URLs, copyright, fa_icon). No review |
+| `PATCH /v1/publisher/extensions/{slug}` | Listing fields (name, subtitle, description, promotional_text, category, tags, languages, hosting, website/repo/support/privacy/tos URLs, copyright, fa_icon). No review. `visibility` (`public`, `private`; owners and admins) switches the listing (see Private extensions) |
 | `POST`/`DELETE /v1/publisher/extensions/{slug}/icon` | Multipart `icon` (PNG, JPG or WebP, up to 1 MB) replaces the icon; DELETE removes it |
 | `POST /v1/publisher/extensions/{slug}/screenshots` | Multipart `screenshot` (PNG, JPG or WebP, up to 5 MB), optional `caption`; at most 8 |
 | `PATCH /v1/publisher/extensions/{slug}/screenshots` | `order`: every screenshot id once, cover first. `DELETE …/screenshots/{id}` removes one |
@@ -314,6 +315,12 @@ releases answer 404.
 | `POST /v1/publisher/releases/{id}/submit` | 200 once submitted (or published, see D6); 202 while checks are still running, then it is submitted when they pass; 422 with reasons when checks failed or the listing is not ready |
 | `POST /v1/publisher/releases/{id}/withdraw` | Out of review, back to `uploaded`. Optional reason |
 | `POST /v1/publisher/releases/{id}/yank` | Published → yanked: gone from metadata and the catalog's latest version; the archives stay downloadable for lockfiles. Optional reason |
+| `GET /v1/publisher/extensions/{slug}/access` | Owners and admins: `{visibility, pending_visibility, grants}` (see Private extensions) |
+| `POST /v1/publisher/extensions/{slug}/access` | `organization` (slug or id), optional `instances` (`inst_` ids of that organization; none = every instance), `max_activations` (null = unlimited), `expires_at`, `note`. 201 with the grant; 409 when the organization already has an active one; 422 for the owner itself or a foreign instance |
+| `PATCH /v1/publisher/extensions/{slug}/access/{grant}` | Any of `instances`, `max_activations` (at least the seats in use), `expires_at`, `note`. Instances dropped from the list lose their seat |
+| `DELETE /v1/publisher/extensions/{slug}/access/{grant}` | Revoke (optional `reason`): the next request is refused and the grant's seats are released |
+| `GET /v1/publisher/access/organizations/{organization}` | Find an organization to grant to: `{id, slug, name, instances}`; `instances` only for staff and the organization's members, else null |
+| `GET`/`POST /v1/publisher/extensions/{slug}/trusted-publishers`, `DELETE …/{id}` | Owners and admins: GitHub Actions workflows allowed to publish (see Trusted publishing). `repository` (`owner/repo`), `workflow` (file name), optional `environment`, `refs` (patterns such as `refs/tags/v*`). Deleting revokes the tokens it issued |
 
 Upload rules: the manifest must be a JSON object with a SemVer `version` (no `v`) and the
 request needs an engine or an api archive (422 otherwise). The archives are limited by
@@ -331,7 +338,7 @@ organization's slug, one it already publishes under, or one staff granted in
 listing's first release can be submitted it needs a name over 3 characters, subtitle,
 description over 12 characters, promotional text, a tag, copyright, website, support and
 privacy URLs, an icon (`fa_icon` counts) and a category. Published listings are not
-re-checked.
+re-checked. A private listing only needs a name; one switching to public needs everything.
 
 ### Release checks
 
@@ -400,6 +407,7 @@ checks are emailed too.
 | `GET /v1/admin/releases/{id}/files/{engine,api,dist}` | Downloads an archive for review; recorded as `release.downloaded` |
 | `GET /v1/admin/review-items` | The review requirements R1 to R6 (`registry.review.items`); approve and reject accept only these codes |
 | `GET /v1/admin/facilitator-fees` | The fee in effect (`current_rate_bps`), the configured default, and every scheduled fee, newest first |
+| `GET`/`POST /v1/admin/extensions/{slug}/access`, `PATCH`/`DELETE …/access/{grant}` | Access grants on any listing, as in the publisher API |
 | `GET /v1/admin/licences?organization=&extension=&status=&kind=` | Licences (100 newest) with organization, purchase and seats in use |
 | `POST /v1/admin/licences/{id}/revoke` | Required `reason`. New installs and updates stop; running instances keep their seat |
 | `POST /v1/admin/licences/{id}/reinstate` | Optional `reason`. For a won dispute or a mistaken revoke |
@@ -507,6 +515,72 @@ Install rules:
   npm/Composer range syntax, evaluated with composer/semver). A side with no range accepts any
   version; an instance that does not report a version, or reports one that is not semver,
   is not constrained on that side; a range that does not parse never matches.
+
+## Private extensions
+
+A listing is `public` (the catalog) or `private` (`extensions.visibility`). A private listing
+is meant for specific client organizations: it never appears in the catalog, search, publisher
+pages, category counts, the website, Composer `packages.json` or npm metadata for anyone
+without access, and every route answers **404** for it (never 401 or 403), so its name does not
+leak. Paid or free, the gate applies.
+
+**Who has access** (`App\Services\ExtensionAccess`): the owning organization, and any
+organization holding an active `grant` or `paid` licence for it that covers the caller.
+Automatic `free` licences never open a private listing. The caller is resolved from the
+instance token (`flbi_`), a personal token with the `read` or `install` scope (downloads need
+`install`), or the website session.
+
+**Grants** are `licences` of kind `grant`: access at no charge, given by the owning organization's owners and
+admins (Studio → Access, or the publisher API) or by staff (`/v1/admin/extensions/{slug}/access`).
+A grant can be limited to some of the organization's instances (`licences.instance_uuids`): then
+only those instance tokens see, download or install it, and the organization's personal tokens
+do not. A grant can have seats (`max_activations`) and an expiry. Revoking one refuses the next
+request (nothing is cached against it) and releases its seats. On a public paid listing a grant
+is a complimentary licence.
+
+**Caching.** Catalog responses for a caller with private access are cached server-side under a
+key that names exactly the private listings it may see (`CatalogCache::key`), so a revoked grant
+changes the key on the next request, and are sent `Cache-Control: private, no-cache`. Package
+metadata and archives of private listings are always private. Every catalog and package
+metadata response carries `Vary: Authorization`; a CDN in front of `/v1/catalog`, `/npm` and
+`/composer` must forward `Authorization` (or bypass its cache when the header is present),
+otherwise instances never see their private listings through it.
+
+**Instances.** Granted organizations see private listings in their console's Explore: the
+bridge sends its instance token on catalog calls. `POST /v1/instances/me/installs` claims a
+seat on the grant; `GET /v1/instances/me/updates` reports `access: false` and no `latest` for a
+private listing whose grant was revoked. Checkout of a private listing is refused (404) to an
+organization without access.
+
+**Review.** Releases of a private listing run every automated check (secrets scan included)
+and skip human review: submitted with passing checks, they are approved and published at once
+(`review_policy.visibility: private`). Each release records the visibility it went out with
+(`meta.visibility`). Switching to private is immediate. Switching to public is immediate only
+when nothing was released; otherwise the listing stays private with `pending_visibility:
+public` until its next release passes human review as a first release, and publishing that
+release makes it public. Releases published while private are never a D6 baseline.
+
+## Trusted publishing (GitHub Actions)
+
+A workflow can publish without a stored registry token. An owner or admin adds a trusted
+publisher to the listing (Studio → Access): repository `owner/repo`, workflow file name,
+optional GitHub environment, and allowed refs (`refs/tags/v*`). The account that adds it is the
+one releases are published as, and must keep a publishing role.
+
+In the workflow (`permissions: id-token: write`), `flb publish` (or the
+`fleetbase/fleetbase-cli/action` composite action) asks GitHub for an OIDC token with the
+registry's host name as audience and exchanges it:
+
+| Method and path | Purpose |
+| --- | --- |
+| `POST /v1/auth/oidc/github` | `token` (the GitHub OIDC JWT), `extension` (slug, id or a package name). Verifies the RS256 signature against GitHub's JWKS (cached an hour, refetched for an unknown `kid`), `iss`, `aud`, `exp` and `nbf` (60 s leeway); then matches `repository`, `repository_owner`, `job_workflow_ref` (`{repo}/.github/workflows/{workflow}@{ref}`), `ref` and `environment` against the listing's trusted publishers, and `repository_id`/`repository_owner_id` against the ids pinned on first use. 200 with `{token: "flbt_…", expires_at, scopes: ["publish"], extension, trusted_publisher}`; 401 when the token does not verify; 403 when nothing matches (the same for an unknown listing); 503 when GitHub's keys cannot be fetched |
+
+The `flbt_` token lives 15 minutes (`REGISTRY_TRUSTED_PUBLISHING_TOKEN_MINUTES`), is pinned to
+the listing's organization and reaches only that listing's release routes
+(`TokenGuard::TRUSTED_ROUTES`: list and show the listing, list, upload, show and submit
+releases). It is never listed among the account's tokens. Releases it uploads carry
+`meta.trusted_publisher`. `REGISTRY_OIDC_AUDIENCE` overrides the expected audience (default: the
+host of `REGISTRY_PUBLIC_URL`, else `APP_URL`).
 
 ## Commerce (Stripe)
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Packages;
 
 use App\Models\ExtensionPackage;
+use App\Services\ExtensionAccess;
 use App\Services\Packages\ComposerMetadata;
 use App\Services\ReleaseStorage;
 use Illuminate\Http\Request;
@@ -18,14 +19,17 @@ class ComposerController extends PackageController
 
     public const PACKAGE_PATTERN = '[a-z0-9][a-z0-9_.-]*';
 
-    public function __construct(protected ComposerMetadata $metadata, protected ReleaseStorage $storage) {}
+    public function __construct(protected ComposerMetadata $metadata, protected ReleaseStorage $storage, protected ExtensionAccess $access) {}
 
     /**
-     * GET /composer/packages.json
+     * GET /composer/packages.json — `available-packages` lists public packages plus the private
+     * ones the bearer token may install; with any of those the document is private.
      */
     public function packages(Request $request): Response
     {
-        return $this->metadataResponse($this->metadata->root(), $request, true);
+        $viewer = $this->access->viewer($request);
+
+        return $this->metadataResponse($this->metadata->root($viewer), $request, $this->access->privateExtensionUuids($viewer) === []);
     }
 
     /**
@@ -41,7 +45,7 @@ class ComposerController extends PackageController
 
         abort_if(! $dev && $document['packages'][$resolved->name] === [], 404, 'Package not found.');
 
-        return $this->metadataResponse($document, $request, ! $resolved->extension->isPaid());
+        return $this->metadataResponse($document, $request, $resolved->extension->isPubliclyCacheable());
     }
 
     /**
@@ -54,6 +58,6 @@ class ComposerController extends PackageController
         $archive = $resolved->downloadableRelease($version)?->apiTarball;
         abort_if($archive === null, 404, 'Archive not found.');
 
-        return $this->storage->download($archive, $request, $this->archiveCacheHeaders(! $resolved->extension->isPaid()));
+        return $this->storage->download($archive, $request, $this->archiveCacheHeaders($resolved->extension->isPubliclyCacheable()));
     }
 }

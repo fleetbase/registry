@@ -23,6 +23,9 @@ class Token extends Model
 
     public const PREFIX_SESSION = 'flbs_';
 
+    /** Short-lived publish token from a trusted publisher's OIDC exchange, limited to one extension. */
+    public const PREFIX_TRUSTED = 'flbt_';
+
     public const SCOPE_ALL = '*';
 
     public const SCOPE_READ = 'read';
@@ -45,7 +48,7 @@ class Token extends Model
     protected string $publicIdType = 'tok';
 
     protected $fillable = [
-        'account_uuid', 'organization_uuid', 'name', 'token_hash', 'prefix', 'last_four', 'scopes',
+        'account_uuid', 'organization_uuid', 'extension_uuid', 'trusted_publisher_uuid', 'name', 'token_hash', 'prefix', 'last_four', 'scopes',
         'expires_at', 'last_used_at', 'last_used_ip', 'revoked_at',
     ];
 
@@ -71,14 +74,32 @@ class Token extends Model
         return $this->belongsTo(Organization::class, 'organization_uuid', 'uuid');
     }
 
+    public function extension(): BelongsTo
+    {
+        return $this->belongsTo(Extension::class, 'extension_uuid', 'uuid');
+    }
+
+    public function trustedPublisher(): BelongsTo
+    {
+        return $this->belongsTo(TrustedPublisher::class, 'trusted_publisher_uuid', 'uuid');
+    }
+
+    /**
+     * Whether the token only reaches one extension's publisher routes (trusted publishing).
+     */
+    public function isExtensionLimited(): bool
+    {
+        return $this->extension_uuid !== null;
+    }
+
     /**
      * Create a token for an account and return it with `plainTextToken` set.
      */
-    public static function issue(Account $account, string $name, array $scopes = [self::SCOPE_ALL], ?\DateTimeInterface $expiresAt = null, ?string $organizationUuid = null, string $prefix = self::PREFIX_PERSONAL): static
+    public static function issue(Account $account, string $name, array $scopes = [self::SCOPE_ALL], ?\DateTimeInterface $expiresAt = null, ?string $organizationUuid = null, string $prefix = self::PREFIX_PERSONAL, array $attributes = []): static
     {
         $plain = $prefix.Str::random(40);
 
-        $token = static::create([
+        $token = static::create($attributes + [
             'account_uuid' => $account->uuid,
             'organization_uuid' => $organizationUuid,
             'name' => $name,

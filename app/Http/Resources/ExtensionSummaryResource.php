@@ -24,6 +24,7 @@ class ExtensionSummaryResource extends FleetbaseResource
             'tags' => $this->tags ?? [],
             'hosting' => $this->hosting,
             'status' => $this->status,
+            'visibility' => $this->visibility ?? 'public',
             'publisher' => $this->whenLoaded('organization', fn () => [
                 'id' => $this->organization->public_id,
                 'slug' => $this->organization->slug,

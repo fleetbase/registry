@@ -7,8 +7,9 @@ use App\Http\Resources\ReleaseResource;
 use App\Models\Extension;
 use App\Models\Install;
 use App\Models\Instance;
-use App\Models\Licence;
 use App\Models\Release;
+use App\Services\ExtensionAccess;
+use App\Services\Viewer;
 use App\Support\Compat;
 use App\Support\Semver;
 use Illuminate\Http\Request;
@@ -173,41 +174,26 @@ class CompatibilityReport
     }
 
     /**
-     * Uuids of the installed extensions this instance may see, keyed by uuid. Every extension is
-     * public until private listings land; then a private one is visible to its own organization's
-     * instances and to organizations holding an active licence (a grant or a purchase).
+     * Uuids of the installed extensions this instance may see, keyed by uuid, by the same rules as
+     * the catalog (`ExtensionAccess::canSee`): public extensions always; a private one for its
+     * owner's instances and for grants or paid licences that cover this instance.
      *
      * @param  Collection<int, Extension>  $extensions
      * @return array<string, true>
      */
     protected function visibleExtensions(Instance $instance, Collection $extensions): array
     {
-        $private = $extensions->filter(fn (Extension $extension) => static::isPrivate($extension));
-
-        $licensed = $private->isEmpty() ? [] : Licence::query()
-            ->active()
-            ->where('organization_uuid', $instance->organization_uuid)
-            ->whereIn('extension_uuid', $private->pluck('uuid'))
-            ->pluck('extension_uuid')
-            ->flip()
-            ->all();
+        $access = app(ExtensionAccess::class);
+        $viewer = Viewer::forInstance($instance);
 
         return $extensions
-            ->filter(fn (Extension $extension) => ! static::isPrivate($extension)
-                || $extension->organization_uuid === $instance->organization_uuid
-                || isset($licensed[$extension->uuid]))
+            ->filter(fn (Extension $extension) => $access->canSee($viewer, $extension))
             ->mapWithKeys(fn (Extension $extension) => [$extension->uuid => true])
             ->all();
     }
 
-    /**
-     * Reads the raw `visibility` attribute so this works before and after the column exists
-     * (strict models throw on a missing attribute).
-     */
     public static function isPrivate(Extension $extension): bool
     {
-        $visibility = $extension->getAttributes()['visibility'] ?? null;
-
-        return is_string($visibility) && $visibility !== '' && $visibility !== 'public';
+        return $extension->isPrivate();
     }
 }

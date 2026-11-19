@@ -38,7 +38,7 @@ export function StudioNav({ current }) {
     );
 }
 
-/** The listing's sub-pages, for the Releases, Review and History headers. */
+/** The listing's sub-pages, for the Releases, Review, History and Access headers. */
 export function ListingTabs({ extension, current }) {
     const base = `/studio/${extension.slug}`;
     const items = [
@@ -46,6 +46,7 @@ export function ListingTabs({ extension, current }) {
         { href: `${base}/releases`, label: 'Releases', key: 'releases' },
         { href: `${base}/review`, label: 'Review', key: 'review' },
         { href: `${base}/history`, label: 'History', key: 'history' },
+        { href: `${base}/access`, label: 'Access', key: 'access' },
     ];
     return (
         <nav className="seg" aria-label={`${extension.name} sections`} style={{ maxWidth: '100%', overflowX: 'auto' }}>

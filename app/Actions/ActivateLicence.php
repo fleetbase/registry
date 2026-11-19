@@ -8,6 +8,7 @@ use App\Models\Instance;
 use App\Models\Licence;
 use App\Models\LicenceActivation;
 use App\Models\Release;
+use App\Services\ExtensionAccess;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -15,9 +16,15 @@ use Illuminate\Support\Facades\DB;
  * extension, creating the automatic free licence on first install of a free extension.
  *
  * Seat = instance (D4). Re-activating an instance that already holds a seat only moves
- * the activation to the new release. The cloud instance acting for a company uses that
- * company's organization's licences (`Instance::licensingOrganizationUuid()`), so each cloud
- * company holds its own seat on the one cloud instance.
+ * the activation to the new release.
+ *
+ * Only licences that cover the instance count (a grant limited to other instances does not),
+ * and a private extension only takes grants and paid licences: its owner's instances get the
+ * automatic licence, every other organization needs a grant.
+ *
+ * The cloud instance acting for a company uses that company's organization's licences
+ * (`Instance::licensingOrganizationUuid()`), so each cloud company holds its own seat on the
+ * one cloud instance.
  */
 class ActivateLicence
 {
@@ -28,10 +35,14 @@ class ActivateLicence
                 ->active()
                 ->where('extension_uuid', $extension->uuid)
                 ->where('organization_uuid', $instance->licensingOrganizationUuid())
-                ->orderByRaw('case when kind = ? then 0 else 1 end', [Licence::KIND_PAID])
+                ->when($extension->isPrivate() && $extension->organization_uuid !== $instance->licensingOrganizationUuid(),
+                    fn ($q) => $q->whereIn('kind', ExtensionAccess::PRIVATE_ACCESS_KINDS))
+                ->orderByRaw('case when kind = ? then 0 when kind = ? then 1 else 2 end', [Licence::KIND_PAID, Licence::KIND_GRANT])
                 ->orderBy('created_at')
                 ->lockForUpdate()
-                ->get();
+                ->get()
+                ->filter(fn (Licence $licence) => $licence->covers($instance))
+                ->values();
 
             $existing = LicenceActivation::query()
                 ->whereIn('licence_uuid', $licences->pluck('uuid'))
@@ -77,6 +88,10 @@ class ActivateLicence
     protected function freeLicence(Instance $instance, Extension $extension): Licence
     {
         $extension->loadMissing('price');
+
+        if ($extension->isPrivate() && $extension->organization_uuid !== $instance->organization_uuid) {
+            throw new LicenceRequiredException("Your organization does not have access to '{$extension->slug}'.");
+        }
 
         if ($extension->isPaid()) {
             throw new LicenceRequiredException("'{$extension->slug}' is a paid extension and your organization does not hold an active licence for it.");

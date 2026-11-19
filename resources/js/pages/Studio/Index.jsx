@@ -5,7 +5,7 @@ import Icon from '../../components/Icon';
 import ExtensionIcon from '../../components/ExtensionIcon';
 import CopyCommand from '../../components/CopyCommand';
 import Route, { releaseStops } from '../../components/Route';
-import { ListingStatus, StatusChip } from '../../components/Status';
+import { ListingStatus, StatusChip, VisibilityChip } from '../../components/Status';
 import { Note } from '../../components/Ui';
 import { StudioNav, publishingOrganizations } from '../../components/studio/StudioChrome';
 import { groupInbox, listingState, studioUrl } from '../../components/studio/inbox';
@@ -259,6 +259,7 @@ function ExtensionRow({ extension }) {
                         ) : (
                             <ListingStatus status={extension.status} />
                         )}
+                        <VisibilityChip extension={extension} />
                         <span className="small muted">{priceLabel(extension.price)}</span>
                     </span>
                 </span>

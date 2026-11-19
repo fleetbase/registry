@@ -10,6 +10,8 @@ use App\Models\Checkout;
 use App\Models\Event;
 use App\Models\Extension;
 use App\Models\Instance;
+use App\Services\ExtensionAccess;
+use App\Services\Viewer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -33,7 +35,7 @@ class PurchaseController extends Controller
         $instance = $request->user();
 
         $extension = Extension::findByIdentifier($request->input('extension'));
-        if (! $extension) {
+        if (! $extension || ! app(ExtensionAccess::class)->canSee(Viewer::forInstance($instance), $extension)) {
             return response()->error('Extension not found.', 404);
         }
 

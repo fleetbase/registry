@@ -8,6 +8,9 @@ use App\Models\Extension;
  * Server-side port of registry-bridge's `RegistryExtension::isExtensionReadyForSubmission`:
  * what a listing needs before its first release can be submitted. Listings that are
  * already published are not re-checked, so imported listings keep releasing.
+ *
+ * A private listing is never shown in the catalog, so it only needs a name. A private listing
+ * switching to public must be complete before that release is submitted.
  */
 class ListingReadiness
 {
@@ -16,16 +19,19 @@ class ListingReadiness
      */
     public function errors(Extension $extension): array
     {
-        if ($extension->status === Extension::STATUS_PUBLISHED) {
+        $name = mb_strlen(trim((string) $extension->name)) <= 3 ? ['The listing needs a name longer than 3 characters.'] : [];
+
+        if ($extension->targetVisibility() === Extension::VISIBILITY_PRIVATE) {
+            return $extension->status === Extension::STATUS_PUBLISHED ? [] : $name;
+        }
+
+        if ($extension->status === Extension::STATUS_PUBLISHED && $extension->pendingVisibility() === null) {
             return [];
         }
 
-        $errors = [];
+        $errors = $name;
         $url = fn ($value) => is_string($value) && filter_var($value, FILTER_VALIDATE_URL) !== false && preg_match('#^https?://#i', $value) === 1;
 
-        if (mb_strlen(trim((string) $extension->name)) <= 3) {
-            $errors[] = 'The listing needs a name longer than 3 characters.';
-        }
         if (mb_strlen(trim((string) $extension->subtitle)) === 0) {
             $errors[] = 'The listing needs a subtitle.';
         }

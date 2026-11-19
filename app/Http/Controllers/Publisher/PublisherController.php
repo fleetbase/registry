@@ -84,7 +84,7 @@ abstract class PublisherController extends Controller
             ->where(fn (Builder $q) => $q->where('slug', $slug)->orWhere('public_id', $slug))
             ->first();
 
-        if ($extension === null || ! $this->canPublishFor($request, $extension->organization_uuid)) {
+        if ($extension === null || ! $this->canPublishFor($request, $extension->organization_uuid) || ! $this->tokenReaches($request, $extension->uuid)) {
             throw new NotFoundHttpException('Extension not found.');
         }
 
@@ -95,11 +95,33 @@ abstract class PublisherController extends Controller
     {
         $release = Release::findById($id, ['extension']);
 
-        if ($release === null || $release->extension === null || ! $this->canPublishFor($request, $release->extension->organization_uuid)) {
+        if ($release === null || $release->extension === null || ! $this->canPublishFor($request, $release->extension->organization_uuid)
+            || ! $this->tokenReaches($request, $release->extension_uuid)) {
             throw new NotFoundHttpException('Release not found.');
         }
 
         return $release;
+    }
+
+    /**
+     * A trusted publishing token (`flbt_`) reaches only its own extension.
+     */
+    protected function tokenReaches(Request $request, string $extensionUuid): bool
+    {
+        $limited = $this->account($request)->currentToken()?->extension_uuid;
+
+        return $limited === null || $limited === $extensionUuid;
+    }
+
+    /**
+     * Access, visibility and trusted publishers change who can read or publish a listing, so
+     * they take the owner or admin role in its organization (publishers only publish).
+     */
+    protected function assertManages(Request $request, Extension $extension): void
+    {
+        if (! in_array($this->account($request)->roleIn($extension->organization_uuid), [Membership::ROLE_OWNER, Membership::ROLE_ADMIN], true)) {
+            throw new AccessDeniedHttpException('Only organization owners and admins can change who can see or publish this extension.');
+        }
     }
 
     protected function canPublishFor(Request $request, string $organizationUuid): bool

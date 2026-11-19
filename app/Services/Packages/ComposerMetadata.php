@@ -5,6 +5,8 @@ namespace App\Services\Packages;
 use App\Models\Extension;
 use App\Models\ExtensionPackage;
 use App\Models\Release;
+use App\Services\ExtensionAccess;
+use App\Services\Viewer;
 use App\Support\Semver;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -39,15 +41,20 @@ class ComposerMetadata
         return url('composer/dist/'.$name.'/'.$version.'.tar');
     }
 
+    public function __construct(protected ExtensionAccess $access) {}
+
     /**
      * GET /composer/packages.json. `available-packages` lists every Composer package with
      * at least one published release, so Composer never asks for names we cannot serve.
+     * Private packages are listed only for a viewer that may install them.
      */
-    public function root(): array
+    public function root(?Viewer $viewer = null): array
     {
+        $viewer ??= Viewer::anonymous();
+
         $names = ExtensionPackage::query()
             ->where('kind', ExtensionPackage::KIND_COMPOSER)
-            ->whereHas('extension', fn (Builder $q) => $q
+            ->whereHas('extension', fn (Builder $q) => $this->access->visible($q, $viewer)
                 ->where('status', '!=', Extension::STATUS_SUSPENDED)
                 ->whereHas('releases', fn (Builder $r) => $r->published()->whereNotNull('api_tarball_file_uuid')))
             ->orderBy('name')

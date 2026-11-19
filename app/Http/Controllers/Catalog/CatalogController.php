@@ -13,6 +13,8 @@ use App\Models\Category;
 use App\Models\Extension;
 use App\Models\Organization;
 use App\Models\Release;
+use App\Services\ExtensionAccess;
+use App\Services\Viewer;
 use App\Support\CatalogCache;
 use App\Support\Compat;
 use App\Support\Semver;
@@ -23,14 +25,22 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Public, unauthenticated catalog. Every response is cached for 60 seconds, keyed
- * on the full URL, and carries a matching Cache-Control header.
+ * Public catalog. Every response is cached for 60 seconds, keyed on the full URL, and carries a
+ * matching Cache-Control header.
+ *
+ * Private listings appear only for callers who may see them (`ExtensionAccess`): an instance
+ * token, a personal token with the read or install scope, or the website session. Everyone else
+ * gets 404 for them and never sees them in lists or counts. Responses for such callers are
+ * cached under their own key and sent `Cache-Control: private`; every response varies on
+ * Authorization.
  */
 class CatalogController extends Controller
 {
     public const CACHE_SECONDS = 60;
 
     public const MAX_PER_PAGE = 100;
+
+    public function __construct(protected ExtensionAccess $access) {}
 
     /**
      * GET /v1/catalog/extensions?q=&category=&pricing=&hosting=&console=&compatible=&sort=&page=&limit=
@@ -45,7 +55,7 @@ class CatalogController extends Controller
             $perPage = min(max((int) $request->input('limit', $request->input('per_page', 24)), 1), self::MAX_PER_PAGE);
 
             $filter = new ExtensionFilter($request);
-            $query = $filter->apply($this->listingQuery());
+            $query = $filter->apply($this->listingQuery($request));
             $filter->applySort($request->input('sort'));
 
             $paginator = $query->paginate($perPage)->withQueryString();
@@ -70,7 +80,7 @@ class CatalogController extends Controller
     public function extension(Request $request, string $slug): JsonResponse
     {
         return $this->cached($request, function () use ($request, $slug) {
-            $extension = $this->listingQuery()
+            $extension = $this->listingQuery($request)
                 ->with(['screenshots', 'publishedReleases.engineDist'])
                 ->withCount('publishedReleases')
                 ->where(fn (Builder $q) => $q->where('slug', $slug)->orWhere('public_id', $slug))
@@ -86,7 +96,7 @@ class CatalogController extends Controller
     public function releases(Request $request, string $slug): JsonResponse
     {
         return $this->cached($request, function () use ($request, $slug) {
-            $extension = Extension::query()->published()
+            $extension = $this->access->visible(Extension::query()->published(), $this->viewer($request))
                 ->where(fn (Builder $q) => $q->where('slug', $slug)->orWhere('public_id', $slug))
                 ->firstOrFail();
 
@@ -119,8 +129,8 @@ class CatalogController extends Controller
         return $this->cached($request, function () use ($request, $slug) {
             $organization = Organization::query()
                 ->where(fn (Builder $q) => $q->where('slug', $slug)->orWhere('public_id', $slug))
-                ->with(['extensions' => fn ($q) => $this->listingScopes($q->published())->orderByDesc('published_at')])
-                ->withCount(['extensions' => fn ($q) => $q->published()])
+                ->with(['extensions' => fn ($q) => $this->listingScopes($this->access->visible($q->published(), $this->viewer($request)))->orderByDesc('published_at')])
+                ->withCount(['extensions' => fn ($q) => $this->access->visible($q->published(), $this->viewer($request))])
                 ->firstOrFail();
 
             return (new PublisherResource($organization))->resolve($request);
@@ -134,7 +144,7 @@ class CatalogController extends Controller
     {
         return $this->cached($request, function () use ($request) {
             $categories = Category::query()
-                ->withCount(['extensions' => fn ($q) => $q->published()])
+                ->withCount(['extensions' => fn ($q) => $this->access->visible($q->published(), $this->viewer($request))])
                 ->orderBy('sort')
                 ->orderBy('name')
                 ->get();
@@ -144,11 +154,17 @@ class CatalogController extends Controller
     }
 
     /**
-     * Base query for published listings with everything the summary resource needs.
+     * Base query for published listings the caller may see, with everything the summary
+     * resource needs.
      */
-    protected function listingQuery(): Builder
+    protected function listingQuery(Request $request): Builder
     {
-        return $this->listingScopes(Extension::query()->published());
+        return $this->listingScopes($this->access->visible(Extension::query()->published(), $this->viewer($request)));
+    }
+
+    protected function viewer(Request $request): Viewer
+    {
+        return $this->access->viewer($request);
     }
 
     protected function listingScopes(Builder|Relation $query)
@@ -164,10 +180,14 @@ class CatalogController extends Controller
      */
     protected function cached(Request $request, \Closure $build): JsonResponse
     {
-        $data = Cache::remember(CatalogCache::key($request), self::CACHE_SECONDS, $build);
+        $private = $this->access->privateExtensionUuids($this->viewer($request));
+        $data = Cache::remember(CatalogCache::key($request, $private), self::CACHE_SECONDS, $build);
 
         return response()->json($data)
-            ->header('Cache-Control', 'public, max-age='.self::CACHE_SECONDS.', s-maxage='.self::CACHE_SECONDS)
+            ->header('Cache-Control', $private === []
+                ? 'public, max-age='.self::CACHE_SECONDS.', s-maxage='.self::CACHE_SECONDS
+                : 'private, no-cache')
+            ->header('Vary', 'Authorization')
             ->header('X-Cache-Ttl', (string) self::CACHE_SECONDS);
     }
 }

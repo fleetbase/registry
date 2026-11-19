@@ -8,7 +8,11 @@ import { openRelease } from '../../lib/statuses';
  *
  * The draft carries the listing's fields (`name`, `subtitle`, `description`, `promotional_text`,
  * `tags`, `copyright`, `website_url`, `support_url`, `privacy_url`, `category`, `fa_icon`,
- * `icon_url`, `status`); `category` is the selected category's slug (or the `category` object).
+ * `icon_url`, `status`, `visibility`, `pending_visibility`); `category` is the selected category's
+ * slug (or the `category` object).
+ *
+ * A private listing is never shown in the catalog, so it only needs a name. A private listing
+ * going public (`pending_visibility: 'public'`) is checked in full, even when published.
  */
 
 /** PHP `mb_strlen(trim($value))`: code points after trimming PHP's whitespace set (" \t\n\r\0\x0B"). */
@@ -66,8 +70,10 @@ const PASSED = ['uploaded', 'submitted', 'in_review', 'approved', 'rejected'];
  *             done: number, total: number, ready: boolean, release: object|null }}
  */
 export function readiness(draft = {}, releases = []) {
-    const published = draft.status === 'published';
-    const items = RULES.map((rule) => ({ key: rule.key, label: rule.label, section: rule.section, message: rule.message, ok: published || rule.test(draft) }));
+    const target = draft.pending_visibility ?? draft.visibility ?? 'public';
+    const published = draft.status === 'published' && (target === 'private' || !draft.pending_visibility);
+    const rules = target === 'private' ? RULES.filter((rule) => rule.key === 'name') : RULES;
+    const items = rules.map((rule) => ({ key: rule.key, label: rule.label, section: rule.section, message: rule.message, ok: published || rule.test(draft) }));
     const missing = items.filter((item) => !item.ok).map((item) => item.message);
 
     const release = openRelease(releases);

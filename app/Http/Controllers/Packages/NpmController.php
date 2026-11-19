@@ -34,7 +34,7 @@ class NpmController extends PackageController
 
         abort_if((array) $document['versions'] === [], 404, 'Package not found.');
 
-        return $this->metadataResponse($document, $request, ! $resolved->extension->isPaid());
+        return $this->metadataResponse($document, $request, $resolved->extension->isPubliclyCacheable());
     }
 
     /**
@@ -53,7 +53,7 @@ class NpmController extends PackageController
 
         return $this->storage->download($tarball, $request, array_merge(
             ['Content-Type' => 'application/octet-stream'],
-            $this->archiveCacheHeaders(! $resolved->extension->isPaid()),
+            $this->archiveCacheHeaders($resolved->extension->isPubliclyCacheable()),
         ));
     }
 
@@ -76,7 +76,7 @@ class NpmController extends PackageController
             ->first();
         abort_if($release?->engineDist === null, 404, 'Dist not found.');
 
-        return $this->storage->download($release->engineDist, $request, $this->archiveCacheHeaders(! $resolved->extension->isPaid()));
+        return $this->storage->download($release->engineDist, $request, $this->archiveCacheHeaders($resolved->extension->isPubliclyCacheable()));
     }
 
     /**
