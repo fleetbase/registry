@@ -279,7 +279,7 @@ export default function Discover({ filters, results, categories }) {
                             <Link href="/studio" className="btn btn-primary">
                                 Start publishing
                             </Link>
-                            <a href="https://docs.fleetbase.io/extensions" className="btn" target="_blank" rel="noopener noreferrer">
+                            <a href="https://fleetbase.io/docs/extension-development" className="btn" target="_blank" rel="noopener noreferrer">
                                 Developer guide
                             </a>
                         </div>

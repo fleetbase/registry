@@ -53,9 +53,7 @@ export default function SiteLayout({ title, section = 'public', children, wide =
                 <header className="top">
                     <div className="wrap">
                         <Link href={section === 'studio' ? '/studio' : section === 'review' ? '/review' : '/'} className="logo">
-                            <span className="logo-mark" aria-hidden="true">
-                                <Icon name="logo" size={16} strokeWidth={2.4} />
-                            </span>
+                            <img className="logo-mark" src="/images/fleetbase-icon.svg" alt="" width={28} height={28} />
                             Fleetbase <span className="tag">{TAGS[section]}</span>
                         </Link>
                         <nav className="nav" aria-label="Main">
@@ -73,7 +71,7 @@ export default function SiteLayout({ title, section = 'public', children, wide =
                             <kbd className="kbd">⌘ K</kbd>
                         </button>
                         {section === 'review' && (
-                            <span className="hide-sm" style={{ display: 'inline-flex', alignItems: 'center', height: 28, padding: '0 10px', borderRadius: 999, background: '#06172a', color: '#e6f0fb', fontSize: 12, fontWeight: 600 }}>
+                            <span className="hide-sm" style={{ display: 'inline-flex', alignItems: 'center', height: 28, padding: '0 10px', borderRadius: 999, background: 'var(--ink)', color: 'var(--bg)', fontSize: 12, fontWeight: 600 }}>
                                 Fleetbase staff
                             </span>
                         )}
@@ -111,7 +109,7 @@ export default function SiteLayout({ title, section = 'public', children, wide =
                     <div className="wrap row between wrapflex" style={{ paddingTop: 24, paddingBottom: 32, gap: 16 }}>
                         <span className="small muted">Fleetbase Extensions Registry</span>
                         <nav className="row wrapflex small" aria-label="Footer" style={{ gap: 20 }}>
-                            <a href="https://docs.fleetbase.io/extensions" target="_blank" rel="noopener noreferrer">
+                            <a href="https://fleetbase.io/docs/extension-development" target="_blank" rel="noopener noreferrer">
                                 Developer guide
                             </a>
                             <a href="https://fleetbase.io/privacy" target="_blank" rel="noopener noreferrer">

@@ -420,7 +420,7 @@ function Lightbox({ extension, screenshots, index: start, onClose }) {
                     </button>
                 )}
                 <figure style={{ margin: 0, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, minHeight: 0 }}>
-                    <img src={shot.url} alt={shot.caption ?? `Screenshot ${index + 1}`} style={{ maxWidth: '100%', maxHeight: '72vh', borderRadius: 16, border: '1px solid #1e4a78' }} />
+                    <img src={shot.url} alt={shot.caption ?? `Screenshot ${index + 1}`} style={{ maxWidth: '100%', maxHeight: '72vh', borderRadius: 16, border: '1px solid #374151' }} />
                     {shot.caption && (
                         <figcaption className="small" style={{ color: '#c3d4ea' }}>
                             {shot.caption}
@@ -435,7 +435,7 @@ function Lightbox({ extension, screenshots, index: start, onClose }) {
             </div>
             <div className="row" style={{ justifyContent: 'center', gap: 10, padding: '20px 0 28px' }}>
                 {screenshots.map((s, i) => (
-                    <button key={s.id} type="button" aria-label={`Screenshot ${i + 1}`} aria-current={i === index} onClick={() => setIndex(i)} style={{ width: 96, height: 60, borderRadius: 8, border: `2px solid ${i === index ? '#61a0e8' : 'transparent'}`, padding: 0, overflow: 'hidden', background: '#0b2848', cursor: 'pointer' }}>
+                    <button key={s.id} type="button" aria-label={`Screenshot ${i + 1}`} aria-current={i === index} onClick={() => setIndex(i)} style={{ width: 96, height: 60, borderRadius: 8, border: `2px solid ${i === index ? '#61a0e8' : 'transparent'}`, padding: 0, overflow: 'hidden', background: '#1f2937', cursor: 'pointer' }}>
                         <img src={s.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </button>
                 ))}

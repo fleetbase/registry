@@ -48,7 +48,6 @@ const PATHS = {
     card: 'M4 6h16v12H4zM4 10h16M8 15h3',
     ledger: 'M5 4h14v16H5zM9 8h6M9 12h6M9 16h3',
     chat: 'M4 5h16v10H8l-4 4z',
-    logo: 'M8.5 18H14a4 4 0 0 0 0-8h-4a4 4 0 0 1 0-8h5.5M6 15.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM18 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z',
     menu: 'M4 7h16M4 12h16M4 17h16',
     external: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6',
     spinner: 'M12 4a8 8 0 1 0 8 8',
