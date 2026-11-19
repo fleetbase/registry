@@ -27,11 +27,12 @@ class ReleaseResource extends FleetbaseResource
     }
 
     /**
-     * The prebuilt engine dist of a release (its `engineDist` loaded), or null: what an
-     * installer needs to fetch `GET /npm/{engine}/-/dist/{version}` and verify it, and the
-     * `@fleetbase/ember-ui` / `@fleetbase/ember-core` versions it was built against.
+     * The prebuilt engine dist of a release (its `engineDist` loaded), or null: where an
+     * instance downloads it (`url`, `GET /v1/instances/me/releases/{release}/dist` with its
+     * instance token), what to verify it with, and the `@fleetbase/ember-ui` /
+     * `@fleetbase/ember-core` versions it was built against.
      *
-     * @return array{size: int, sha256: ?string, integrity: ?string, built_against: array<string, string>}|null
+     * @return array{url: string, size: int, sha256: ?string, integrity: ?string, built_against: array<string, string>}|null
      */
     public static function dist(Release $release): ?array
     {
@@ -41,6 +42,7 @@ class ReleaseResource extends FleetbaseResource
         }
 
         return [
+            'url' => route('v1.instances.me.releases.dist', ['release' => $release->public_id]),
             'size' => (int) $file->size,
             'sha256' => $file->checksum,
             'integrity' => $file->integrity,

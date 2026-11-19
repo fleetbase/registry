@@ -18,6 +18,7 @@ use App\Models\Price;
 use App\Models\Purchase;
 use App\Models\Release;
 use Database\Seeders\CategorySeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 const FIXTURE_DUMP = __DIR__.'/../../Fixtures/import/cloud-registry.sql';
@@ -104,7 +105,7 @@ it('maps the cloud tables onto the service data model', function () {
         'extension_packages' => ['created' => 5, 'skipped' => 1],
         'releases' => ['created' => 4, 'skipped' => 2],
         'purchases' => ['created' => 2],
-        'instances' => ['created' => 3],
+        'instances' => ['created' => 1],
         'installs' => ['created' => 4],
         'licence_activations' => ['created' => 2],
     ]);
@@ -194,30 +195,36 @@ it('maps the cloud tables onto the service data model', function () {
         ->and((int) $refunded->amount_total)->toBe(4900)
         ->and(Licence::where('purchase_uuid', $refunded->uuid)->value('status'))->toBe(Licence::STATUS_REVOKED);
 
-    // Installs: one synthetic cloud instance per company, deleted installs uninstalled.
-    $gammaInstance = Instance::where('source_uuid', 'c0000000-0000-4000-8000-000000000003')->sole();
-    expect($gammaInstance->kind)->toBe(Instance::KIND_CLOUD)
-        ->and($gammaInstance->token_hash)->toBeNull()
-        ->and($gammaInstance->meta['synthetic'])->toBeTrue();
+    // Installs: every cloud install on the one cloud instance, for its company's organization;
+    // deleted installs uninstalled. The instance waits for the cloud API to register (no token).
+    $cloud = Instance::sole();
+    $beta = Organization::where('source_uuid', 'c0000000-0000-4000-8000-000000000002')->sole();
+    $gamma = Organization::where('source_uuid', 'c0000000-0000-4000-8000-000000000003')->sole();
+    expect($cloud->kind)->toBe(Instance::KIND_CLOUD)
+        ->and($cloud->isPlatform())->toBeTrue()
+        ->and($cloud->token_hash)->toBeNull()
+        ->and($cloud->organization->slug)->toBe('fleetbase')
+        ->and(Install::where('instance_uuid', '!=', $cloud->uuid)->exists())->toBeFalse();
 
     $routeInstalls = Install::with('release')->where('extension_uuid', $route->uuid)->orderBy('started_at')->get();
     expect($routeInstalls->pluck('status')->all())->toBe(['uninstalled', 'installed'])
+        ->and($routeInstalls->pluck('organization_uuid')->unique()->all())->toBe([$gamma->uuid])
         ->and($routeInstalls[1]->release->version)->toBe('0.3.0');
 
-    // Live installs hold a seat: the paid licence for Beta, an automatic free licence for Gamma.
-    $betaInstance = Instance::where('source_uuid', 'c0000000-0000-4000-8000-000000000002')->sole();
-    expect(LicenceActivation::where('instance_uuid', $betaInstance->uuid)->whereNull('deactivated_at')->sole()->licence_uuid)->toBe($paid->licence->uuid);
+    // Live installs hold a seat on the cloud instance: Beta's paid licence, Gamma's automatic free licence.
+    $betaSeat = LicenceActivation::whereNull('deactivated_at')->whereHas('licence', fn ($q) => $q->where('organization_uuid', $beta->uuid))->sole();
+    expect($betaSeat->licence_uuid)->toBe($paid->licence->uuid)
+        ->and($betaSeat->instance_uuid)->toBe($cloud->uuid);
 
     $free = Licence::where('extension_uuid', $route->uuid)->sole();
     expect($free->kind)->toBe(Licence::KIND_FREE)
         ->and($free->max_activations)->toBeNull()
-        ->and($free->organization_uuid)->toBe($gammaInstance->organization_uuid)
-        ->and($free->activeActivations()->sole()->instance_uuid)->toBe($gammaInstance->uuid);
+        ->and($free->organization_uuid)->toBe($gamma->uuid)
+        ->and($free->activeActivations()->sole()->instance_uuid)->toBe($cloud->uuid);
 
     // Acme installed its own paid extension without a purchase: install kept, no seat.
-    $acmeInstance = Instance::where('source_uuid', 'c0000000-0000-4000-8000-000000000001')->sole();
-    expect(Install::where('instance_uuid', $acmeInstance->uuid)->value('status'))->toBe('installed')
-        ->and(LicenceActivation::where('instance_uuid', $acmeInstance->uuid)->count())->toBe(0);
+    expect(Install::where('organization_uuid', $acme->uuid)->value('status'))->toBe('installed')
+        ->and(LicenceActivation::whereHas('licence', fn ($q) => $q->where('organization_uuid', $acme->uuid))->count())->toBe(0);
 
     expect(Event::where('kind', 'registry.imported')->sole()->payload['counts']['extensions']['created'])->toBe(5);
 
@@ -291,6 +298,36 @@ it('re-runs idempotently', function () {
     expect(Release::where('version', '0.3.0')->sole()->yanked_at->toDateTimeString())->toBe($yankedAt);
 });
 
+it('re-runs as unchanged when the database reorders JSON keys, as MySQL does', function () {
+    runImport();
+
+    // MySQL returns JSON objects with their keys sorted by length, then bytes.
+    $reorder = function (?string $json) use (&$reorder) {
+        $sort = function ($value) use (&$sort) {
+            if (! is_array($value)) {
+                return $value;
+            }
+            if (! array_is_list($value)) {
+                uksort($value, fn ($a, $b) => [strlen($a), $a] <=> [strlen($b), $b]);
+            }
+
+            return array_map($sort, $value);
+        };
+
+        return $json === null ? null : json_encode($sort(json_decode($json, true)));
+    };
+    foreach (['extensions' => ['tags', 'meta'], 'releases' => ['manifest', 'compat', 'meta'], 'purchases' => ['price_snapshot', 'meta'], 'instances' => ['meta']] as $table => $columns) {
+        foreach (DB::table($table)->get() as $row) {
+            DB::table($table)->where('id', $row->id)->update(collect($columns)->mapWithKeys(fn ($c) => [$c => $reorder($row->{$c})])->all());
+        }
+    }
+
+    $second = runImport();
+    foreach ($second['counts'] as $table => $counts) {
+        expect($counts['updated'] ?? 0)->toBe(0, "{$table} updated rows on the second run");
+    }
+});
+
 it('picks up a tarball that becomes retrievable on a later run', function () {
     runImport();
     expect(Release::where('version', '0.3.0')->value('status'))->toBe(Release::STATUS_YANKED);
@@ -340,8 +377,112 @@ it('reads from a sqlite:// source', function () {
     expect($report['counts']['extensions']['created'])->toBe(5);
 });
 
+it('reads a dump from a filesystem disk', function () {
+    $this->source->put('registry-cutover/cloud-registry.sql', file_get_contents(FIXTURE_DUMP));
+
+    $report = runImport(['--from' => 'import_source:registry-cutover/cloud-registry.sql', '--dry-run' => true]);
+
+    expect($report['counts']['extensions']['created'])->toBe(5);
+    $this->artisan('registry:import', ['--from' => 'import_source:registry-cutover/missing.sql', '--dry-run' => true])
+        ->expectsOutputToContain('SQL dump not found on the import_source disk')->assertFailed();
+});
+
+it('reads socket and TLS settings from a mysql:// source', function () {
+    $source = new class('mysql://importer:p%40ss@db.internal:3307/fleetbase?unix_socket=/tmp/my.sock&ssl_ca=/etc/ssl/rds.pem') extends SourceDatabase
+    {
+        public function config(): array
+        {
+            return $this->connectionConfig();
+        }
+    };
+
+    expect($source->config())->toMatchArray([
+        'driver' => 'mysql', 'host' => 'db.internal', 'port' => 3307, 'database' => 'fleetbase',
+        'username' => 'importer', 'password' => 'p@ss', 'unix_socket' => '/tmp/my.sock',
+        'options' => [PDO::MYSQL_ATTR_SSL_CA => '/etc/ssl/rds.pem'],
+    ])->and($source->describe())->toBe('mysql://importer:***@db.internal:3307/fleetbase?unix_socket=/tmp/my.sock&ssl_ca=/etc/ssl/rds.pem');
+});
+
 it('fails cleanly without a source or with an unreadable one', function () {
     $this->artisan('registry:import')->expectsOutputToContain('--from is required')->assertExitCode(2);
     $this->artisan('registry:import', ['--from' => '/nope/missing.sql'])->expectsOutputToContain('SQL dump not found')->assertFailed();
     $this->artisan('registry:import', ['--from' => 'mysql://user@/'])->expectsOutputToContain('Expected a DSN like')->assertFailed();
+});
+
+it('attaches cloud installs to the instance of the cloud host, which the cloud API then registers onto', function () {
+    config(['registry.cloud.platform_secret' => CLOUD_PLATFORM_SECRET]);
+
+    runImport(['--cloud-host' => 'api.fleetbase.test']);
+    $cloud = Instance::sole();
+    expect($cloud->host)->toBe('api.fleetbase.test');
+
+    $token = registerCloudInstance(['host' => 'https://api.fleetbase.test'])->assertOk()
+        ->assertJsonPath('rotated', true)
+        ->assertJsonPath('instance.id', $cloud->public_id)
+        ->json('token');
+
+    // Beta's console sees its purchase, with the seat on this instance.
+    $beta = Organization::where('source_uuid', 'c0000000-0000-4000-8000-000000000002')->sole();
+    $this->withHeaders(['Authorization' => 'Bearer '.$token, 'X-Registry-Tenant' => $beta->source_uuid])
+        ->getJson('/v1/instances/me')->assertOk()
+        ->assertJsonPath('tenant.id', $beta->public_id)
+        ->assertJsonPath('licences.0.extension.slug', 'fleet-insights')
+        ->assertJsonPath('licences.0.activated_here', true);
+
+    // A later import run finds the registered instance again.
+    $second = runImport(['--cloud-host' => 'api.fleetbase.test']);
+    expect(Instance::count())->toBe(1)
+        ->and($second['counts']['instances'])->toBe(['unchanged' => 1]);
+});
+
+it('retires the per-company instances of earlier import runs into the cloud instance', function () {
+    $gamma = Organization::factory()->create();
+    $gamma->forceFill(['source_uuid' => 'c0000000-0000-4000-8000-000000000003'])->save();
+    $old = Instance::factory()->create(['organization_uuid' => $gamma->uuid, 'kind' => Instance::KIND_CLOUD, 'token_hash' => null, 'meta' => ['synthetic' => true, 'source' => 'companies']]);
+    $extension = Extension::factory()->create();
+    $licence = Licence::create(['extension_uuid' => $extension->uuid, 'organization_uuid' => $gamma->uuid, 'kind' => Licence::KIND_FREE, 'status' => Licence::STATUS_ACTIVE]);
+    $seat = LicenceActivation::create(['licence_uuid' => $licence->uuid, 'instance_uuid' => $old->uuid, 'activated_at' => now()]);
+
+    runImport();
+
+    $cloud = Instance::get()->first(fn (Instance $i) => $i->isPlatform());
+    expect($old->fresh()->status)->toBe(Instance::STATUS_REVOKED)
+        ->and($old->fresh()->meta['retired_into'])->toBe($cloud->public_id)
+        ->and($seat->fresh()->instance_uuid)->toBe($cloud->uuid)
+        ->and($seat->fresh()->deactivated_at)->toBeNull();
+});
+
+it('verifies a clean import: no pending changes, no missing rows, sampled rows and tarballs match', function () {
+    runImport();
+
+    $this->artisan('registry:import', ['--from' => FIXTURE_DUMP, '--verify' => true, '--seed' => 7])
+        ->expectsOutputToContain('none: the import is current')
+        ->expectsOutputToContain('every sampled row matches')
+        ->expectsOutputToContain('waiting for the cloud API to register')
+        ->expectsOutputToContain('No drift.')
+        ->assertSuccessful();
+});
+
+it('exits non-zero when the target drifted from the source', function (Closure $tamper, string $expected) {
+    runImport();
+    $tamper();
+
+    $this->artisan('registry:import', ['--from' => FIXTURE_DUMP, '--verify' => true, '--sample' => 100])
+        ->expectsOutputToContain($expected)
+        ->expectsOutputToContain('Drift between source and target.')
+        ->assertFailed();
+})->with([
+    'a licence lost' => [fn () => Licence::whereNotNull('source_uuid')->where('kind', 'paid')->where('status', 'active')->first()->forceDelete(), 'Would create'],
+    'an install moved off the cloud instance' => [fn () => Install::where('status', 'installed')->first()->forceFill(['instance_uuid' => Instance::factory()->create()->uuid])->save(), 'instance'],
+    'a release renamed' => [fn () => Release::where('version', '1.1.0')->update(['version' => '1.1.1']), 'version'],
+    'a tarball changed in storage' => [fn () => Storage::disk('registry')->put(File::where('type', File::TYPE_SOURCE_BUNDLE)->first()->path, 'tampered'), 'tarball sha256'],
+    'an extension deleted' => [fn () => Extension::where('slug', 'route-planner')->forceDelete(), 'yes'],
+]);
+
+it('verifies with nothing imported yet as drift', function () {
+    $this->artisan('registry:import', ['--from' => FIXTURE_DUMP, '--verify' => true])
+        ->expectsOutputToContain('Drift between source and target.')
+        ->assertFailed();
+
+    expect(Extension::withTrashed()->count())->toBe(0);
 });
