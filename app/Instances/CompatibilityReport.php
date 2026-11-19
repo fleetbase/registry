@@ -8,12 +8,12 @@ use App\Models\Extension;
 use App\Models\Install;
 use App\Models\Instance;
 use App\Models\Release;
+use App\Services\ExtensionAccess;
+use App\Services\Viewer;
 use App\Support\Compat;
 use App\Support\Semver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use App\Services\ExtensionAccess;
-use App\Services\Viewer;
 
 /**
  * Would the extensions installed on an instance still work on another core version?
