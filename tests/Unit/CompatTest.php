@@ -26,3 +26,37 @@ it('checks that ranges parse', function () {
         ->and(Compat::validRange(null))->toBeTrue()
         ->and(Compat::validRange('not a range'))->toBeFalse();
 });
+
+it('compares a dist against host modules like the installer does', function (string $policy, array $host, bool $compatible) {
+    $built = ['@fleetbase/ember-ui' => '0.4.7', '@fleetbase/ember-core' => '0.3.27', 'ember-source' => '5.4.0'];
+
+    expect(Compat::hostModules($built, $host, $policy)['compatible'])->toBe($compatible);
+})->with([
+    'minor: patch differs' => ['minor', ['@fleetbase/ember-core' => '0.3.30'], true],
+    'minor: minor differs' => ['minor', ['@fleetbase/ember-core' => '0.4.0'], false],
+    'major: minor differs' => ['major', ['@fleetbase/ember-core' => '0.4.0'], true],
+    'major: major differs' => ['major', ['@fleetbase/ember-core' => '1.0.0'], false],
+    'major: same major' => ['major', ['@fleetbase/ember-ui' => '0.9.1'], true],
+    'exact: same' => ['exact', ['@fleetbase/ember-core' => '0.3.27'], true],
+    'exact: patch differs' => ['exact', ['@fleetbase/ember-core' => '0.3.28'], false],
+    'unpinned: same major' => ['exact', ['ember-source' => '5.8.0'], true],
+    'unpinned: major differs' => ['minor', ['ember-source' => '6.0.0'], false],
+    'missing host version' => ['exact', [], true],
+]);
+
+it('bounds automatic updates by policy', function (string $installed, string $candidate, string $policy, bool $within) {
+    expect(Compat::withinPolicy($installed, $candidate, $policy))->toBe($within);
+})->with([
+    'patch: patch bump' => ['1.2.3', '1.2.9', 'patch', true],
+    'patch: minor bump' => ['1.2.3', '1.3.0', 'patch', false],
+    'minor: minor bump' => ['1.2.3', '1.9.0', 'minor', true],
+    'minor: major bump' => ['1.2.3', '2.0.0', 'minor', false],
+    'minor: 0.x minor bump may break' => ['0.3.1', '0.4.0', 'minor', false],
+    'minor: 0.x patch bump' => ['0.3.1', '0.3.4', 'minor', true],
+    'not newer' => ['1.2.3', '1.2.3', 'minor', false],
+    'older' => ['1.2.3', '1.2.0', 'patch', false],
+    'prerelease of a later version' => ['1.2.3', '1.2.4-beta.1', 'patch', false],
+    'prerelease to its release' => ['1.2.3-beta.1', '1.2.3', 'patch', true],
+    'none' => ['1.2.3', '1.2.4', 'none', false],
+    'unparseable installed' => ['dev-main', '1.2.4', 'minor', false],
+]);
