@@ -1,0 +1,15 @@
+{
+    "name": "@registry-demo/hello-engine",
+    "version": "1.0.0",
+    "description": "Registry fixture: free engine package used by registry:seed --seed-release.",
+    "keywords": ["fleetbase-extension", "ember-addon", "ember-engine"],
+    "license": "AGPL-3.0-or-later",
+    "main": "index.js",
+    "files": ["index.js"],
+    "fleetbase": {
+        "route": "hello"
+    },
+    "engines": {
+        "node": ">= 18"
+    }
+}

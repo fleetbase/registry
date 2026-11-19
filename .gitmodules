@@ -1,12 +1,12 @@
 [submodule "plugins/verdaccio-composer-middleware"]
-	path = plugins/verdaccio-composer-middleware
+	path = legacy/plugins/verdaccio-composer-middleware
 	url = git@github.com:fleetbase/verdaccio-composer-middleware.git
 [submodule "plugins/verdaccio-fleetbase-extensions-middleware"]
-	path = plugins/verdaccio-fleetbase-extensions-middleware
+	path = legacy/plugins/verdaccio-fleetbase-extensions-middleware
 	url = git@github.com:fleetbase/verdaccio-fleetbase-extensions-middleware.git
 [submodule "plugins/verdaccio-fleetbase-s3-storage"]
-	path = plugins/verdaccio-fleetbase-s3-storage
+	path = legacy/plugins/verdaccio-fleetbase-s3-storage
 	url = git@github.com:fleetbase/verdaccio-fleetbase-s3-storage.git
 [submodule "plugins/verdaccio-fleetbase-auth"]
-	path = plugins/verdaccio-fleetbase-auth
+	path = legacy/plugins/verdaccio-fleetbase-auth
 	url = git@github.com:fleetbase/verdaccio-fleetbase-auth.git

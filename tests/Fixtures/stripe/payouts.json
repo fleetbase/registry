@@ -1,0 +1,9 @@
+{
+  "object": "list",
+  "data": [
+    { "id": "po_1QfLmTPayout00002", "object": "payout", "amount": 8820, "arrival_date": 1792972800, "created": 1792800000, "currency": "usd", "method": "standard", "status": "in_transit", "type": "bank_account" },
+    { "id": "po_1QfLmTPayout00001", "object": "payout", "amount": 4410, "arrival_date": 1792368000, "created": 1792195200, "currency": "usd", "method": "standard", "status": "paid", "type": "bank_account" }
+  ],
+  "has_more": false,
+  "url": "/v1/payouts"
+}

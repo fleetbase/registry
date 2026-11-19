@@ -1,0 +1,16 @@
+{
+  "id": "prod_QfLmTRouteOptimizer",
+  "object": "product",
+  "active": true,
+  "created": 1792750000,
+  "default_price": null,
+  "description": null,
+  "images": [],
+  "livemode": false,
+  "metadata": {},
+  "name": "Route Optimizer",
+  "tax_code": null,
+  "type": "service",
+  "updated": 1792750000,
+  "url": null
+}

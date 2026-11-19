@@ -52,6 +52,7 @@ jobs:
           VERSION: ${{ env.VERSION }}
           CACHE: type=gha
         with:
+          workdir: ./legacy
           push: true
           files: |
             ./docker-bake.hcl

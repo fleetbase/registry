@@ -1,0 +1,67 @@
+@import 'tailwindcss';
+
+/* Pages and components are scanned for utility classes. */
+@source '../js';
+@source '../views';
+
+/* `dark:` follows the document's data-theme (the header toggle, else the OS preference). */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* The design system's tokens as Tailwind colours, radii and fonts, e.g. bg-surface, text-muted. */
+@theme inline {
+    --font-sans: var(--font);
+    --font-mono: var(--mono);
+    --color-bg: var(--bg);
+    --color-bg-tint: var(--bg-tint);
+    --color-surface: var(--surface);
+    --color-surface-2: var(--surface-2);
+    --color-raised: var(--raised);
+    --color-line: var(--line);
+    --color-line-strong: var(--line-strong);
+    --color-ink: var(--ink);
+    --color-ink-2: var(--ink-2);
+    --color-muted: var(--muted);
+    --color-accent: var(--accent);
+    --color-accent-soft: var(--accent-soft);
+    --color-accent-line: var(--accent-line);
+    --color-ok: var(--ok);
+    --color-wait: var(--wait);
+    --color-you: var(--you);
+    --color-fail: var(--fail);
+    --radius-card: var(--r-lg);
+}
+
+/* The Waypoints component classes (.btn, .card, .st, .route…) sit in the components layer so a
+   utility on the same element wins. */
+@import './registry.css' layer(components);
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+.theme-fade, .theme-fade * {
+    transition: background-color 200ms, border-color 200ms, color 200ms;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 1.2s linear infinite; }
+
+.sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* Publisher-written rich text */
+.prose p { margin: 0 0 12px; }
+.prose p:last-child { margin-bottom: 0; }
+.prose ul, .prose ol { margin: 0 0 12px; padding-left: 22px; }
+.prose li { margin: 4px 0; }
+.prose h1, .prose h2, .prose h3 { margin: 16px 0 8px; font-size: 16px; font-weight: 600; color: var(--ink); }
+.prose strong { color: var(--ink); }
+.prose a { text-decoration: underline; }
+.prose code { padding: 1px 5px; border-radius: 5px; background: var(--bg-tint); }
+
+/* At phone width a page's side rail (install, readiness, decision) comes first when it carries
+   the page's main action. */
+@media (max-width: 760px) {
+    .rail-first { order: -1; }
+}

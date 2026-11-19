@@ -1,0 +1,33 @@
+/* Account, sign-in and token pages: the pieces the shared stylesheet does not have. */
+
+.auth-card { display: flex; flex-direction: column; gap: 18px; padding: 32px; width: 100%; max-width: 440px; }
+
+.otp { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.otp input { height: 56px; min-width: 0; width: 100%; text-align: center; font: 600 22px/1 var(--mono); border: 1px solid var(--line-strong); border-radius: 12px; background: var(--surface); color: var(--ink); }
+.otp input:focus { outline: 2px solid var(--focus); outline-offset: 0; border-color: transparent; }
+.otp input[aria-invalid='true'] { border-color: var(--fail); }
+
+.org { display: flex; align-items: center; gap: 14px; padding: 14px; min-height: 44px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink) !important; text-decoration: none !important; }
+.org:hover { border-color: var(--accent-line); }
+.org[aria-current='page'] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+.role { min-height: 44px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: 500 13px/1 var(--font); }
+
+.scope { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; text-align: left; font: inherit; color: var(--ink); width: 100%; }
+.scope[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); }
+.scope .box { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--line-strong); display: grid; place-items: center; flex-shrink: 0; margin-top: 1px; color: transparent; }
+.scope[aria-pressed='true'] .box { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+
+.tok { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 18px 24px; border-top: 1px solid var(--line); }
+.tok:first-child { border-top: 0; }
+
+.secret { display: flex; align-items: center; gap: 12px; padding: 18px 18px 18px 20px; border-radius: 16px; background: var(--code-bg); color: var(--code-ink); border: 1px solid var(--accent-line); }
+.secret code { flex: 1 1 auto; min-width: 0; font-family: var(--mono); font-size: 16px; letter-spacing: 0.02em; word-break: break-all; white-space: normal; }
+.secret .icon-btn { color: var(--code-muted); }
+
+@media (max-width: 760px) {
+    .auth-card { padding: 24px 20px; }
+    .tok { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 16px; }
+    .secret { flex-direction: column; align-items: stretch; }
+    .secret .row { justify-content: flex-end; }
+}

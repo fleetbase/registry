@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "parameter_invalid_empty",
+    "message": "You passed an empty string for 'currency'. We assume empty values are an attempt to unset a parameter; however 'currency' cannot be unset.",
+    "param": "currency",
+    "type": "invalid_request_error"
+  }
+}
