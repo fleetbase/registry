@@ -58,7 +58,8 @@ class LicenceGate
 
     /**
      * Whether an authenticated credential may read the extension: free extensions always; paid
-     * ones when an organization of the credential owns the extension or holds an active licence.
+     * ones when an organization of the credential owns the extension or holds an active licence,
+     * or when the cloud platform instance holds an active seat for one of its companies.
      */
     public function allows(Token|Instance $credential, Extension $extension): bool
     {
@@ -68,7 +69,9 @@ class LicenceGate
 
         $organizations = $this->organizationsFor($credential);
 
-        return in_array($extension->organization_uuid, $organizations, true) || $this->hasActiveLicence($extension, $organizations);
+        return in_array($extension->organization_uuid, $organizations, true)
+            || $this->hasActiveLicence($extension, $organizations)
+            || $this->platformHoldsSeat($credential, $extension);
     }
 
     /**
@@ -84,6 +87,21 @@ class LicenceGate
             ->where('extension_uuid', $extension->uuid)
             ->whereIn('organization_uuid', $organizationUuids)
             ->exists();
+    }
+
+    /**
+     * The cloud instance downloads for whichever company it is installing for, and Composer and
+     * npm cannot name that company. It may read a paid package while any company holds an active
+     * seat on it: the install report that claims the seat comes before the download.
+     */
+    protected function platformHoldsSeat(Token|Instance $credential, Extension $extension): bool
+    {
+        return $credential instanceof Instance
+            && $credential->isPlatform()
+            && $credential->activations()
+                ->whereNull('deactivated_at')
+                ->whereHas('licence', fn ($q) => $q->active()->where('extension_uuid', $extension->uuid))
+                ->exists();
     }
 
     protected function resolve(string $plain, Request $request): Token|Instance|null

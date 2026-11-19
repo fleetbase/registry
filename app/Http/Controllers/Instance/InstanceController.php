@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Instance;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Instance\RegisterCloudInstanceRequest;
 use App\Http\Requests\Instance\RegisterInstanceRequest;
 use App\Http\Resources\ExtensionReferenceResource;
 use App\Http\Resources\InstanceResource;
 use App\Http\Resources\LicenceResource;
+use App\Http\Resources\OrganizationResource;
 use App\Http\Resources\ReleaseResource;
 use App\Models\Event;
 use App\Models\Install;
@@ -16,6 +18,7 @@ use App\Models\Licence;
 use App\Models\LicenceActivation;
 use App\Models\Organization;
 use App\Models\Release;
+use App\Support\CloudPlatform;
 use App\Support\Compat;
 use App\Support\Semver;
 use Illuminate\Http\JsonResponse;
@@ -28,9 +31,9 @@ class InstanceController extends Controller
      * POST /v1/instances/register — exchanges a registration code for an instance token.
      * The token (`flbi_…`) is returned once; only its SHA-256 hash is stored.
      *
-     * Registering an instance that is already registered rotates it: the same row is updated and
-     * handed a new token (the old one stops working), so its installs and licence seats stay on
-     * one instance, and the response is 200 with `rotated: true`. The instance is matched by
+     * Registering an instance that is already registered rotates it (D17): the same row is updated
+     * and handed a new token (the old one stops working), so its installs and licence seats stay
+     * on one instance, and the response is 200 with `rotated: true`. The instance is matched by
      *
      * 1. `previous_token`, the instance's current token, when it belongs to an active instance in
      *    the code's organization; else
@@ -58,25 +61,84 @@ class InstanceController extends Controller
         if ($previous === null && ($previous = Instance::findByHost($organization->uuid, $request->input('host')))) {
             $matched = 'host';
         }
-        $rotated = $matched !== null;
 
-        [$instance, $plain] = DB::transaction(function () use ($request, $code, $organization, $previous, $rotated) {
-            $attributes = [
-                'name' => $request->input('name'),
-                'host' => $request->input('host'),
-                'kind' => $request->input('kind'),
-                'console_version' => $request->input('console_version'),
-                'api_version' => $request->input('api_version'),
-                'status' => Instance::STATUS_ACTIVE,
-                'last_seen_at' => now(),
-            ];
+        [$instance, $plain] = $this->issue($organization, [
+            'name' => $request->input('name'),
+            'host' => $request->input('host'),
+            'kind' => $request->input('kind'),
+            'console_version' => $request->input('console_version'),
+            'api_version' => $request->input('api_version'),
+        ], $previous, $matched !== null, $code->account_uuid, fn (Instance $instance) => $code->forceFill(['instance_uuid' => $instance->uuid])->save());
 
-            if ($rotated) {
+        Event::record($matched ? 'instance.reregistered' : 'instance.registered', $instance, $code->account, array_filter([
+            'code' => $code->uuid,
+            'matched_by' => $matched,
+            'replaced' => $previous && ! $matched ? $previous->public_id : null,
+        ]), $request->ip());
+
+        return $this->registered($request, $instance, $plain, $matched !== null);
+    }
+
+    /**
+     * POST /v1/instances/register/cloud — the cloud console's API registers itself on boot,
+     * signed with the platform secret (`platform` middleware) instead of a registration code.
+     *
+     * One instance per cloud deployment, kind `cloud`, owned by `registry.cloud.organization`; it
+     * acts for each cloud company through `X-Registry-Tenant`. Idempotent across restarts and
+     * replicas by the same rotation rules (D17): it is matched by `previous_token`, else by the
+     * same organization and host, else it adopts the placeholder `registry:import` created that
+     * never had a token. Matched: 200 with `rotated: true`; otherwise a new instance, 201.
+     */
+    public function registerCloud(RegisterCloudInstanceRequest $request): JsonResponse
+    {
+        $organization = CloudPlatform::organization();
+
+        $previous = $request->filled('previous_token') ? Instance::findByToken((string) $request->input('previous_token')) : null;
+        $matched = $previous !== null && $previous->isPlatform() && $previous->organization_uuid === $organization->uuid ? 'token' : null;
+        if ($matched === null) {
+            $previous = CloudPlatform::instance($organization, $request->input('host'), anyHost: false);
+            $matched = match (true) {
+                $previous === null => null,
+                Instance::normalizeHost($previous->host) === Instance::normalizeHost($request->input('host')) => 'host',
+                default => 'placeholder',
+            };
+        }
+
+        [$instance, $plain] = $this->issue($organization, [
+            'name' => $request->input('name') ?: 'Fleetbase Cloud',
+            'host' => $request->input('host'),
+            'kind' => Instance::KIND_CLOUD,
+            'console_version' => $request->input('console_version'),
+            'api_version' => $request->input('api_version'),
+            'meta' => array_merge($previous?->meta ?? [], ['platform' => true]),
+        ], $matched ? $previous : null, $matched !== null);
+
+        Event::record($matched ? 'instance.reregistered' : 'instance.registered', $instance, null, array_filter([
+            'platform' => true,
+            'matched_by' => $matched,
+        ]), $request->ip());
+
+        return $this->registered($request, $instance, $plain, $matched !== null);
+    }
+
+    /**
+     * Rotate `$previous` (when `$rotate`) or create the instance, and issue its token.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @param  (callable(Instance): mixed)|null  $issued  runs in the same transaction
+     * @return array{0: Instance, 1: string}
+     */
+    protected function issue(Organization $organization, array $attributes, ?Instance $previous, bool $rotate, ?string $registeredBy = null, ?callable $issued = null): array
+    {
+        return DB::transaction(function () use ($organization, $attributes, $previous, $rotate, $registeredBy, $issued) {
+            $attributes += ['status' => Instance::STATUS_ACTIVE, 'last_seen_at' => now()];
+
+            if ($rotate) {
                 $instance = tap($previous)->update($attributes);
             } else {
                 $instance = Instance::create($attributes + [
                     'organization_uuid' => $organization->uuid,
-                    'registered_by_account_uuid' => $code->account_uuid,
+                    'registered_by_account_uuid' => $registeredBy,
                 ]);
 
                 if ($previous) {
@@ -85,17 +147,16 @@ class InstanceController extends Controller
             }
 
             $plain = $instance->issueToken();
-            $code->forceFill(['instance_uuid' => $instance->uuid])->save();
+            if ($issued) {
+                $issued($instance);
+            }
 
             return [$instance, $plain];
         });
+    }
 
-        Event::record($rotated ? 'instance.reregistered' : 'instance.registered', $instance, $code->account, array_filter([
-            'code' => $code->uuid,
-            'matched_by' => $matched,
-            'replaced' => $previous && ! $rotated ? $previous->public_id : null,
-        ]), $request->ip());
-
+    protected function registered(Request $request, Instance $instance, string $plain, bool $rotated): JsonResponse
+    {
         return response()->json([
             'token' => $plain,
             'token_type' => 'Bearer',
@@ -108,6 +169,7 @@ class InstanceController extends Controller
      * GET /v1/instances/me — the instance, its organization and the organization's
      * licences with seat usage, whether this instance holds a seat, and the receipt of a
      * bought licence (so a console can link it after a re-registration or a cache clear).
+     * The cloud instance acting for a company gets that company's licences, and `tenant`.
      */
     public function me(Request $request): JsonResponse
     {
@@ -115,7 +177,7 @@ class InstanceController extends Controller
         $instance = $request->user();
 
         $licences = Licence::query()
-            ->where('organization_uuid', $instance->organization_uuid)
+            ->where('organization_uuid', $instance->licensingOrganizationUuid())
             ->with(['extension', 'purchase'])
             ->withCount('activeActivations')
             ->addSelect(['activated_here' => LicenceActivation::query()
@@ -127,10 +189,11 @@ class InstanceController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        return response()->json([
+        return response()->json(array_filter([
             'instance' => (new InstanceResource($instance->load('organization')))->resolve($request),
+            'tenant' => $instance->tenant() ? (new OrganizationResource($instance->tenant()))->resolve($request) : null,
             'licences' => LicenceResource::collection($licences)->resolve($request),
-        ]);
+        ], fn ($value) => $value !== null));
     }
 
     /**
@@ -148,6 +211,7 @@ class InstanceController extends Controller
 
         $installs = Install::query()
             ->where('instance_uuid', $instance->uuid)
+            ->where('organization_uuid', $instance->licensingOrganizationUuid())
             ->where('status', Install::STATUS_INSTALLED)
             ->with(['extension', 'release.engineDist'])
             ->orderBy('created_at')
@@ -187,6 +251,46 @@ class InstanceController extends Controller
     }
 
     /**
+     * GET /v1/instances/me/tenant-installs — every extension installed on the cloud instance, per
+     * cloud company, 500 a page (`?page=`, `?per_page=` up to 500). The cloud console's API reads it once after the
+     * cutover import (`registry:cloud-sync-installs`) to record locally what each company had
+     * installed, so their consoles keep loading those engines. Cloud instance only.
+     */
+    public function tenantInstalls(Request $request): JsonResponse
+    {
+        /** @var Instance $instance */
+        $instance = $request->user();
+        if (! $instance->isPlatform()) {
+            return response()->error('Only the cloud instance lists installs per company.', 403);
+        }
+
+        $page = Install::query()
+            ->where('instance_uuid', $instance->uuid)
+            ->where('status', Install::STATUS_INSTALLED)
+            ->whereNotNull('organization_uuid')
+            ->with(['organization', 'extension.packages', 'release'])
+            ->orderBy('id')
+            ->paginate(min(500, max(1, (int) $request->input('per_page', 500))));
+
+        $data = collect($page->items())
+            ->filter(fn (Install $install) => $install->extension !== null && $install->organization !== null)
+            ->map(fn (Install $install) => [
+                'company_uuid' => $install->organization->source_uuid,
+                'organization' => $install->organization->public_id,
+                'extension' => (new ExtensionReferenceResource($install->extension))->resolve($request),
+                'packages' => $install->extension->packages->mapWithKeys(fn ($package) => [$package->kind => $package->name])->all(),
+                'release' => $install->release ? ['id' => $install->release->public_id, 'version' => $install->release->version] : null,
+                'installed_at' => $install->installed_at,
+            ])
+            ->values();
+
+        return response()->json([
+            'data' => $data,
+            'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total()],
+        ]);
+    }
+
+    /**
      * Retire an instance that re-registered into another organization: revoke it, release the
      * seats it held on its old organization's licences and move its open installs to the new
      * instance, which claims seats in its own organization on its next install report.
@@ -203,6 +307,6 @@ class InstanceController extends Controller
         Install::query()
             ->where('instance_uuid', $previous->uuid)
             ->whereIn('status', [Install::STATUS_INSTALLING, Install::STATUS_INSTALLED])
-            ->update(['instance_uuid' => $instance->uuid, 'updated_at' => now()]);
+            ->update(['instance_uuid' => $instance->uuid, 'organization_uuid' => $instance->organization_uuid, 'updated_at' => now()]);
     }
 }
