@@ -59,12 +59,30 @@ class LicenceGate
             return $this->deny($extension, self::STATUS_FORBIDDEN, "This token does not have the 'install' scope.");
         }
 
-        $instance = $credential instanceof Instance ? $credential : null;
-        if ($this->access->holdsAccess($extension, $this->organizationsFor($credential), $instance)) {
+        if ($this->allows($credential, $extension)) {
             return ['status' => self::STATUS_ALLOWED, 'message' => null];
         }
 
         return $this->deny($extension, self::STATUS_FORBIDDEN, "Your organization does not hold an active licence for {$extension->name}.");
+    }
+
+    /**
+     * Whether an authenticated credential may read the extension: free public extensions always;
+     * paid or private ones when an organization of the credential owns the extension or holds a
+     * licence covering it (`ExtensionAccess::holdsAccess`: grants and paid licences only for a
+     * private extension, instance-limited grants only for those instances), or when the cloud
+     * platform instance holds an active seat for one of its companies.
+     */
+    public function allows(Token|Instance $credential, Extension $extension): bool
+    {
+        if (! $extension->isPaid() && ! $extension->isPrivate()) {
+            return true;
+        }
+
+        $instance = $credential instanceof Instance ? $credential : null;
+
+        return $this->access->holdsAccess($extension, $this->organizationsFor($credential), $instance)
+            || $this->platformHoldsSeat($credential, $extension);
     }
 
     /**
@@ -73,6 +91,21 @@ class LicenceGate
     public function hasActiveLicence(Extension $extension, array $organizationUuids, ?Instance $instance = null): bool
     {
         return $this->access->holdsAccess($extension, $organizationUuids, $instance);
+    }
+
+    /**
+     * The cloud instance downloads for whichever company it is installing for, and Composer and
+     * npm cannot name that company. It may read a paid package while any company holds an active
+     * seat on it: the install report that claims the seat comes before the download.
+     */
+    protected function platformHoldsSeat(Token|Instance $credential, Extension $extension): bool
+    {
+        return $credential instanceof Instance
+            && $credential->isPlatform()
+            && $credential->activations()
+                ->whereNull('deactivated_at')
+                ->whereHas('licence', fn ($q) => $q->active()->where('extension_uuid', $extension->uuid))
+                ->exists();
     }
 
     protected function resolve(string $plain, Request $request): Token|Instance|null

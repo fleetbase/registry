@@ -5,7 +5,10 @@ use App\Http\Middleware\EnsurePackageLicence;
 use App\Http\Middleware\EnsureStaff;
 use App\Http\Middleware\EnsureTokenScope;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\RefuseDuringMaintenance;
+use App\Http\Middleware\ResolveInstanceTenant;
 use App\Http\Middleware\StatefulSession;
+use App\Http\Middleware\VerifyPlatformSignature;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -34,6 +37,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'licence' => EnsurePackageLicence::class,
             'staff' => EnsureStaff::class,
             'stateful' => StatefulSession::class,
+            'maintenance' => RefuseDuringMaintenance::class,
+            'tenant' => ResolveInstanceTenant::class,
+            'platform' => VerifyPlatformSignature::class,
         ]);
 
         // The website's cookie session must start before `auth:token,web` resolves the caller.

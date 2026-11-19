@@ -21,6 +21,10 @@ use Illuminate\Support\Facades\DB;
  * Only licences that cover the instance count (a grant limited to other instances does not),
  * and a private extension only takes grants and paid licences: its owner's instances get the
  * automatic licence, every other organization needs a grant.
+ *
+ * The cloud instance acting for a company uses that company's organization's licences
+ * (`Instance::licensingOrganizationUuid()`), so each cloud company holds its own seat on the
+ * one cloud instance.
  */
 class ActivateLicence
 {
@@ -30,8 +34,8 @@ class ActivateLicence
             $licences = Licence::query()
                 ->active()
                 ->where('extension_uuid', $extension->uuid)
-                ->where('organization_uuid', $instance->organization_uuid)
-                ->when($extension->isPrivate() && $extension->organization_uuid !== $instance->organization_uuid,
+                ->where('organization_uuid', $instance->licensingOrganizationUuid())
+                ->when($extension->isPrivate() && $extension->organization_uuid !== $instance->licensingOrganizationUuid(),
                     fn ($q) => $q->whereIn('kind', ExtensionAccess::PRIVATE_ACCESS_KINDS))
                 ->orderByRaw('case when kind = ? then 0 when kind = ? then 1 else 2 end', [Licence::KIND_PAID, Licence::KIND_GRANT])
                 ->orderBy('created_at')
@@ -95,7 +99,7 @@ class ActivateLicence
 
         $revoked = Licence::query()
             ->where('extension_uuid', $extension->uuid)
-            ->where('organization_uuid', $instance->organization_uuid)
+            ->where('organization_uuid', $instance->licensingOrganizationUuid())
             ->where('status', Licence::STATUS_REVOKED)
             ->exists();
 
@@ -105,7 +109,7 @@ class ActivateLicence
 
         return Licence::create([
             'extension_uuid' => $extension->uuid,
-            'organization_uuid' => $instance->organization_uuid,
+            'organization_uuid' => $instance->licensingOrganizationUuid(),
             'kind' => Licence::KIND_FREE,
             'max_activations' => null,
             'status' => Licence::STATUS_ACTIVE,

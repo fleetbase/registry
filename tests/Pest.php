@@ -19,6 +19,7 @@ require_once __DIR__.'/Helpers/stripe.php';
 require_once __DIR__.'/Helpers/commerce.php';
 require_once __DIR__.'/Helpers/analytics.php';
 require_once __DIR__.'/Helpers/access.php';
+require_once __DIR__.'/Helpers/cloud.php';
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)

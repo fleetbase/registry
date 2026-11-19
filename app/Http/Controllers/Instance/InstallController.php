@@ -20,7 +20,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Install telemetry from instances. One `installs` row per install attempt:
+ * Install telemetry from instances. One `installs` row per install attempt and organization (an
+ * instance's own; the cloud instance installs for the company it acts for):
  * `installing` opens a row, `installed` or `failed` closes it. Once a release is
  * installed, earlier installed rows for the same extension become `uninstalled`, so an
  * instance counts once per extension in the catalog's install counts. Analytics tell the
@@ -66,9 +67,12 @@ class InstallController extends Controller
 
         $activation = $status === Install::STATUS_FAILED ? null : $activate($instance, $extension, $release);
 
-        [$install, $created] = DB::transaction(function () use ($instance, $extension, $release, $status, $request) {
+        $organization = $instance->licensingOrganizationUuid();
+
+        [$install, $created] = DB::transaction(function () use ($instance, $organization, $extension, $release, $status, $request) {
             $open = Install::query()
                 ->where('instance_uuid', $instance->uuid)
+                ->where('organization_uuid', $organization)
                 ->where('extension_uuid', $extension->uuid)
                 ->where('status', Install::STATUS_INSTALLING)
                 ->orderByDesc('id')
@@ -81,6 +85,7 @@ class InstallController extends Controller
 
             $install = $open ?? new Install([
                 'instance_uuid' => $instance->uuid,
+                'organization_uuid' => $organization,
                 'extension_uuid' => $extension->uuid,
                 'started_at' => now(),
             ]);
@@ -89,6 +94,7 @@ class InstallController extends Controller
             $replaced = $status === Install::STATUS_INSTALLED
                 ? Install::query()
                     ->where('instance_uuid', $instance->uuid)
+                    ->where('organization_uuid', $organization)
                     ->where('extension_uuid', $extension->uuid)
                     ->where('status', Install::STATUS_INSTALLED)
                     ->when($install->exists, fn ($q) => $q->whereKeyNot($install->getKey()))
@@ -146,6 +152,7 @@ class InstallController extends Controller
 
         $installs = Install::query()
             ->where('instance_uuid', $instance->uuid)
+            ->where('organization_uuid', $instance->licensingOrganizationUuid())
             ->where('extension_uuid', $model->uuid)
             ->whereIn('status', [Install::STATUS_INSTALLED, Install::STATUS_INSTALLING])
             ->orderByDesc('id')
@@ -196,6 +203,7 @@ class InstallController extends Controller
     {
         return Install::query()
             ->where('instance_uuid', $instance->uuid)
+            ->where('organization_uuid', $instance->licensingOrganizationUuid())
             ->where('extension_uuid', $extension->uuid)
             ->where('status', Install::STATUS_INSTALLED)
             ->exists();

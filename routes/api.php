@@ -16,6 +16,7 @@ use App\Http\Controllers\Catalog\CatalogController;
 use App\Http\Controllers\Instance\InstallController;
 use App\Http\Controllers\Instance\InstanceController;
 use App\Http\Controllers\Instance\PurchaseController;
+use App\Http\Controllers\Instance\ReleaseDistController;
 use App\Http\Controllers\Organization\BillingController;
 use App\Http\Controllers\Organization\OrganizationController;
 use App\Http\Controllers\Organization\PayoutController;
@@ -44,7 +45,12 @@ use Illuminate\Support\Facades\Route;
 | Package routes (/npm, /composer) sit outside /v1 because npm and Composer
 | clients address them as registry roots.
 | Instance routes: Authorization: Bearer flbi_… (instance token), except
-| `instances/register`, which takes a registration code in the body.
+| `instances/register`, which takes a registration code in the body, and
+| `instances/register/cloud`, signed with the cloud platform secret. The cloud instance acts
+| for one cloud company per request (`X-Registry-Tenant`).
+| Publishing and checkout answer 503 while `registry:maintenance` is on (the cutover freeze).
+| A release's prebuilt dist downloads from `instances/me/releases/{release}/dist` behind the
+| licence check.
 | Publisher routes: personal token (or website session) with the `publish` scope and the
 | owner, admin or publisher role in the listing's organization (access grants, visibility and
 | trusted publishers: owner or admin). A trusted publishing token (`flbt_`, from
@@ -123,11 +129,12 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::get('organizations/{slug}/stats', [OrganizationStatsController::class, 'show'])->name('organizations.stats');
         Route::get('organizations/{slug}/stats.csv', [OrganizationStatsController::class, 'export'])->name('organizations.stats.export');
 
-        Route::post('purchases/checkout', [CheckoutController::class, 'checkout'])->name('purchases.checkout');
+        Route::post('purchases/checkout', [CheckoutController::class, 'checkout'])->middleware('maintenance')->name('purchases.checkout');
         Route::get('purchases/{handoff}', [CheckoutController::class, 'show'])->name('purchases.show');
     });
 
-    Route::prefix('publisher')->name('publisher.')->middleware(['auth:token,web', 'throttle:publish', 'scope:publish'])->group(function () {
+    // Frozen (503) while `registry:maintenance` is on, reads excepted.
+    Route::prefix('publisher')->name('publisher.')->middleware(['auth:token,web', 'throttle:publish', 'scope:publish', 'maintenance:write'])->group(function () {
         Route::get('extensions', [PublisherExtensionController::class, 'index'])->name('extensions.index');
         Route::post('extensions', [PublisherExtensionController::class, 'store'])->name('extensions.store');
         Route::get('packages/availability', [PublisherExtensionController::class, 'availability'])->name('packages.availability');
@@ -164,9 +171,9 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::get('releases/{release}', [ReviewController::class, 'show'])->name('releases.show');
         Route::get('releases/{release}/files/{kind}', [ReviewController::class, 'download'])->where('kind', 'engine|api|dist')->name('releases.files.download');
         Route::post('releases/{release}/claim', [ReviewController::class, 'claim'])->name('releases.claim');
-        Route::post('releases/{release}/approve', [ReviewController::class, 'approve'])->name('releases.approve');
+        Route::post('releases/{release}/approve', [ReviewController::class, 'approve'])->middleware('maintenance')->name('releases.approve');
         Route::post('releases/{release}/reject', [ReviewController::class, 'reject'])->name('releases.reject');
-        Route::post('releases/{release}/publish', [ReviewController::class, 'publish'])->name('releases.publish');
+        Route::post('releases/{release}/publish', [ReviewController::class, 'publish'])->middleware('maintenance')->name('releases.publish');
         Route::post('extensions/{slug}/suspend', [ReviewController::class, 'suspend'])->name('extensions.suspend');
         Route::post('extensions/{slug}/unsuspend', [ReviewController::class, 'unsuspend'])->name('extensions.unsuspend');
         Route::get('extensions/{slug}/access', [AccessController::class, 'show'])->name('extensions.access.show');
@@ -188,13 +195,18 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
     // Instances authenticate with flbi_ tokens only: never a session or CSRF.
     Route::prefix('instances')->name('instances.')->withoutMiddleware('stateful')->group(function () {
         Route::post('register', [InstanceController::class, 'register'])->middleware('throttle:instance-register')->name('register');
+        // The cloud console's API, signed with the platform secret instead of a registration code.
+        Route::post('register/cloud', [InstanceController::class, 'registerCloud'])->middleware(['throttle:instance-register', 'platform'])->name('register.cloud');
 
-        Route::middleware(['auth:instance', 'throttle:instances'])->group(function () {
+        // `tenant`: the cloud instance acts for the company in X-Registry-Tenant.
+        Route::middleware(['auth:instance', 'throttle:instances', 'tenant'])->group(function () {
             Route::get('me', [InstanceController::class, 'me'])->name('me');
             Route::get('me/updates', [InstanceController::class, 'updates'])->name('me.updates');
+            Route::get('me/tenant-installs', [InstanceController::class, 'tenantInstalls'])->name('me.tenant-installs');
+            Route::get('me/releases/{release}/dist', [ReleaseDistController::class, 'show'])->name('me.releases.dist');
             Route::post('me/installs', [InstallController::class, 'store'])->name('me.installs.store');
             Route::delete('me/installs/{extension}', [InstallController::class, 'destroy'])->where('extension', '.+')->name('me.installs.destroy');
-            Route::post('me/purchases/checkout', [PurchaseController::class, 'checkout'])->name('me.purchases.checkout');
+            Route::post('me/purchases/checkout', [PurchaseController::class, 'checkout'])->middleware('maintenance')->name('me.purchases.checkout');
             Route::get('me/purchases/{handoff}', [PurchaseController::class, 'show'])->name('me.purchases.show');
         });
     });
