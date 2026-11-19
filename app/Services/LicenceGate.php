@@ -49,12 +49,29 @@ class LicenceGate
             return $this->deny(self::STATUS_FORBIDDEN, "This token does not have the 'install' scope.");
         }
 
-        $organizations = $this->organizationsFor($credential);
-        if (in_array($extension->organization_uuid, $organizations, true) || $this->hasActiveLicence($extension, $organizations) || $this->platformHoldsSeat($credential, $extension)) {
+        if ($this->allows($credential, $extension)) {
             return ['status' => self::STATUS_ALLOWED, 'message' => null];
         }
 
         return $this->deny(self::STATUS_FORBIDDEN, "Your organization does not hold an active licence for {$extension->name}.");
+    }
+
+    /**
+     * Whether an authenticated credential may read the extension: free extensions always; paid
+     * ones when an organization of the credential owns the extension or holds an active licence,
+     * or when the cloud platform instance holds an active seat for one of its companies.
+     */
+    public function allows(Token|Instance $credential, Extension $extension): bool
+    {
+        if (! $extension->isPaid()) {
+            return true;
+        }
+
+        $organizations = $this->organizationsFor($credential);
+
+        return in_array($extension->organization_uuid, $organizations, true)
+            || $this->hasActiveLicence($extension, $organizations)
+            || $this->platformHoldsSeat($credential, $extension);
     }
 
     /**

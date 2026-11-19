@@ -15,6 +15,7 @@ use App\Http\Controllers\Catalog\CatalogController;
 use App\Http\Controllers\Instance\InstallController;
 use App\Http\Controllers\Instance\InstanceController;
 use App\Http\Controllers\Instance\PurchaseController;
+use App\Http\Controllers\Instance\ReleaseDistController;
 use App\Http\Controllers\Organization\BillingController;
 use App\Http\Controllers\Organization\OrganizationController;
 use App\Http\Controllers\Organization\PayoutController;
@@ -45,6 +46,8 @@ use Illuminate\Support\Facades\Route;
 | `instances/register/cloud`, signed with the cloud platform secret. The cloud instance acts
 | for one cloud company per request (`X-Registry-Tenant`).
 | Publishing and checkout answer 503 while `registry:maintenance` is on (the cutover freeze).
+| A release's prebuilt dist downloads from `instances/me/releases/{release}/dist` behind the
+| licence check.
 | Publisher routes: personal token (or website session) with the `publish` scope and the
 | owner, admin or publisher role in the listing's organization. That includes a listing's
 | analytics (`extensions/{slug}/stats`); `organizations/{slug}/stats` sums every listing of
@@ -180,6 +183,7 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
             Route::get('me', [InstanceController::class, 'me'])->name('me');
             Route::get('me/updates', [InstanceController::class, 'updates'])->name('me.updates');
             Route::get('me/tenant-installs', [InstanceController::class, 'tenantInstalls'])->name('me.tenant-installs');
+            Route::get('me/releases/{release}/dist', [ReleaseDistController::class, 'show'])->name('me.releases.dist');
             Route::post('me/installs', [InstallController::class, 'store'])->name('me.installs.store');
             Route::delete('me/installs/{extension}', [InstallController::class, 'destroy'])->where('extension', '.+')->name('me.installs.destroy');
             Route::post('me/purchases/checkout', [PurchaseController::class, 'checkout'])->middleware('maintenance')->name('me.purchases.checkout');
