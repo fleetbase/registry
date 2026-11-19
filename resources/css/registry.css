@@ -30,6 +30,7 @@ body {
     --line: #e1e8f1; --line-strong: #c8d5e5;
     --ink: #07182b; --ink-2: #33445b; --muted: #56677d;
     --accent: #1c6cc7; --accent-hover: #16539a; --accent-ink: #ffffff; --accent-soft: #e6f0fb; --accent-line: #bad5f5;
+    --primary: #1c6cc7; --primary-hover: #16539a; --primary-ink: #ffffff;
     --brand: #3485e2; --focus: #3485e2;
     --ok: #0f6b3a; --ok-bg: #e2f4e9; --ok-line: #a9dcbc;
     --wait: #16539a; --wait-bg: #e6f0fb; --wait-line: #bad5f5;
@@ -45,22 +46,25 @@ body {
 }
 
 [data-theme='dark'] {
-    --bg: #06172a; --bg-tint: #071c33; --surface: #092340; --surface-2: #0b2848; --raised: #0d2f57;
-    --line: #143558; --line-strong: #1e4a78;
-    --ink: #eaf2fc; --ink-2: #c3d4ea; --muted: #93abc8;
-    --accent: #61a0e8; --accent-hover: #8dbbef; --accent-ink: #030b14; --accent-soft: #0d2f57; --accent-line: #1e4a78;
+    /* The console's dark theme (@fleetbase/ember-ui): neutral Tailwind grays, gray-900 for the page and
+       top bar, gray-800 for panels, gray-700 for borders, the sky scale for the brand blue. */
+    --bg: #111827; --bg-tint: #182232; --surface: #1f2937; --surface-2: #212a38; --raised: #283345;
+    --line: #374151; --line-strong: #4b5563;
+    --ink: #f9fafb; --ink-2: #d1d5db; --muted: #9ca3af;
+    --accent: #61a0e8; --accent-hover: #8dbbef; --accent-ink: #111827; --accent-soft: rgba(52, 133, 226, 0.16); --accent-line: rgba(52, 133, 226, 0.45);
+    --primary: #3485e2; --primary-hover: #1c6cc7; --primary-ink: #ffffff;
     --brand: #3485e2; --focus: #8dbbef;
-    --ok: #74d6a0; --ok-bg: #0b3326; --ok-line: #1a5c41;
-    --wait: #8dbbef; --wait-bg: #0d2f57; --wait-line: #1e4a78;
-    --you: #f6bd6a; --you-bg: #3a2709; --you-line: #6b4a17;
-    --fail: #ff958a; --fail-bg: #3e1616; --fail-line: #7a2a24;
-    --idle: #a6b7cd; --idle-bg: #10304f; --idle-line: #1e4a78;
-    --code-bg: #030b14; --code-ink: #e6f0fb; --code-muted: #8dbbef;
-    --e1: 0 0 0 1px rgba(255, 255, 255, 0.02);
-    --e2: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 14px 32px -14px rgba(0, 0, 0, 0.6);
+    --ok: #74d6a0; --ok-bg: rgba(16, 185, 129, 0.14); --ok-line: rgba(16, 185, 129, 0.4);
+    --wait: #8dbbef; --wait-bg: rgba(52, 133, 226, 0.16); --wait-line: rgba(52, 133, 226, 0.45);
+    --you: #f6bd6a; --you-bg: rgba(245, 158, 11, 0.14); --you-line: rgba(245, 158, 11, 0.4);
+    --fail: #ff958a; --fail-bg: rgba(239, 68, 68, 0.14); --fail-line: rgba(239, 68, 68, 0.4);
+    --idle: #d1d5db; --idle-bg: #374151; --idle-line: #4b5563;
+    --code-bg: #0b1120; --code-ink: #f3f4f6; --code-muted: #9ca3af;
+    --e1: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --e2: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -14px rgba(0, 0, 0, 0.6);
     --e3: 0 40px 90px -20px rgba(0, 0, 0, 0.8);
-    --scrim: rgba(3, 11, 20, 0.72);
-    --route: #1e4a78;
+    --scrim: rgba(17, 24, 39, 0.75);
+    --route: #4b5563;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -107,7 +111,7 @@ code, kbd, .mono { font-family: var(--mono); font-size: 0.88em; }
 .top { position: relative; z-index: 2; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 88%, transparent); }
 .top .wrap { display: flex; align-items: center; gap: 20px; height: 64px; }
 .logo { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -0.01em; color: var(--ink) !important; text-decoration: none !important; }
-.logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--brand); display: grid; place-items: center; color: #fff; }
+.logo-mark { width: 28px; height: 28px; border-radius: 6px; display: block; }
 .logo .tag { font-weight: 500; color: var(--muted); }
 .nav { display: flex; gap: 4px; }
 .nav a { color: var(--ink-2); padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 500; min-height: 44px; display: inline-flex; align-items: center; }
@@ -122,8 +126,8 @@ code, kbd, .mono { font-family: var(--mono); font-size: 0.88em; }
 /* Buttons */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: 500 14px/1 var(--font); cursor: pointer; white-space: nowrap; text-decoration: none !important; }
 .btn:hover { border-color: var(--accent); color: var(--ink); }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink) !important; }
-.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-ink); }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink) !important; }
+.btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--primary-ink); }
 .btn-quiet { background: transparent; border-color: transparent; color: var(--ink-2); }
 .btn-quiet:hover { background: var(--accent-soft); border-color: transparent; }
 .btn-danger { background: var(--surface); border-color: var(--fail-line); color: var(--fail) !important; }
