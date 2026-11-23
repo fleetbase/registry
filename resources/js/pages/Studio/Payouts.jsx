@@ -13,17 +13,43 @@ import { payoutStatus, purchaseStatus } from '../../lib/statuses';
 
 const MANAGING = ['owner', 'admin'];
 
+/**
+ * Countries Stripe opens Connect accounts in. A publisher's account is created in its organization's
+ * country, which decides onboarding (identity checks, bank, tax forms) and payout currency; Stripe
+ * cannot change it later, and Stripe has the last word on whether a country is available.
+ */
+export const CONNECT_COUNTRIES = 'AE AT AU BE BG BR CA CH CY CZ DE DK EE ES FI FR GB GI GR HK HR HU IE IT JP LI LT LU LV MT MX MY NL NO NZ PL PT RO SE SG SI SK TH US'.split(' ');
+
+function countryName(code) {
+    try {
+        return new Intl.DisplayNames(undefined, { type: 'region' }).of(code) ?? code;
+    } catch {
+        return code;
+    }
+}
+
+/** The browser's region when Stripe supports it, as a starting choice. */
+export function guessCountry() {
+    try {
+        const region = new Intl.Locale(navigator.language).maximize().region;
+        return CONNECT_COUNTRIES.includes(region) ? region : '';
+    } catch {
+        return '';
+    }
+}
+
 /** `weekly on Friday, 2 days after payment` from a Stripe payout schedule. */
 export function scheduleLabel(schedule) {
     if (!schedule?.interval) {
         return null;
     }
-    const when = {
-        manual: 'Manual',
-        daily: 'Daily',
-        weekly: `Weekly${schedule.weekly_anchor ? ` on ${schedule.weekly_anchor[0].toUpperCase()}${schedule.weekly_anchor.slice(1)}` : ''}`,
-        monthly: `Monthly${schedule.monthly_anchor ? ` on day ${schedule.monthly_anchor}` : ''}`,
-    }[schedule.interval] ?? schedule.interval;
+    const when =
+        {
+            manual: 'Manual',
+            daily: 'Daily',
+            weekly: `Weekly${schedule.weekly_anchor ? ` on ${schedule.weekly_anchor[0].toUpperCase()}${schedule.weekly_anchor.slice(1)}` : ''}`,
+            monthly: `Monthly${schedule.monthly_anchor ? ` on day ${schedule.monthly_anchor}` : ''}`,
+        }[schedule.interval] ?? schedule.interval;
     return schedule.delay_days != null && schedule.interval !== 'manual' ? `${when}, ${schedule.delay_days} days after payment` : when;
 }
 
@@ -65,7 +91,15 @@ export default function Payouts({ organizations = [], organization, payouts, tra
                     ) : !stripe?.configured ? (
                         <Note tone="info">Payments are not set up on this registry yet, so extensions here are free.</Note>
                     ) : (
-                        <PayoutsBody organization={organization} payouts={payouts} transactions={transactions} filters={filters} error={error} publishableKey={stripe.publishable_key} />
+                        <PayoutsBody
+                            organization={organization}
+                            payouts={payouts}
+                            transactions={transactions}
+                            filters={filters}
+                            error={error}
+                            publishableKey={stripe.publishable_key}
+                            fixedCountry={stripe.connect_country || null}
+                        />
                     )}
                 </div>
             </div>
@@ -73,13 +107,13 @@ export default function Payouts({ organizations = [], organization, payouts, tra
     );
 }
 
-function PayoutsBody({ organization, payouts, transactions, filters, error, publishableKey }) {
+function PayoutsBody({ organization, payouts, transactions, filters, error, publishableKey, fixedCountry }) {
     const connect = payouts?.connect ?? { connected: false };
     const manages = MANAGING.includes(organization.role);
 
     return (
         <>
-            <ConnectCard organization={organization} connect={connect} manages={manages} publishableKey={publishableKey} />
+            <ConnectCard organization={organization} connect={connect} manages={manages} publishableKey={publishableKey} fixedCountry={fixedCountry} />
             {error && (
                 <Note tone="you" role="alert">
                     <span className="small">{error}</span>
@@ -108,16 +142,17 @@ function Stat({ label, value, hint }) {
 }
 
 /** The Connect account: set it up, finish onboarding, or manage it, through Stripe's components. */
-function ConnectCard({ organization, connect, manages, publishableKey }) {
+function ConnectCard({ organization, connect, manages, publishableKey, fixedCountry }) {
     const toast = useToast();
     const [busy, setBusy] = useState(false);
+    const [country, setCountry] = useState(() => (fixedCountry ? '' : guessCountry()));
     const [managing, setManaging] = useState(false);
     const status = payoutStatus(connect.connected ? connect.payout_status : null);
 
     async function create() {
         setBusy(true);
         try {
-            await api.post(`organizations/${organization.slug}/stripe/account`);
+            await api.post(`organizations/${organization.slug}/stripe/account`, fixedCountry ? {} : { country });
             router.reload({ only: ['payouts'] });
         } catch (e) {
             toast(e.message, { type: 'error' });
@@ -149,8 +184,30 @@ function ConnectCard({ organization, connect, manages, publishableKey }) {
                     <>
                         <p className="ink2">Sales go to a Stripe account in {organization.name}’s name. Fleetbase keeps its facilitator fee and Stripe pays the rest to your bank.</p>
                         {manages ? (
-                            <div className="row">
-                                <button type="button" className="btn btn-primary" onClick={create} disabled={busy} aria-busy={busy || undefined} data-connect-create>
+                            <div className="row wrapflex" style={{ alignItems: 'flex-end' }}>
+                                {!fixedCountry && (
+                                    <label className="col" style={{ gap: 6 }}>
+                                        <span className="small" style={{ fontWeight: 600 }}>
+                                            Country of {organization.name}
+                                        </span>
+                                        <select className="select" value={country} onChange={(e) => setCountry(e.target.value)} disabled={busy} data-connect-country>
+                                            <option value="">Choose a country</option>
+                                            {CONNECT_COUNTRIES.map((code) => (
+                                                <option key={code} value={code}>
+                                                    {countryName(code)}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
+                                )}
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    onClick={create}
+                                    disabled={busy || (!fixedCountry && !country)}
+                                    aria-busy={busy || undefined}
+                                    data-connect-create
+                                >
                                     <Icon name="wallet" />
                                     {busy ? 'Setting up…' : 'Set up payouts'}
                                 </button>
@@ -158,13 +215,24 @@ function ConnectCard({ organization, connect, manages, publishableKey }) {
                         ) : (
                             <p className="small muted">An owner or admin of {organization.name} sets this up.</p>
                         )}
+                        {manages && !fixedCountry && <p className="xs muted">Stripe verifies your business and pays out in this country’s currency. It can’t be changed after setup.</p>}
                     </>
                 ) : connect.payout_status !== 'enabled' ? (
                     <>
                         <p className="ink2">{status.hint}</p>
-                        {connect.requirements_due?.length > 0 && <p className="small muted">Stripe still needs {connect.requirements_due.length} item{connect.requirements_due.length === 1 ? '' : 's'}.</p>}
+                        {connect.requirements_due?.length > 0 && (
+                            <p className="small muted">
+                                Stripe still needs {connect.requirements_due.length} item{connect.requirements_due.length === 1 ? '' : 's'}.
+                            </p>
+                        )}
                         {manages ? (
-                            <ConnectEmbed organization={organization.slug} publishableKey={publishableKey} component="account-onboarding" onExit={onboardingExited} label="Stripe onboarding" />
+                            <ConnectEmbed
+                                organization={organization.slug}
+                                publishableKey={publishableKey}
+                                component="account-onboarding"
+                                onExit={onboardingExited}
+                                label="Stripe onboarding"
+                            />
                         ) : (
                             <p className="small muted">An owner or admin of {organization.name} finishes this.</p>
                         )}
@@ -172,9 +240,7 @@ function ConnectCard({ organization, connect, manages, publishableKey }) {
                 ) : (
                     <>
                         {manages && <ConnectEmbed organization={organization.slug} publishableKey={publishableKey} component="notification-banner" label="Stripe notices" />}
-                        <p className="small ink2">
-                            Charges and payouts are on{connect.default_currency ? `, in ${connect.default_currency} by default` : ''}.
-                        </p>
+                        <p className="small ink2">Charges and payouts are on{connect.default_currency ? `, in ${connect.default_currency} by default` : ''}.</p>
                         {manages && (
                             <div className="col" style={{ gap: 12 }}>
                                 <button type="button" className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => setManaging((open) => !open)} aria-expanded={managing}>

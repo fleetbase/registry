@@ -19,10 +19,10 @@ class ConnectAccounts
     public const COMPONENTS = ['account_onboarding', 'account_management', 'notification_banner', 'payouts', 'tax_registrations', 'tax_settings'];
 
     /**
-     * Create the organization's Express account, or return the organization unchanged when it
-     * has one. The platform pays Stripe's fees and carries losses, as the console's accounts do.
+     * Create the organization's Express account in `$country`, or return the organization unchanged
+     * when it has one. The platform pays Stripe's fees and carries losses, as the console's accounts do.
      */
-    public function create(Organization $organization, Account $by): Organization
+    public function create(Organization $organization, Account $by, ?string $country = null): Organization
     {
         if ($organization->hasStripeAccount()) {
             return $organization;
@@ -34,7 +34,7 @@ class ConnectAccounts
                 'fees' => ['payer' => 'application'],
                 'losses' => ['payments' => 'application'],
             ],
-            'country' => config('registry.commerce.connect_country'),
+            'country' => $country ?? config('registry.commerce.connect_country'),
             'email' => $by->email,
             'business_profile' => array_filter(['name' => $organization->name, 'url' => $organization->website]),
             'capabilities' => [

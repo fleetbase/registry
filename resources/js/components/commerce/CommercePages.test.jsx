@@ -45,8 +45,28 @@ describe('Payouts', () => {
     const stripe = { configured: true, publishable_key: 'pk_test' };
     const transactions = {
         data: [
-            { id: 'pur_1', extension: { name: 'Route Optimizer' }, customer: { name: 'Globex' }, gross: 5292, fee: 490, net: 4802, currency: 'USD', status: 'paid', created_at: '2026-10-20T12:00:00Z' },
-            { id: 'pur_2', extension: { name: 'Route Optimizer' }, customer: { name: 'Initech' }, gross: 4900, fee: 490, net: 4410, currency: 'USD', status: 'refunded', created_at: '2026-10-19T12:00:00Z' },
+            {
+                id: 'pur_1',
+                extension: { name: 'Route Optimizer' },
+                customer: { name: 'Globex' },
+                gross: 5292,
+                fee: 490,
+                net: 4802,
+                currency: 'USD',
+                status: 'paid',
+                created_at: '2026-10-20T12:00:00Z',
+            },
+            {
+                id: 'pur_2',
+                extension: { name: 'Route Optimizer' },
+                customer: { name: 'Initech' },
+                gross: 4900,
+                fee: 490,
+                net: 4410,
+                currency: 'USD',
+                status: 'refunded',
+                created_at: '2026-10-19T12:00:00Z',
+            },
         ],
         totals: [{ currency: 'USD', count: 2, gross: 10192, fee: 980, net: 9212 }],
         meta: { current_page: 1, last_page: 1, total: 2 },
@@ -64,11 +84,33 @@ describe('Payouts', () => {
         render(<Payouts organizations={[acme]} organization={acme} payouts={{ connect: { connected: false } }} transactions={{ data: [], totals: [], meta: null }} stripe={stripe} />);
 
         expect(screen.getByText('Not set up')).toBeInTheDocument();
-        await user.click(screen.getByRole('button', { name: 'Set up payouts' }));
+        const button = screen.getByRole('button', { name: 'Set up payouts' });
+        await user.selectOptions(screen.getByRole('combobox', { name: /Country of/ }), '');
+        expect(button).toBeDisabled();
+        await user.selectOptions(screen.getByRole('combobox', { name: /Country of/ }), 'US');
+        await user.click(button);
 
-        expect(api.post).toHaveBeenCalledWith('organizations/acme/stripe/account');
+        expect(api.post).toHaveBeenCalledWith('organizations/acme/stripe/account', { country: 'US' });
         expect(router.reload).toHaveBeenCalledWith({ only: ['payouts'] });
         expect(screen.getByText(/No sales yet/)).toBeInTheDocument();
+    });
+
+    it('skips the country choice when the registry fixes one', async () => {
+        const user = userEvent.setup();
+        api.post.mockResolvedValue({ connected: true });
+        render(
+            <Payouts
+                organizations={[acme]}
+                organization={acme}
+                payouts={{ connect: { connected: false } }}
+                transactions={{ data: [], totals: [], meta: null }}
+                stripe={{ ...stripe, connect_country: 'GB' }}
+            />
+        );
+
+        expect(screen.queryByRole('combobox', { name: /Country of/ })).not.toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Set up payouts' }));
+        expect(api.post).toHaveBeenCalledWith('organizations/acme/stripe/account', {});
     });
 
     it('shows onboarding until Stripe enables payouts, and only to owners and admins', () => {
@@ -199,7 +241,11 @@ describe('Buy on the website', () => {
         render(<BuyPanel extension={extension} account={account} />);
 
         const select = screen.getByLabelText('Buy for');
-        expect(within(select).getAllByRole('option').map((option) => option.textContent)).toEqual(['Me', 'Globex']);
+        expect(
+            within(select)
+                .getAllByRole('option')
+                .map((option) => option.textContent)
+        ).toEqual(['Me', 'Globex']);
         expect(select).toHaveValue('globex');
         await user.click(screen.getByRole('button', { name: 'Buy for $29' }));
 

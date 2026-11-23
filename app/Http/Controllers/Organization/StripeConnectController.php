@@ -37,7 +37,8 @@ class StripeConnectController extends Controller
     }
 
     /**
-     * POST /v1/organizations/{slug}/stripe/account — create the Express account (once).
+     * POST /v1/organizations/{slug}/stripe/account — create the Express account (once), in the
+     * organization's `country` (ISO 3166-1 alpha-2), or `REGISTRY_CONNECT_COUNTRY` when that is set.
      */
     public function store(Request $request, ConnectAccounts $accounts, string $slug): JsonResponse
     {
@@ -45,7 +46,21 @@ class StripeConnectController extends Controller
         $this->assertRole($organization, self::MANAGING_ROLES, 'Only organization owners and admins can set up payouts.');
         $created = ! $organization->hasStripeAccount();
 
-        $accounts->create($organization, $this->account($request));
+        // The account's country decides its onboarding (identity checks, bank, tax forms) and payout
+        // currency, and Stripe cannot change it later. Without one Stripe uses the platform's country,
+        // so every publisher would be onboarded as a business there.
+        $country = null;
+        if ($created) {
+            $fixed = config('registry.commerce.connect_country');
+            $validated = $request->validate([
+                'country' => [filled($fixed) ? 'nullable' : 'required', 'string', 'size:2', 'alpha'],
+            ], [
+                'country.required' => 'Choose the country your organization is based in.',
+            ]);
+            $country = filled($fixed) ? strtoupper((string) $fixed) : strtoupper((string) $validated['country']);
+        }
+
+        $accounts->create($organization, $this->account($request), $country);
 
         return response()->json(ConnectAccounts::summary($organization), $created ? 201 : 200);
     }

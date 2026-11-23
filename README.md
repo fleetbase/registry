@@ -606,7 +606,7 @@ mirrors every paid price that has no Stripe price yet (checkout also does this l
 | `REGISTRY_STRIPE_TAX` | `true` | Stripe Tax on Checkout, with the publisher's account liable |
 | `REGISTRY_STRIPE_TAX_CODE`, `REGISTRY_STRIPE_TAX_BEHAVIOR` | none, `exclusive` | Product tax code; whether listing prices exclude tax |
 | `REGISTRY_CHECKOUT_EXPIRES_MINUTES` | `60` | How long a Checkout Session stays open (30 to 1440) |
-| `REGISTRY_CONNECT_COUNTRY` | none | Country for new Connect accounts; empty lets the publisher choose |
+| `REGISTRY_CONNECT_COUNTRY` | none | One country for every new Connect account. Empty: the publisher chooses (`country` on `POST …/stripe/account`, asked on the Payouts page). Stripe cannot change an account's country, and without one it would use the platform's |
 | `REGISTRY_COMMERCE_NOTIFY` | none | Comma-separated emails told about new disputes |
 
 **How money moves.** A Checkout Session is a destination charge: the buyer pays the platform,
@@ -633,7 +633,7 @@ Staff can change seats, revoke and reinstate licences (Admin API).
 | Method and path | Who | Purpose |
 | --- | --- | --- |
 | `GET /v1/organizations/{slug}/stripe[?refresh=1]` | members (refresh: owners, admins) | `connected`, `payout_status` (`pending`, `restricted`, `enabled`, `rejected`), `can_receive_payments`, `requirements_due`, country, default currency |
-| `POST /v1/organizations/{slug}/stripe/account` | owners, admins | Create the Express account (once; 201, then 200) |
+| `POST /v1/organizations/{slug}/stripe/account` | owners, admins | Create the Express account (once; 201, then 200). `country` (ISO 3166-1 alpha-2, the organization's country; required unless `REGISTRY_CONNECT_COUNTRY` is set) decides onboarding and payout currency and cannot change later |
 | `POST /v1/organizations/{slug}/stripe/account-session` | owners, admins | `client_secret` and `publishable_key` for Connect.js: onboarding, account management, notification banner, payouts, tax settings and registrations |
 | `GET /v1/organizations/{slug}/payouts` | owners, admins, billing | Connect status, `balance` (`available`, `pending`, `in_transit` per currency), payout `schedule`, the last 10 payouts |
 | `GET /v1/organizations/{slug}/payouts/transactions?from=&to=&status=&extension=&page=` | owners, admins, billing | Sales of the organization's extensions: `gross`, `fee`, `net`, `tax`, `refunded`, `status`, `customer`; `totals` per currency, leaving out refunded sales |

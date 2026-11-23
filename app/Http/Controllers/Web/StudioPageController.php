@@ -211,7 +211,7 @@ class StudioPageController extends WebController
             'transactions' => $transactions,
             'filters' => $this->only($request, ['from', 'to', 'status']),
             'error' => $error,
-            'stripe' => ['configured' => Stripe::configured(), 'publishable_key' => config('services.stripe.key')],
+            'stripe' => ['configured' => Stripe::configured(), 'publishable_key' => config('services.stripe.key'), 'connect_country' => config('registry.commerce.connect_country')],
         ]);
     }
 

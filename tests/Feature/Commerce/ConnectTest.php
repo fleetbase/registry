@@ -10,7 +10,7 @@ it('creates one Express account per organization with the console controller set
     [$account, $organization] = buyerOrganization();
     actingAsAccount($account);
 
-    $this->postJson("/v1/organizations/{$organization->slug}/stripe/account")
+    $this->postJson("/v1/organizations/{$organization->slug}/stripe/account", ['country' => 'us'])
         ->assertCreated()
         ->assertJsonPath('connected', true)
         ->assertJsonPath('payout_status', Organization::PAYOUT_PENDING)
@@ -25,6 +25,7 @@ it('creates one Express account per organization with the console controller set
             'losses' => ['payments' => 'application'],
         ])
         ->and($sent[0]['params']['capabilities'])->toBe(['card_payments' => ['requested' => 'true'], 'transfers' => ['requested' => 'true']])
+        ->and($sent[0]['params']['country'])->toBe('US')
         ->and($sent[0]['params']['email'])->toBe($account->email)
         ->and($sent[0]['params']['metadata'])->toBe(['organization' => $organization->public_id, 'organization_uuid' => $organization->uuid])
         ->and(FakeStripeHttpClient::header($sent[0], 'Idempotency-Key'))->toBe('connect-account:'.$organization->uuid);
@@ -36,6 +37,21 @@ it('creates one Express account per organization with the console controller set
     // A second call keeps the account.
     $this->postJson("/v1/organizations/{$organization->slug}/stripe/account")->assertOk();
     expect(stripe()->sent('post', '/v1/accounts'))->toHaveCount(1);
+});
+
+it('asks for the organization country before creating the account, unless one is configured', function () {
+    [$account, $organization] = buyerOrganization();
+    actingAsAccount($account);
+
+    $this->postJson("/v1/organizations/{$organization->slug}/stripe/account")
+        ->assertStatus(422)
+        ->assertJsonPath('fields.country.0', 'Choose the country your organization is based in.');
+    $this->postJson("/v1/organizations/{$organization->slug}/stripe/account", ['country' => 'USA'])->assertStatus(422);
+    expect(stripe()->sent('post', '/v1/accounts'))->toHaveCount(0);
+
+    config(['registry.commerce.connect_country' => 'gb']);
+    $this->postJson("/v1/organizations/{$organization->slug}/stripe/account", ['country' => 'US'])->assertCreated();
+    expect(stripe()->sent('post', '/v1/accounts')[0]['params']['country'])->toBe('GB');
 });
 
 it('opens an Account Session with the embedded components for owners and admins', function () {
@@ -102,7 +118,7 @@ it('answers 503 for commerce routes until Stripe is configured', function () {
     [$account, $organization] = buyerOrganization();
     actingAsAccount($account);
 
-    $this->postJson("/v1/organizations/{$organization->slug}/stripe/account")
+    $this->postJson("/v1/organizations/{$organization->slug}/stripe/account", ['country' => 'SG'])
         ->assertStatus(503)
         ->assertExactJson(['errors' => ['Payments are not set up on this registry.']]);
 });
@@ -112,7 +128,7 @@ it('reports Stripe errors as a bad gateway', function () {
     actingAsAccount($account);
     stripe()->on('post', '/v1/accounts', stripeFixture('error_invalid_request'), 400);
 
-    $this->postJson("/v1/organizations/{$organization->slug}/stripe/account")
+    $this->postJson("/v1/organizations/{$organization->slug}/stripe/account", ['country' => 'SG'])
         ->assertStatus(502)
         ->assertJsonPath('errors.0', fn ($message) => str_starts_with($message, 'Stripe could not complete the request: You passed an empty string'));
 
@@ -137,6 +153,6 @@ it('lets a website session set up payouts', function () {
     config(['session.driver' => 'database']);
     $cookies = websiteSignIn($account);
 
-    websiteRequest('POST', "/v1/organizations/{$organization->slug}/stripe/account", $cookies)->assertCreated();
+    websiteRequest('POST', "/v1/organizations/{$organization->slug}/stripe/account", $cookies, ['country' => 'SG'])->assertCreated();
     websiteRequest('POST', "/v1/organizations/{$organization->slug}/stripe/account-session", $cookies, [], csrf: false)->assertStatus(419);
 });
