@@ -50,6 +50,9 @@ return [
         'secret' => env('STRIPE_SECRET'),
         'webhook_secrets' => array_values(array_filter(array_map('trim', explode(',', (string) env('STRIPE_WEBHOOK_SECRET', ''))))),
         'webhook_tolerance' => (int) env('STRIPE_WEBHOOK_TOLERANCE', 300),
+        // Stripe-Notice headers (test and sandbox only) are advisory; stripe-php raises them as PHP
+        // warnings, which Laravel turns into exceptions after the call has already succeeded.
+        'suppress_notices' => (bool) env('STRIPE_SUPPRESS_NOTICES', true),
     ],
 
 ];

@@ -21,10 +21,19 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->bind(StripeClient::class, fn () => new StripeClient([
-            'api_key' => (string) config('services.stripe.secret'),
-            'max_network_retries' => 2,
-        ]));
+        $this->app->bind(StripeClient::class, function () {
+            // stripe-php reads this from the process environment (not Laravel's env repository) and
+            // otherwise raises each Stripe-Notice as an E_USER_WARNING, which would fail a request
+            // Stripe has already completed, such as creating a Connect account.
+            if (config('services.stripe.suppress_notices')) {
+                putenv('STRIPE_SUPPRESS_NOTICES=true');
+            }
+
+            return new StripeClient([
+                'api_key' => (string) config('services.stripe.secret'),
+                'max_network_retries' => 2,
+            ]);
+        });
     }
 
     public function boot(): void
