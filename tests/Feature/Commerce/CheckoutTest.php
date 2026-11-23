@@ -129,6 +129,11 @@ it('refuses checkouts that cannot or need not happen', function (Closure $arrang
 
         return "{$listing->name} cannot be bought right now: its publisher has not finished setting up payouts.";
     }, 422, ''],
+    'priced in another currency' => [function ($listing) {
+        $listing->price->forceFill(['currency' => 'EUR'])->save();
+
+        return "{$listing->name} cannot be bought right now: its publisher has to set a price in USD.";
+    }, 422, ''],
 ]);
 
 it('reads imported accounts and mirrors imported prices before the first checkout', function () {

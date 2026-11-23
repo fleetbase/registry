@@ -306,7 +306,7 @@ releases answer 404.
 | `POST`/`DELETE /v1/publisher/extensions/{slug}/icon` | Multipart `icon` (PNG, JPG or WebP, up to 1 MB) replaces the icon; DELETE removes it |
 | `POST /v1/publisher/extensions/{slug}/screenshots` | Multipart `screenshot` (PNG, JPG or WebP, up to 5 MB), optional `caption`; at most 8 |
 | `PATCH /v1/publisher/extensions/{slug}/screenshots` | `order`: every screenshot id once, cover first. `DELETE …/screenshots/{id}` removes one |
-| `PUT /v1/publisher/extensions/{slug}/price` | `model` (`free`, `one_time`), `amount` (minor units), `currency`, optional `sale_amount` (below `amount`) and `on_sale`. Paid prices need the organization's Stripe account (see Commerce). Saving mirrors the price to Stripe first (a refused price is not saved, 502); a price change sends the next release to review |
+| `PUT /v1/publisher/extensions/{slug}/price` | `model` (`free`, `one_time`), `amount` (US cents), optional `currency` (`USD` only, the default), `sale_amount` (below `amount`) and `on_sale`. Paid prices need the organization's Stripe account (see Commerce). Saving mirrors the price to Stripe first (a refused price is not saved, 502); a price change sends the next release to review |
 | `GET /v1/publisher/extensions/{slug}/releases` | Every release with its checks |
 | `GET /v1/publisher/extensions/{slug}/stats?from=&to=&group=` | The listing's analytics (see Publisher analytics); `stats.csv` with the same query is the series as CSV |
 | `POST /v1/publisher/extensions/{slug}/releases` | Multipart: `manifest` (extension.json), `engine` (npm tarball, gzipped) and/or `api` (Composer tar or tar.gz), optional `dist` (the `<name>/` folder from ember-core's `fleetbase-build-engine-release`, tarred), optional `channel` (`stable`, `beta`; default from the manifest), `notes`, `submit` (submit as soon as the checks pass). Returns the release (201) |
@@ -611,15 +611,20 @@ mirrors every paid price that has no Stripe price yet (checkout also does this l
 
 **How money moves.** A Checkout Session is a destination charge: the buyer pays the platform,
 `application_fee_amount` (the facilitator fee in effect when the session starts, on the price
-before tax) stays with Fleetbase, and the rest is transferred to the publisher's account. With
-Stripe Tax on, the charge is made `on_behalf_of` the publisher and the publisher's account is
-liable for tax, so the tax collected reaches the account that files it. Platform-side Stripe
+before tax) stays with Fleetbase, and the rest is transferred to the publisher's account. Every
+charge is made `on_behalf_of` the publisher: the publisher is the settlement merchant, so the charge
+settles in the publisher's country and a platform in one region can pay publishers in any country
+Stripe supports. With Stripe Tax on, the publisher's account is also liable for tax, so the tax
+collected reaches the account that files it. Platform-side Stripe
 fees and losses fall on Fleetbase (`controller.fees.payer` and `losses.payments` are
 `application`, as the console's accounts are today).
 
-**Prices.** One Stripe product per listing on the platform account, the regular price, and the
-sale price as a second Stripe price; `on_sale` decides which one Checkout charges. Stripe prices
-cannot change, so a new amount or currency creates a new price and archives the old one.
+**Prices.** Every listing is priced and sold in USD (`Price::CURRENCY`), so sales, fees, transfers
+and the finance reports are in USD; Stripe converts a publisher's USD balance to its bank account's
+currency at payout. A listing still carrying another currency (an import) cannot be bought until its
+publisher sets a USD price. One Stripe product per listing on the platform account, the regular
+price, and the sale price as a second Stripe price; `on_sale` decides which one Checkout charges.
+Stripe prices cannot change, so a new amount creates a new price and archives the old one.
 
 **Licences and seats.** A purchase gives the buyer organization one paid licence with 5 seats.
 A seat is one Fleetbase instance registered to that organization: installing on an instance

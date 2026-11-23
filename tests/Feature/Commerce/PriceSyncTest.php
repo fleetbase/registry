@@ -57,13 +57,13 @@ it('adds the sale price as a second Stripe price and on_sale chooses the one che
         ->and($price->refresh()->checkoutStripePriceId())->toBe($price->stripe_price_id);
 });
 
-it('replaces and archives the Stripe price when the amount or currency changes', function () {
+it('replaces and archives the Stripe price when the amount changes', function () {
     [, , $listing, $path] = connectedPublisher();
 
     $this->putJson($path, ['model' => 'one_time', 'amount' => 4900, 'currency' => 'USD', 'sale_amount' => 2900])->assertOk();
     $first = Price::where('extension_uuid', $listing->uuid)->sole();
 
-    $this->putJson($path, ['model' => 'one_time', 'amount' => 5900, 'currency' => 'EUR', 'sale_amount' => 3900])->assertOk();
+    $this->putJson($path, ['model' => 'one_time', 'amount' => 5900, 'sale_amount' => 3900])->assertOk();
     $second = $first->fresh();
 
     expect($second->stripe_product_id)->toBe($first->stripe_product_id)
@@ -73,10 +73,20 @@ it('replaces and archives the Stripe price when the amount or currency changes',
             [$first->stripe_price_id, ['active' => 'false']],
             [$first->stripe_sale_price_id, ['active' => 'false']],
         ])
-        ->and(stripe()->sent('post', '/v1/prices')[2]['params']['currency'])->toBe('eur');
+        ->and(stripe()->sent('post', '/v1/prices')[2]['params']['currency'])->toBe('usd');
 
     // The product follows the listing's name.
     expect(stripe()->sent('post', '/v1/products/prod_\w+')[0]['params'])->toMatchArray(['name' => $listing->name, 'active' => 'true']);
+});
+
+it('prices listings in USD only', function () {
+    [, , $listing, $path] = connectedPublisher();
+
+    $this->putJson($path, ['model' => 'one_time', 'amount' => 4900, 'currency' => 'EUR'])
+        ->assertStatus(422)
+        ->assertJsonPath('fields.currency.0', 'Extensions are priced in USD.');
+    $this->putJson($path, ['model' => 'one_time', 'amount' => 4900, 'currency' => 'usd'])->assertOk();
+    expect(Price::where('extension_uuid', $listing->uuid)->sole()->currency)->toBe('USD');
 });
 
 it('archives the Stripe prices when a listing goes free', function () {

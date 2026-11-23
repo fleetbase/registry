@@ -23,7 +23,7 @@ it('renders Studio payouts with the account, balance and sales', function () {
             ->where('transactions.data.0.net', 4410)
             ->where('transactions.totals.0.net', 4410)
             ->where('error', null)
-            ->where('stripe', ['configured' => true, 'publishable_key' => 'pk_test_registry'])
+            ->where('stripe', ['configured' => true, 'publishable_key' => 'pk_test_registry', 'connect_country' => null])
             ->where('commerce.fee_bps', 1000));
 });
 

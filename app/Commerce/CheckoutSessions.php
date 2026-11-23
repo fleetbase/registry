@@ -8,6 +8,7 @@ use App\Models\Extension;
 use App\Models\FacilitatorFee;
 use App\Models\Instance;
 use App\Models\Organization;
+use App\Models\Price;
 use Illuminate\Support\Arr;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
@@ -81,7 +82,9 @@ class CheckoutSessions
             'payment_intent_data' => array_filter([
                 'application_fee_amount' => $fee,
                 'transfer_data' => ['destination' => $publisher->stripe_connect_id],
-                'on_behalf_of' => $tax ? $publisher->stripe_connect_id : null,
+                // The publisher is the settlement merchant, so the charge settles in its country: a
+                // platform in one region can then pay publishers in any country Stripe supports.
+                'on_behalf_of' => $publisher->stripe_connect_id,
                 'description' => "{$extension->name} licence",
                 'metadata' => $metadata,
             ]),
@@ -131,6 +134,11 @@ class CheckoutSessions
 
         if ($extension->organization_uuid === $organization->uuid) {
             throw new ConflictHttpException("{$organization->name} publishes {$extension->name} and already has access to it.");
+        }
+
+        // Listings are sold in USD; a price kept from before (an import) is repriced by its publisher first.
+        if (strtoupper((string) $extension->price->currency) !== Price::CURRENCY) {
+            throw new UnprocessableEntityHttpException("{$extension->name} cannot be bought right now: its publisher has to set a price in USD.");
         }
 
         // Imported listings and accounts (registry:import) have no Stripe state yet: read it now.

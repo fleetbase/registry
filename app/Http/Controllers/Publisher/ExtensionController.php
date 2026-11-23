@@ -115,7 +115,7 @@ class ExtensionController extends PublisherController
                 'visibility' => $request->input('visibility') ?? Extension::VISIBILITY_PUBLIC,
                 'hosting' => $request->input('hosting', Extension::HOSTING_BOTH),
             ]));
-            $extension->price()->create(['model' => Price::MODEL_FREE, 'amount' => 0, 'currency' => 'USD']);
+            $extension->price()->create(['model' => Price::MODEL_FREE, 'amount' => 0, 'currency' => Price::CURRENCY]);
             foreach ($packages as $kind => $name) {
                 $extension->packages()->create(['kind' => $kind, 'name' => $name]);
             }
@@ -204,11 +204,11 @@ class ExtensionController extends PublisherController
         }
 
         $attributes = $model === Price::MODEL_FREE
-            ? ['model' => Price::MODEL_FREE, 'amount' => 0, 'currency' => $request->input('currency') ?? $extension->price?->currency ?? 'USD', 'on_sale' => false, 'sale_amount' => null]
+            ? ['model' => Price::MODEL_FREE, 'amount' => 0, 'currency' => Price::CURRENCY, 'on_sale' => false, 'sale_amount' => null]
             : [
                 'model' => $model,
                 'amount' => (int) $request->input('amount'),
-                'currency' => $request->input('currency'),
+                'currency' => Price::CURRENCY,
                 'sale_amount' => $request->filled('sale_amount') ? (int) $request->input('sale_amount') : null,
                 'on_sale' => $request->filled('sale_amount') && $request->boolean('on_sale'),
             ];

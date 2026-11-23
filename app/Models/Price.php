@@ -13,6 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Price extends Model
 {
+    /** Every listing is priced, sold and paid out in US dollars. */
+    public const CURRENCY = 'USD';
+
     use HasFactory;
     use HasUuid;
 
