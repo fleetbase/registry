@@ -30,7 +30,7 @@ export function imageProblem(file, max) {
  * review) and reload the `extension` prop. The Font Awesome icon name is a listing field and
  * saves with the rest of the draft.
  */
-export default function MediaSection({ extension, faIcon, onFaIcon, faIconError }) {
+export default function MediaSection({ extension, faIcon, onFaIcon, faIconError, faIconManaged = false }) {
     const toast = useToast();
     const slug = extension.slug;
     const screenshots = extension.screenshots ?? [];
@@ -242,8 +242,8 @@ export default function MediaSection({ extension, faIcon, onFaIcon, faIconError 
                             }}
                         />
                         {naming && (
-                            <Field label="Font Awesome icon name" optional help="For example truck-fast. Saves with the listing." error={faIconError}>
-                                {(id, aria) => <input id={id} {...aria} className="input mono" value={faIcon ?? ''} onChange={(e) => onFaIcon(e.target.value.toLowerCase())} placeholder="truck-fast" maxLength={64} autoComplete="off" />}
+                            <Field label="Font Awesome icon name" optional help={faIconManaged ? 'Set in extension.json; change it there and publish.' : 'For example truck-fast. Saves with the listing.'} error={faIconError}>
+                                {(id, aria) => <input id={id} {...aria} className="input mono" value={faIcon ?? ''} onChange={(e) => onFaIcon(e.target.value.toLowerCase())} placeholder="truck-fast" maxLength={64} autoComplete="off" disabled={faIconManaged || undefined} />}
                             </Field>
                         )}
                     </div>

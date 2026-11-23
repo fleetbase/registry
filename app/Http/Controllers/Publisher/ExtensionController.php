@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Publisher;
 
 use App\Actions\ChangeExtensionVisibility;
 use App\Commerce\PriceCatalog;
+use App\Http\Requests\Publisher\ApplyManifestListingRequest;
 use App\Http\Requests\Publisher\CreateExtensionRequest;
 use App\Http\Requests\Publisher\UpdateExtensionRequest;
 use App\Http\Requests\Publisher\UpdatePriceRequest;
@@ -167,7 +168,8 @@ class ExtensionController extends PublisherController
      */
     public function update(UpdateExtensionRequest $request, ChangeExtensionVisibility $visibility, string $slug): PublisherExtensionResource
     {
-        $extension = $this->findExtension($request, $slug);
+        $extension = $this->findExtension($request, $slug, ['category']);
+        $this->assertNotManifestManaged($request, $extension);
         if ($request->has('visibility')) {
             $this->assertManages($request, $extension);
             $visibility($extension, $request->input('visibility'), $this->account($request));
@@ -186,6 +188,79 @@ class ExtensionController extends PublisherController
         }
 
         return new PublisherExtensionResource($extension->load(self::DETAIL));
+    }
+
+    /**
+     * PUT /v1/publisher/extensions/{slug}/listing-manifest — the `listing` block of extension.json, applied by
+     * `flb publish` (also with a trusted publishing token). The fields it sets win over Studio: they are saved
+     * and recorded in `meta.manifest_fields`, so Studio shows them read-only and `PATCH` refuses to change
+     * them. Fields the body leaves out are handed back to Studio. Listing edits never need review.
+     */
+    public function manifestListing(ApplyManifestListingRequest $request, string $slug): PublisherExtensionResource
+    {
+        $extension = $this->findExtension($request, $slug);
+        $fields = $request->declaredFields();
+
+        $attributes = $request->listingAttributes();
+        if (in_array('category', $fields, true)) {
+            $attributes['category_uuid'] = $this->categoryUuid($request->input('category'));
+        }
+
+        $meta = $extension->meta ?? [];
+        $before = $extension->manifestFields();
+        if ($fields === []) {
+            unset($meta['manifest_fields']);
+        } else {
+            $meta['manifest_fields'] = $fields;
+        }
+
+        $extension->fill($attributes);
+        $extension->meta = $meta === [] ? null : $meta;
+        $extension->save();
+        Event::record('extension.manifest_listing_applied', $extension, $this->account($request), [
+            'fields' => $fields,
+            'released' => array_values(array_diff($before, $fields)),
+        ]);
+
+        if ($extension->status === Extension::STATUS_PUBLISHED) {
+            CatalogCache::flush();
+        }
+
+        return new PublisherExtensionResource($extension->load(self::DETAIL));
+    }
+
+    /**
+     * A listing edit may not change a field extension.json sets: it would be overwritten by the next publish.
+     * Sending the current value is fine (a form that posts everything).
+     */
+    protected function assertNotManifestManaged(Request $request, Extension $extension): void
+    {
+        $errors = [];
+        foreach ($extension->manifestFields() as $field) {
+            if ($request->has($field) && ! $this->sameListingValue($extension, $field, $request->input($field))) {
+                $errors[$field] = 'Set in extension.json; change it there and publish.';
+            }
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
+    protected function sameListingValue(Extension $extension, string $field, mixed $value): bool
+    {
+        if ($field === 'category') {
+            $current = $extension->category;
+
+            return ($value === null || $value === '') ? $current === null : $current !== null && in_array($value, [$current->slug, $current->public_id], true);
+        }
+        if (in_array($field, ['tags', 'languages'], true)) {
+            return array_values((array) ($value ?? [])) === array_values((array) ($extension->{$field} ?? []));
+        }
+
+        $normalize = fn ($v) => $v === '' ? null : $v;
+
+        return $normalize($value) === $normalize($extension->{$field});
     }
 
     /**

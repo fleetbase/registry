@@ -41,6 +41,8 @@ class PublisherExtensionResource extends FleetbaseResource
             'tos_url' => $this->tos_url,
             'copyright' => $this->copyright,
             'fa_icon' => $this->fa_icon,
+            // Listing fields extension.json sets (`flb publish`); Studio shows them read-only.
+            'manifest_fields' => $this->resource->manifestFields(),
             'icon_url' => $this->whenLoaded('icon', fn () => $this->icon?->url, null),
             'screenshots' => $this->whenLoaded('screenshots', fn () => ExtensionResource::screenshotList($this->resource), []),
             'packages' => $this->whenLoaded('packages', fn () => $this->packages->map(fn ($package) => ['kind' => $package->kind, 'name' => $package->name])->values()->all()),

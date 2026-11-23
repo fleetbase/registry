@@ -302,7 +302,8 @@ releases answer 404.
 | `POST /v1/publisher/extensions` | name, `packages: {npm, composer}` (one or both), optional slug, organization and listing fields. Creates a draft listing with a free price (201). Idempotent on package names: names that already belong to one of the caller's listings return it (200) and add any package kind it lacks; a different name for a kind it has, names spread over two listings, or names of another publisher answer 409 |
 | `GET /v1/publisher/packages/availability` | Query `organization` (slug; default as for create), `npm` and/or `composer`. For each name given, `{name, available, reason}` under `npm`/`composer`, by the rules create applies (format, reserved `@fleetbase`/`fleetbase`, the organization's namespaces, names already registered; a name one of the caller's listings holds is not available for a new one) |
 | `GET /v1/publisher/extensions/{slug}` | Listing with its releases |
-| `PATCH /v1/publisher/extensions/{slug}` | Listing fields (name, subtitle, description, promotional_text, category, tags, languages, hosting, website/repo/support/privacy/tos URLs, copyright, fa_icon). No review. `visibility` (`public`, `private`; owners and admins) switches the listing (see Private extensions) |
+| `PATCH /v1/publisher/extensions/{slug}` | Listing fields (name, subtitle, description, promotional_text, category, tags, languages, hosting, website/repo/support/privacy/tos URLs, copyright, fa_icon). No review. `visibility` (`public`, `private`; owners and admins) switches the listing (see Private extensions). A field extension.json sets (`manifest_fields`) answers 422 *Set in extension.json; change it there and publish* unless the value is unchanged |
+| `PUT /v1/publisher/extensions/{slug}/listing-manifest` | extension.json's `listing` block, as `flb publish` sends it: the same listing fields (category as a slug), never name, price, visibility or media. The fields present are saved and become the listing's `manifest_fields` (Studio shows them read-only); fields left out are handed back to Studio, so `{}` releases them all. No review. A trusted publishing token may call it |
 | `POST`/`DELETE /v1/publisher/extensions/{slug}/icon` | Multipart `icon` (PNG, JPG or WebP, up to 1 MB) replaces the icon; DELETE removes it |
 | `POST /v1/publisher/extensions/{slug}/screenshots` | Multipart `screenshot` (PNG, JPG or WebP, up to 5 MB), optional `caption`; at most 8 |
 | `PATCH /v1/publisher/extensions/{slug}/screenshots` | `order`: every screenshot id once, cover first. `DELETE …/screenshots/{id}` removes one |
@@ -321,6 +322,8 @@ releases answer 404.
 | `DELETE /v1/publisher/extensions/{slug}/access/{grant}` | Revoke (optional `reason`): the next request is refused and the grant's seats are released |
 | `GET /v1/publisher/access/organizations/{organization}` | Find an organization to grant to: `{id, slug, name, instances}`; `instances` only for staff and the organization's members, else null |
 | `GET`/`POST /v1/publisher/extensions/{slug}/trusted-publishers`, `DELETE …/{id}` | Owners and admins: GitHub Actions workflows allowed to publish (see Trusted publishing). `repository` (`owner/repo`), `workflow` (file name), optional `environment`, `refs` (patterns such as `refs/tags/v*`). Deleting revokes the tokens it issued |
+
+**Listing from extension.json.** An extension's `extension.json` can carry its catalog listing in a `listing` block (schema in `resources/schemas/extension.schema.json`): `subtitle`, `description` and `promotional_text` (text, or the relative path of a Markdown file the CLI reads), `category` (slug), `tags`, `languages`, `icon` (Font Awesome name), `hosting`, `copyright` and `links` (`website`, `repo`, `support`, `privacy`, `terms`); the top-level `keywords` and `repository` fill `tags` and `links.repo` when the block leaves them out. `flb publish` applies the block on every publish (`PUT …/listing-manifest`), so the file wins for the fields it sets: they are recorded in `meta.manifest_fields`, Studio shows them read-only with *Set in extension.json; change it there and publish*, and `PATCH` refuses to change them. Fields the file does not set stay editable in Studio. The name comes from extension.json only when the listing is created; price, visibility and media (icon image, screenshots) are Studio's alone.
 
 Upload rules: the manifest must be a JSON object with a SemVer `version` (no `v`) and the
 request needs an engine or an api archive (422 otherwise). The archives are limited by
@@ -577,8 +580,8 @@ registry's host name as audience and exchanges it:
 
 The `flbt_` token lives 15 minutes (`REGISTRY_TRUSTED_PUBLISHING_TOKEN_MINUTES`), is pinned to
 the listing's organization and reaches only that listing's release routes
-(`TokenGuard::TRUSTED_ROUTES`: list and show the listing, list, upload, show and submit
-releases). It is never listed among the account's tokens. Releases it uploads carry
+(`TokenGuard::TRUSTED_ROUTES`: list and show the listing, apply extension.json's `listing` block,
+list, upload, show and submit releases). It is never listed among the account's tokens. Releases it uploads carry
 `meta.trusted_publisher`. `REGISTRY_OIDC_AUDIENCE` overrides the expected audience (default: the
 host of `REGISTRY_PUBLIC_URL`, else `APP_URL`).
 

@@ -143,6 +143,7 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::get('extensions/{slug}', [PublisherExtensionController::class, 'show'])->name('extensions.show');
         Route::patch('extensions/{slug}', [PublisherExtensionController::class, 'update'])->name('extensions.update');
         Route::put('extensions/{slug}/price', [PublisherExtensionController::class, 'price'])->name('extensions.price');
+        Route::put('extensions/{slug}/listing-manifest', [PublisherExtensionController::class, 'manifestListing'])->name('extensions.listing-manifest');
         Route::get('extensions/{slug}/stats', [PublisherStatsController::class, 'show'])->name('extensions.stats');
         Route::get('extensions/{slug}/stats.csv', [PublisherStatsController::class, 'export'])->name('extensions.stats.export');
         Route::post('extensions/{slug}/icon', [ListingMediaController::class, 'storeIcon'])->middleware('throttle:upload')->name('extensions.icon.store');

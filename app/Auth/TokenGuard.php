@@ -30,6 +30,8 @@ class TokenGuard
     public const TRUSTED_ROUTES = [
         'v1.publisher.extensions.index',
         'v1.publisher.extensions.show',
+        // extension.json's listing block (`flb publish`); never price, visibility or media
+        'v1.publisher.extensions.listing-manifest',
         'v1.publisher.releases.index',
         'v1.publisher.releases.store',
         'v1.publisher.releases.show',

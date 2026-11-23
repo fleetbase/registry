@@ -145,6 +145,18 @@ describe('listing editor', () => {
         expect(container.querySelector('[data-item="tags"]').dataset.ok).toBe('false');
     });
 
+    it('shows fields extension.json sets as read-only, with a note', () => {
+        const { container } = render(<StudioEditor extension={{ ...extension, manifest_fields: ['subtitle', 'tags', 'support_url'] }} releases={releases} categories={[]} />);
+        expect(container.querySelector('[data-manifest-note]')).toHaveTextContent('Some fields are set in extension.json: subtitle, tags, support URL.');
+        expect(screen.getByLabelText('Subtitle')).toBeDisabled();
+        expect(screen.getByLabelText('Tags')).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'Remove tag labels' })).toBeDisabled();
+        expect(screen.getByLabelText('Support URL')).toBeDisabled();
+        expect(screen.getAllByText('Set in extension.json; change it there and publish.')).toHaveLength(3);
+        // Fields the manifest leaves out stay editable.
+        expect(screen.getByLabelText('Privacy policy URL')).not.toBeDisabled();
+    });
+
     it('sends empty fields as null', () => {
         const saved = toDraft(extension);
         expect(changes({ ...saved, repo_url: '', support_url: '' }, saved)).toEqual({ support_url: null });

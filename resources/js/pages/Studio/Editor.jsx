@@ -26,6 +26,27 @@ export function toDraft(extension) {
     return draft;
 }
 
+/** The note under a field that extension.json sets: Studio shows it read-only. */
+export const MANAGED_HELP = 'Set in extension.json; change it there and publish.';
+
+/** Readable names for the fields extension.json can set, for the editor's note. */
+export const MANAGED_LABELS = {
+    subtitle: 'subtitle',
+    description: 'short description',
+    promotional_text: 'overview',
+    category: 'category',
+    tags: 'tags',
+    languages: 'languages',
+    hosting: 'hosting',
+    website_url: 'website',
+    repo_url: 'repository',
+    support_url: 'support URL',
+    privacy_url: 'privacy policy',
+    tos_url: 'terms of service',
+    copyright: 'copyright',
+    fa_icon: 'icon name',
+};
+
 /** Only what changed, with empty strings sent as null. */
 export function changes(draft, saved) {
     const payload = {};
@@ -64,9 +85,11 @@ export default function StudioEditor({ extension, releases = [], categories = []
     const ready = readiness({ ...draft, icon_url: extension.icon_url, status: extension.status, visibility: extension.visibility, pending_visibility: extension.pending_visibility }, releases);
     const open = openRelease(releases);
     const missingLinks = ready.items.filter((item) => item.section === 's-links' && !item.ok).length;
+    const managed = useMemo(() => new Set(extension.manifest_fields ?? []), [extension.manifest_fields]);
     const set = (field) => (value) => setDraft((d) => ({ ...d, [field]: value }));
-    const bind = (field) => ({ value: draft[field] ?? '', onChange: (e) => set(field)(e.target.value) });
+    const bind = (field) => ({ value: draft[field] ?? '', onChange: (e) => set(field)(e.target.value), disabled: managed.has(field) || undefined });
     const error = (field) => errors[field]?.[0] ?? null;
+    const help = (field, text) => (managed.has(field) ? MANAGED_HELP : text);
 
     useEffect(() => {
         if (!dirty) {
@@ -217,6 +240,12 @@ export default function StudioEditor({ extension, releases = [], categories = []
                             </div>
                         )}
 
+                        {managed.size > 0 && (
+                            <Note icon="lock" data-manifest-note>
+                                <strong>Some fields are set in extension.json:</strong> {[...managed].map((field) => MANAGED_LABELS[field] ?? field).join(', ')}. Studio shows them read-only; change them in extension.json and run <code>flb publish</code>. Remove a field there to edit it here again.
+                            </Note>
+                        )}
+
                         <section id="s-basics" className="sd-sec card" aria-labelledby="h-basics">
                             <div className="card-head">
                                 <h2 id="h-basics" className="h3">
@@ -228,15 +257,15 @@ export default function StudioEditor({ extension, releases = [], categories = []
                                     <Field label="Name" error={error('name')}>
                                         {(id, aria) => <input id={id} {...aria} className="input" maxLength={120} {...bind('name')} />}
                                     </Field>
-                                    <Field label="Subtitle" error={error('subtitle')}>
+                                    <Field label="Subtitle" help={help('subtitle')} error={error('subtitle')}>
                                         {(id, aria) => <input id={id} {...aria} className="input" maxLength={255} placeholder="One line under the name" {...bind('subtitle')} />}
                                     </Field>
                                 </div>
-                                <Field label="Short description" help={`Shown on cards and in search. ${[...(draft.description ?? '')].length} characters; more than 12 needed.`} error={error('description')}>
+                                <Field label="Short description" help={help('description', `Shown on cards and in search. ${[...(draft.description ?? '')].length} characters; more than 12 needed.`)} error={error('description')}>
                                     {(id, aria) => <textarea id={id} {...aria} className="textarea" style={{ minHeight: 72 }} {...bind('description')} />}
                                 </Field>
                                 <div className="grid2">
-                                    <Field label="Category" error={error('category')}>
+                                    <Field label="Category" help={help('category')} error={error('category')}>
                                         {(id, aria) => (
                                             <select id={id} {...aria} className="select" {...bind('category')}>
                                                 <option value="">Choose a category</option>
@@ -248,7 +277,7 @@ export default function StudioEditor({ extension, releases = [], categories = []
                                             </select>
                                         )}
                                     </Field>
-                                    <Field label="Hosting" error={error('hosting')}>
+                                    <Field label="Hosting" help={help('hosting')} error={error('hosting')}>
                                         {(id, aria) => (
                                             <select id={id} {...aria} className="select" {...bind('hosting')}>
                                                 {Object.entries(HOSTINGS).map(([value, label]) => (
@@ -260,13 +289,13 @@ export default function StudioEditor({ extension, releases = [], categories = []
                                         )}
                                     </Field>
                                 </div>
-                                <Field label="Tags" help="Enter or a comma adds a tag; Backspace removes the last. Up to 20." error={error('tags') ?? error('tags.0')}>
-                                    {(id, aria) => <TagsInput id={id} describedBy={aria['aria-describedby']} value={draft.tags} onChange={set('tags')} />}
+                                <Field label="Tags" help={help('tags', 'Enter or a comma adds a tag; Backspace removes the last. Up to 20.')} error={error('tags') ?? error('tags.0')}>
+                                    {(id, aria) => <TagsInput id={id} describedBy={aria['aria-describedby']} value={draft.tags} onChange={set('tags')} disabled={managed.has('tags')} />}
                                 </Field>
                             </div>
                         </section>
 
-                        <MediaSection extension={extension} faIcon={draft.fa_icon} onFaIcon={set('fa_icon')} faIconError={error('fa_icon')} />
+                        <MediaSection extension={extension} faIcon={draft.fa_icon} onFaIcon={set('fa_icon')} faIconError={error('fa_icon')} faIconManaged={managed.has('fa_icon')} />
 
                         <section id="s-overview" className="sd-sec card" aria-labelledby="h-over">
                             <div className="card-head">
@@ -275,7 +304,12 @@ export default function StudioEditor({ extension, releases = [], categories = []
                                 </h2>
                                 <span className="small muted">Rendered on your extension page</span>
                             </div>
-                            <OverviewEditor key={resetKey} initial={saved.promotional_text} onChange={set('promotional_text')} labelledBy="h-over" />
+                            {managed.has('promotional_text') && (
+                                <div className="card-body small muted" data-managed="promotional_text">
+                                    {MANAGED_HELP}
+                                </div>
+                            )}
+                            <OverviewEditor key={resetKey} initial={saved.promotional_text} onChange={set('promotional_text')} labelledBy="h-over" readOnly={managed.has('promotional_text')} />
                             {error('promotional_text') && (
                                 <div className="card-body">
                                     <span className="err">{error('promotional_text')}</span>
@@ -295,16 +329,16 @@ export default function StudioEditor({ extension, releases = [], categories = []
                                 )}
                             </div>
                             <div className="card-body grid2">
-                                <LinkField label="Website" field="website_url" draft={draft} bind={bind} error={error} ready={ready} need="Needed for review." />
-                                <LinkField label="Support URL" field="support_url" draft={draft} bind={bind} error={error} ready={ready} need="Needed for review: where operators report problems." />
-                                <LinkField label="Privacy policy URL" field="privacy_url" draft={draft} bind={bind} error={error} ready={ready} need="Needed for review." />
-                                <Field label="Repository" optional error={error('repo_url')}>
+                                <LinkField label="Website" field="website_url" draft={draft} bind={bind} error={error} ready={ready} help={help} need="Needed for review." />
+                                <LinkField label="Support URL" field="support_url" draft={draft} bind={bind} error={error} ready={ready} help={help} need="Needed for review: where operators report problems." />
+                                <LinkField label="Privacy policy URL" field="privacy_url" draft={draft} bind={bind} error={error} ready={ready} help={help} need="Needed for review." />
+                                <Field label="Repository" optional help={help('repo_url')} error={error('repo_url')}>
                                     {(id, aria) => <input id={id} {...aria} className="input" type="url" placeholder="https://github.com/…" {...bind('repo_url')} />}
                                 </Field>
-                                <Field label="Terms of service" optional error={error('tos_url')}>
+                                <Field label="Terms of service" optional help={help('tos_url')} error={error('tos_url')}>
                                     {(id, aria) => <input id={id} {...aria} className="input" type="url" placeholder="https://" {...bind('tos_url')} />}
                                 </Field>
-                                <Field label="Copyright" error={error('copyright')} help={ready.items.find((i) => i.key === 'copyright')?.ok === false ? 'Needed for review.' : undefined}>
+                                <Field label="Copyright" error={error('copyright')} help={help('copyright', ready.items.find((i) => i.key === 'copyright')?.ok === false ? 'Needed for review.' : undefined)}>
                                     {(id, aria) => <input id={id} {...aria} className="input" placeholder={`© ${new Date().getFullYear()} ${extension.organization?.name ?? ''}`.trim()} maxLength={255} {...bind('copyright')} />}
                                 </Field>
                             </div>
@@ -335,11 +369,11 @@ export default function StudioEditor({ extension, releases = [], categories = []
     );
 }
 
-function LinkField({ label, field, bind, error, ready, need }) {
+function LinkField({ label, field, bind, error, ready, need, help = () => undefined }) {
     // A private listing does not need its links, so only a rule that is listed and failing counts.
     const missing = ready.items.find((item) => item.key === field)?.ok === false;
     return (
-        <Field label={label} error={error(field) ?? (missing ? need : null)}>
+        <Field label={label} help={help(field)} error={error(field) ?? (missing ? need : null)}>
             {(id, aria) => <input id={id} {...aria} className={`input ${missing ? 'is-error' : ''}`} type="url" placeholder="https://" maxLength={255} {...bind(field)} />}
         </Field>
     );

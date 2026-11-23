@@ -72,6 +72,114 @@
         "author": {
             "type": "string",
             "description": "Author or publisher, for example `Fleetbase Pte Ltd <hello@fleetbase.io>`."
+        },
+        "listing": {
+            "type": "object",
+            "description": "The catalog listing, managed from this file: `flb publish` applies every field set here, and Studio shows those fields read-only. Fields left out stay editable in Studio. Price, visibility and media (icon image, screenshots) are set in Studio only.",
+            "properties": {
+                "subtitle": {
+                    "type": "string",
+                    "description": "One line under the name.",
+                    "maxLength": 255
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Short description shown on cards and in search: the text itself, or the relative path of a Markdown or text file in the extension (for example `docs/description.md`), which the CLI reads.",
+                    "maxLength": 20000
+                },
+                "promotional_text": {
+                    "type": "string",
+                    "description": "The overview on the extension page: the text itself, or the relative path of a Markdown or text file (for example `README.md`).",
+                    "maxLength": 20000
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Category slug, as `flb listing categories` lists them.",
+                    "minLength": 1,
+                    "maxLength": 191
+                },
+                "tags": {
+                    "type": "array",
+                    "description": "Search tags. Defaults to the top-level `keywords`.",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                    },
+                    "maxItems": 20,
+                    "uniqueItems": true
+                },
+                "languages": {
+                    "type": "array",
+                    "description": "Language codes the extension's UI supports, for example `en`.",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 16
+                    },
+                    "maxItems": 50,
+                    "uniqueItems": true
+                },
+                "icon": {
+                    "type": "string",
+                    "description": "Font Awesome icon name, for example `satellite-dish` (an uploaded icon image takes precedence).",
+                    "maxLength": 64,
+                    "pattern": "^[a-z0-9-]+$"
+                },
+                "hosting": {
+                    "type": "string",
+                    "description": "Where the extension can be installed.",
+                    "enum": ["cloud", "self_hosted", "both"]
+                },
+                "copyright": {
+                    "type": "string",
+                    "description": "Copyright notice.",
+                    "maxLength": 255
+                },
+                "links": {
+                    "type": "object",
+                    "description": "Links on the listing. `repo` defaults to the top-level `repository`.",
+                    "properties": {
+                        "website": {
+                            "type": "string",
+                            "format": "uri",
+                            "maxLength": 255,
+                            "pattern": "^https?://",
+                            "description": "Website URL."
+                        },
+                        "repo": {
+                            "type": "string",
+                            "format": "uri",
+                            "maxLength": 255,
+                            "pattern": "^https?://",
+                            "description": "Source repository URL."
+                        },
+                        "support": {
+                            "type": "string",
+                            "format": "uri",
+                            "maxLength": 255,
+                            "pattern": "^https?://",
+                            "description": "Where operators report problems."
+                        },
+                        "privacy": {
+                            "type": "string",
+                            "format": "uri",
+                            "maxLength": 255,
+                            "pattern": "^https?://",
+                            "description": "Privacy policy URL."
+                        },
+                        "terms": {
+                            "type": "string",
+                            "format": "uri",
+                            "maxLength": 255,
+                            "pattern": "^https?://",
+                            "description": "Terms of service URL."
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false
         }
     },
     "required": ["name", "version"],

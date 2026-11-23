@@ -13,7 +13,7 @@ export function addTag(tags, value) {
 }
 
 /** Tags: Enter or a comma adds, Backspace in the empty input removes the last one. */
-export default function TagsInput({ id, value = [], onChange, describedBy }) {
+export default function TagsInput({ id, value = [], onChange, describedBy, disabled = false }) {
     const [text, setText] = useState('');
     const full = value.length >= MAX_TAGS;
 
@@ -54,7 +54,7 @@ export default function TagsInput({ id, value = [], onChange, describedBy }) {
                 {value.map((tag) => (
                     <li key={tag} className="sd-tag">
                         {tag}
-                        <button type="button" aria-label={`Remove tag ${tag}`} onClick={() => onChange(value.filter((t) => t !== tag))}>
+                        <button type="button" aria-label={`Remove tag ${tag}`} disabled={disabled} onClick={() => onChange(value.filter((t) => t !== tag))}>
                             <Icon name="close" size={14} />
                         </button>
                     </li>
@@ -66,8 +66,8 @@ export default function TagsInput({ id, value = [], onChange, describedBy }) {
                 onChange={onInput}
                 onKeyDown={onKeyDown}
                 onBlur={() => text.trim() && commit()}
-                placeholder={full ? 'At most 20 tags' : 'Add a tag'}
-                disabled={full}
+                placeholder={disabled ? '' : full ? 'At most 20 tags' : 'Add a tag'}
+                disabled={disabled || full}
                 aria-describedby={describedBy}
                 autoComplete="off"
                 maxLength={64}

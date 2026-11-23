@@ -16,7 +16,7 @@ export function overviewHtml(node) {
  * The overview: a contenteditable with a small toolbar (document.execCommand). Stores HTML in
  * `promotional_text`. Remount (change `key`) to load a different value.
  */
-export default function OverviewEditor({ initial = '', onChange, labelledBy }) {
+export default function OverviewEditor({ initial = '', onChange, labelledBy, readOnly = false }) {
     const ref = useRef(null);
 
     useEffect(() => {
@@ -72,18 +72,21 @@ export default function OverviewEditor({ initial = '', onChange, labelledBy }) {
 
     return (
         <div>
-            <div className="sd-toolbar" role="toolbar" aria-label="Formatting">
-                {tools.map((tool) => (
-                    <button key={tool.label} type="button" aria-label={tool.label} title={tool.label} onMouseDown={(e) => e.preventDefault()} onClick={tool.run}>
-                        {tool.text}
-                    </button>
-                ))}
-            </div>
+            {!readOnly && (
+                <div className="sd-toolbar" role="toolbar" aria-label="Formatting">
+                    {tools.map((tool) => (
+                        <button key={tool.label} type="button" aria-label={tool.label} title={tool.label} onMouseDown={(e) => e.preventDefault()} onClick={tool.run}>
+                            {tool.text}
+                        </button>
+                    ))}
+                </div>
+            )}
             <div
                 ref={ref}
                 className="card-body ink2 prose sd-overview"
-                contentEditable
+                contentEditable={!readOnly}
                 suppressContentEditableWarning
+                aria-readonly={readOnly || undefined}
                 role="textbox"
                 aria-multiline="true"
                 aria-labelledby={labelledBy}

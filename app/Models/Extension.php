@@ -201,6 +201,22 @@ class Extension extends Model
         return $this->visibility === self::VISIBILITY_PRIVATE;
     }
 
+    /** Listing fields extension.json may set (API names); price and visibility are never among them. */
+    public const MANIFEST_LISTING_FIELDS = ['subtitle', 'description', 'promotional_text', 'category', 'tags', 'languages', 'hosting', 'website_url', 'repo_url', 'support_url', 'privacy_url', 'tos_url', 'copyright', 'fa_icon'];
+
+    /**
+     * The listing fields the extension's extension.json sets (`meta.manifest_fields`, written by the
+     * last `flb publish`). Studio and `PATCH …/extensions/{slug}` leave them alone.
+     *
+     * @return array<int, string>
+     */
+    public function manifestFields(): array
+    {
+        $fields = $this->meta['manifest_fields'] ?? [];
+
+        return is_array($fields) ? array_values(array_intersect(self::MANIFEST_LISTING_FIELDS, $fields)) : [];
+    }
+
     /**
      * `public` while a private listing waits for a human-reviewed release to go public
      * (`meta.pending_visibility`); null otherwise.
