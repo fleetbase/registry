@@ -159,6 +159,22 @@ it('refuses new installs of unpublished extensions, unpublished releases and oth
     $this->postJson('/v1/instances/me/installs', ['extension' => $extension->slug, 'version' => '1.0.0', 'status' => 'installed'])->assertCreated();
 });
 
+it('matches hosting on the platform instance, not on a stored cloud kind', function () {
+    // A non-platform instance stored as cloud (registered as cloud before codes were limited to
+    // self-hosted) is self-hosted for hosting: no cloud-only listings, self-hosted ones are fine.
+    $instance = Instance::factory()->create(['kind' => Instance::KIND_CLOUD]);
+    actingAsInstance($instance);
+
+    $cloudOnly = publishedExtension(['hosting' => Extension::HOSTING_CLOUD]);
+    releaseFor($cloudOnly, '1.0.0');
+    $this->postJson('/v1/instances/me/installs', ['extension' => $cloudOnly->slug, 'version' => '1.0.0', 'status' => 'installing'])
+        ->assertStatus(422)->assertJsonPath('errors.0', 'This extension is only available for cloud instances.');
+
+    $selfHosted = publishedExtension(['hosting' => Extension::HOSTING_SELF_HOSTED]);
+    releaseFor($selfHosted, '1.0.0');
+    $this->postJson('/v1/instances/me/installs', ['extension' => $selfHosted->slug, 'version' => '1.0.0', 'status' => 'installing'])->assertCreated();
+});
+
 it('supersedes the previous installed row on upgrade so the instance counts once', function () {
     $instance = Instance::factory()->create();
     $extension = publishedExtension();
