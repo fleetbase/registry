@@ -47,6 +47,8 @@ class StudioPageController extends WebController
     {
         return Inertia::render('Studio/Create', [
             'categories' => $this->categories($request),
+            // The organization Studio was showing, chosen first under "Publish as".
+            'organization' => $request->query('org'),
         ]);
     }
 

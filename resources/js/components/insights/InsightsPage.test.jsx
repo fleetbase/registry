@@ -122,7 +122,7 @@ describe('Insights', () => {
         const user = userEvent.setup();
         render(<Insights organizations={[acme]} organization={acme} extensions={extensions} extension={null} stats={organizationStats} filters={{}} />);
 
-        expect(screen.getByText('All extensions of Acme Fleet Tools, 1 Oct – 3 Oct 2026')).toBeInTheDocument();
+        expect(screen.getByText('All extensions, 1 Oct – 3 Oct 2026')).toBeInTheDocument();
         const table = document.querySelector('[data-by-extension]');
         expect(within(table).getByText('(deleted)')).toBeInTheDocument();
         expect(screen.getByRole('link', { name: /Export CSV/ })).toHaveAttribute('href', '/v1/organizations/acme/stats.csv?from=2026-10-01&to=2026-10-03&group=day');

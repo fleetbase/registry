@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Link, router } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import SiteLayout from '../../layouts/SiteLayout';
 import ConnectEmbed from '../../components/commerce/ConnectEmbed';
 import Icon from '../../components/Icon';
 import { StatusChip } from '../../components/Status';
-import { StudioNav } from '../../components/studio/StudioChrome';
+import { StudioNav, StudioOrganization } from '../../components/studio/StudioChrome';
 import { useToast } from '../../components/Toasts';
 import { EmptyState, Note, PageHeader } from '../../components/Ui';
 import { api } from '../../lib/api';
@@ -68,16 +68,12 @@ export default function Payouts({ organizations = [], organization, payouts, tra
         <SiteLayout title="Payouts" section="studio">
             <div className="wrap page">
                 <div className="stack-lg">
-                    <PageHeader nav={<StudioNav current="payouts" />} title="Payouts" description={organization ? `${organization.name}: what your extensions earned and when Stripe pays it out.` : null} />
-                    {organizations.length > 1 && (
-                        <nav className="seg" aria-label="Organization" style={{ alignSelf: 'flex-start', maxWidth: '100%', overflowX: 'auto' }}>
-                            {organizations.map((item) => (
-                                <Link key={item.id} href={`/studio/payouts/${item.slug}`} aria-current={item.slug === organization?.slug ? 'page' : undefined}>
-                                    {item.name}
-                                </Link>
-                            ))}
-                        </nav>
-                    )}
+                    <PageHeader
+                        context={<StudioOrganization organizations={organizations} current={organization} onPick={(slug) => router.visit(`/studio/payouts/${slug}`)} />}
+                        nav={<StudioNav current="payouts" organization={organization?.slug ?? null} />}
+                        title="Payouts"
+                        description={organization ? 'What your extensions earned and when Stripe pays it out.' : null}
+                    />
                     {!organization ? (
                         <EmptyState icon="wallet" title="No organization to show">
                             Payouts are for organization owners, admins and billing members. Ask an owner to give you the billing role.

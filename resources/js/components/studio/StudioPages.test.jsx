@@ -58,15 +58,27 @@ describe('Studio home', () => {
         expect(screen.getAllByText('Live v1.0.0').length).toBeGreaterThan(0);
     });
 
-    it('filters by the organization in the URL and switches with the menu', () => {
+    it('filters by the organization in the URL, switches with the dropdown and keeps it on the other tabs', () => {
         const { container } = render(<StudioIndex extensions={extensions} organization="pat" />);
         expect(container.querySelectorAll('.sd-ext-row')).toHaveLength(1);
         expect(container.querySelector('[data-inbox="yours"]').querySelectorAll('[data-inbox-item]')).toHaveLength(0);
 
-        fireEvent.click(screen.getByRole('button', { name: /showing pat publisher/i }));
-        expect(screen.queryByText('Viewer Org')).not.toBeInTheDocument();
-        fireEvent.click(screen.getByRole('button', { name: /acme logistics/i }));
+        // Pat is a publisher there: insights keep the organization, payouts (billing roles) can't.
+        expect(screen.getByRole('link', { name: 'Insights' })).toHaveAttribute('href', '/studio/insights/pat');
+        expect(screen.getByRole('link', { name: 'Payouts' })).toHaveAttribute('href', '/studio/payouts');
+
+        const picker = screen.getByLabelText('Organization');
+        expect(picker).toHaveValue('pat');
+        expect(within(picker).queryByText('Viewer Org')).not.toBeInTheDocument();
+        fireEvent.change(picker, { target: { value: 'acme' } });
         expect(router.replace).toHaveBeenCalledWith(expect.objectContaining({ url: '/studio?org=acme' }));
+    });
+
+    it('shows just the name with a single organization', () => {
+        page.props = { auth: { account: { organizations: [account.organizations[0]] } } };
+        const { container } = render(<StudioIndex extensions={extensions} organization={null} />);
+        expect(container.querySelector('[data-org-switch]')).toHaveTextContent('Acme Logistics');
+        expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
     });
 
     it('shows the first-run guide without listings, and a note without a publishing organization', () => {

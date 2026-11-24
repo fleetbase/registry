@@ -4,7 +4,7 @@ import SiteLayout from '../../layouts/SiteLayout';
 import ExtensionIcon from '../../components/ExtensionIcon';
 import Icon from '../../components/Icon';
 import { StatusChip } from '../../components/Status';
-import { StudioNav } from '../../components/studio/StudioChrome';
+import { StudioNav, StudioOrganization } from '../../components/studio/StudioChrome';
 import { EmptyState, Note, PageHeader } from '../../components/Ui';
 import TrendChart from '../../components/insights/TrendChart';
 import { GROUPS, PRESETS, activePreset, change, csvHref, dayLabel, eventStatus, eventVersion, presetRange, rangeLabel, revenueIn, revenueLine, versionRows } from '../../components/insights/insights';
@@ -37,19 +37,11 @@ export default function Insights({ organizations = [], organization, extensions 
             <div className="wrap page">
                 <div className="stack-lg">
                     <PageHeader
-                        nav={<StudioNav current="insights" />}
+                        context={<StudioOrganization organizations={organizations} current={organization} onPick={(slug) => router.visit(`/studio/insights/${slug}`)} />}
+                        nav={<StudioNav current="insights" organization={organization?.slug ?? null} />}
                         title="Insights"
-                        description={organization ? `${selected ? selected.name : `All extensions of ${organization.name}`}${stats ? `, ${rangeLabel(stats.range)}` : ''}` : null}
+                        description={organization ? `${selected ? selected.name : 'All extensions'}${stats ? `, ${rangeLabel(stats.range)}` : ''}` : null}
                     />
-                    {organizations.length > 1 && (
-                        <nav className="seg" aria-label="Organization" style={{ alignSelf: 'flex-start', maxWidth: '100%', overflowX: 'auto' }}>
-                            {organizations.map((item) => (
-                                <Link key={item.id} href={`/studio/insights/${item.slug}`} aria-current={item.slug === organization?.slug ? 'page' : undefined}>
-                                    {item.name}
-                                </Link>
-                            ))}
-                        </nav>
-                    )}
                     {!organization ? (
                         <EmptyState icon="chart" title="No organization to show">
                             Insights are for organization owners, admins and publishers. Ask an owner to give you the publisher role.

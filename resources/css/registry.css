@@ -115,6 +115,7 @@ code, kbd, .mono { font-family: var(--mono); font-size: 0.88em; }
 /* Page heading (PageHeader): section switcher first, then the title row, title left and actions
    right. The switcher never moves between a section's pages. */
 .page-head { display: flex; flex-direction: column; gap: 14px; }
+.page-head-context { display: flex; align-items: center; min-height: var(--h-ctl-sm); }
 .page-head-nav { display: flex; max-width: 100%; overflow-x: auto; }
 .page-head-nav > .seg { flex-wrap: nowrap; }
 .page-head-title { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

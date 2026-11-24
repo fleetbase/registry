@@ -34,11 +34,11 @@ export function suggestedPackages(orgSlug, name) {
  * New extension: name, the organization it is published as, the package names it claims
  * (suggested from the organization's scope), category and hosting, with a live preview card.
  */
-export default function StudioCreate({ categories = [] }) {
+export default function StudioCreate({ categories = [], organization: preferred = null }) {
     const { auth } = usePage().props;
     const organizations = publishingOrganizations(auth?.account);
     const [name, setName] = useState('');
-    const [org, setOrg] = useState(() => (organizations.find((o) => !o.is_personal) ?? organizations[0])?.slug ?? null);
+    const [org, setOrg] = useState(() => (organizations.find((o) => o.slug === preferred) ?? organizations.find((o) => !o.is_personal) ?? organizations[0])?.slug ?? null);
     const [category, setCategory] = useState('');
     const [hosting, setHosting] = useState('both');
     const [isPrivate, setIsPrivate] = useState(false);

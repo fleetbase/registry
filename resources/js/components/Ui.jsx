@@ -114,11 +114,13 @@ export function SafeHtml({ html, className = '' }) {
 /**
  * A page's heading. The section switcher (`nav`) sits on its own row above the title, so it stays
  * in the same place on every page of a section, whatever the title, description or actions are.
- * `children` render above the title (an organization switcher, say).
+ * `context` (what the whole section shows, e.g. Studio's organization) comes first, above `nav`;
+ * `children` render above the title.
  */
-export function PageHeader({ nav, title, description, actions, children }) {
+export function PageHeader({ context, nav, title, description, actions, children }) {
     return (
         <div className="page-head">
+            {context && <div className="page-head-context">{context}</div>}
             {nav && <div className="page-head-nav">{nav}</div>}
             <div className="page-head-title">
                 <div className="col" style={{ gap: 4, minWidth: 0, maxWidth: 760 }}>

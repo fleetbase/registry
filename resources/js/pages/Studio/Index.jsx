@@ -1,4 +1,3 @@
-import { useEffect, useRef, useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import SiteLayout from '../../layouts/SiteLayout';
 import Icon from '../../components/Icon';
@@ -7,10 +6,10 @@ import CopyCommand from '../../components/CopyCommand';
 import Route, { releaseStops } from '../../components/Route';
 import { ListingStatus, StatusChip, VisibilityChip } from '../../components/Status';
 import { Note, PageHeader } from '../../components/Ui';
-import { StudioNav, publishingOrganizations } from '../../components/studio/StudioChrome';
+import { StudioNav, StudioOrganization, publishingOrganizations } from '../../components/studio/StudioChrome';
 import { groupInbox, listingState, studioUrl } from '../../components/studio/inbox';
 import { submittedAgo, withSubmissionDates } from '../../components/studio/submitted';
-import { initials, plural, priceLabel, shortDate } from '../../lib/format';
+import { plural, priceLabel, shortDate } from '../../lib/format';
 import { releaseStatus } from '../../lib/statuses';
 
 /**
@@ -40,21 +39,16 @@ export default function StudioIndex({ extensions = [], organization = null }) {
             <div className="wrap page">
                 <div className="stack-lg">
                     <PageHeader
-                        nav={<StudioNav current="extensions" />}
+                        context={organizations.length > 0 && <StudioOrganization organizations={organizations} current={current} allowAll onPick={pick} />}
+                        nav={<StudioNav current="extensions" organization={current?.slug ?? null} />}
                         title="My extensions"
                         actions={
-                            <Link href="/studio/new" className="btn btn-primary">
+                            <Link href={current ? `/studio/new?org=${encodeURIComponent(current.slug)}` : '/studio/new'} className="btn btn-primary">
                                 <Icon name="plus" size={16} strokeWidth={2.2} />
                                 New extension
                             </Link>
                         }
-                    >
-                        {organizations.length > 0 && (
-                            <div style={{ marginBottom: 6 }}>
-                                <OrganizationSwitcher organizations={organizations} current={current} onPick={pick} />
-                            </div>
-                        )}
-                    </PageHeader>
+                    />
 
                     {organizations.length === 0 && (
                         <Note tone="you">
@@ -122,88 +116,6 @@ export default function StudioIndex({ extensions = [], organization = null }) {
                 </div>
             </div>
         </SiteLayout>
-    );
-}
-
-function OrganizationSwitcher({ organizations, current, onPick }) {
-    const [open, setOpen] = useState(false);
-    const ref = useRef(null);
-    const label = current?.name ?? (organizations.length === 1 ? organizations[0].name : 'All organizations');
-
-    useEffect(() => {
-        if (!open) {
-            return undefined;
-        }
-        function onDown(event) {
-            if (!ref.current?.contains(event.target)) {
-                setOpen(false);
-            }
-        }
-        function onKey(event) {
-            if (event.key === 'Escape') {
-                setOpen(false);
-                ref.current?.querySelector('button')?.focus();
-            }
-        }
-        document.addEventListener('mousedown', onDown);
-        document.addEventListener('keydown', onKey);
-        return () => {
-            document.removeEventListener('mousedown', onDown);
-            document.removeEventListener('keydown', onKey);
-        };
-    }, [open]);
-
-    if (organizations.length === 1) {
-        return (
-            <span className="sd-org-switch" style={{ cursor: 'default' }} data-org-switch>
-                <span className="avatar" style={{ width: 32, height: 32, fontSize: 12 }} aria-hidden="true">
-                    {initials(label)}
-                </span>
-                <span>Publishing as {label}</span>
-            </span>
-        );
-    }
-
-    const choose = (slug) => {
-        setOpen(false);
-        onPick(slug);
-    };
-
-    return (
-        <div ref={ref} style={{ position: 'relative', alignSelf: 'flex-start' }} data-org-switch>
-            <button type="button" className="sd-org-switch" aria-expanded={open} aria-haspopup="true" aria-label={`Showing ${label}. Switch organization`} onClick={() => setOpen((value) => !value)}>
-                <span className="avatar" style={{ width: 32, height: 32, fontSize: 12 }} aria-hidden="true">
-                    {current ? initials(current.name) : <Icon name="building" size={16} />}
-                </span>
-                {label}
-                <Icon name="chevronDown" size={14} strokeWidth={2.4} />
-            </button>
-            {open && (
-                <ul className="sd-org-menu" aria-label="Organizations">
-                    <li>
-                        <button type="button" aria-current={current ? undefined : 'true'} onClick={() => choose(null)}>
-                            <Icon name="building" size={16} />
-                            All organizations
-                        </button>
-                    </li>
-                    {organizations.map((org) => (
-                        <li key={org.id}>
-                            <button type="button" aria-current={current?.slug === org.slug ? 'true' : undefined} onClick={() => choose(org.slug)}>
-                                <span className="avatar" style={{ width: 28, height: 28, fontSize: 11 }} aria-hidden="true">
-                                    {initials(org.name)}
-                                </span>
-                                <span className="col grow" style={{ gap: 2 }}>
-                                    <span>{org.name}</span>
-                                    <span className="xs muted">
-                                        {org.is_personal ? 'Personal' : org.role.charAt(0).toUpperCase() + org.role.slice(1)} · @{org.slug}
-                                    </span>
-                                </span>
-                            </button>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </div>
     );
 }
 
