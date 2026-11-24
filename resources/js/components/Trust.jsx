@@ -21,7 +21,7 @@ export function Reviewed({ short = false, className = '' }) {
 
 export function WorksWith({ version, className = '' }) {
     return (
-        <span className={`trust ${className}`} title="The latest release's console range includes this version">
+        <span className={`trust ${className}`} title="The latest release supports this Fleetbase version">
             <Icon name="monitor" size={16} />
             Works with {version}
         </span>

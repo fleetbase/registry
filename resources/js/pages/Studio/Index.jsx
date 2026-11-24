@@ -205,7 +205,7 @@ function FirstRun() {
                 <h2 id="h-first" className="h2">
                     Publish your first extension
                 </h2>
-                <p className="lead">An extension is a console engine (npm) and an API package (Composer). Three steps; the first two can happen in either order.</p>
+                <p className="lead">Three steps; the first two can happen in either order.</p>
             </div>
             <ol className="grid3" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                 <li className="sd-bigstep">
@@ -213,7 +213,7 @@ function FirstRun() {
                         1
                     </span>
                     <h3 className="h3">Create the listing</h3>
-                    <p className="ink2">Name, packages, category. Copy, screenshots and pricing can wait and never need review.</p>
+                    <p className="ink2">Name and category. Copy, screenshots and pricing can wait and never need review.</p>
                     <Link href="/studio/new" className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>
                         Create listing
                     </Link>
@@ -223,7 +223,7 @@ function FirstRun() {
                         2
                     </span>
                     <h3 className="h3">Upload a release</h3>
-                    <p className="ink2">Drop the archives into the listing, or publish from your project. Eight checks run at once.</p>
+                    <p className="ink2">Drop your extension’s files into the listing, or publish from your project. It’s checked automatically.</p>
                     <CopyCommand value="flb publish" />
                 </li>
                 <li className="sd-bigstep">

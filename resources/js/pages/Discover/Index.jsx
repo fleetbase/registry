@@ -70,7 +70,7 @@ export default function Discover({ filters, results, categories }) {
                         <span className="eyebrow">Extensions for Fleetbase</span>
                         <h1 className="display">Add what your operation needs next.</h1>
                         <p className="lead" style={{ maxWidth: 640 }}>
-                            Engines and integrations for Fleet-Ops, Storefront and the rest of your console. Every listing shows who built it, whether Fleetbase reviewed it, and if it runs on your version.
+                            Extensions and integrations for Fleet-Ops, Storefront and the rest of your console. Every listing shows who built it, whether Fleetbase reviewed it, and if it runs on your version.
                         </p>
                         <form className="searchbox" role="search" action="/" method="get" onSubmit={submitSearch}>
                             <Icon name="search" size={18} className="muted" />
@@ -85,7 +85,7 @@ export default function Discover({ filters, results, categories }) {
                                 <>
                                     <button type="button" className="compat" aria-pressed={onlyCompatible} onClick={() => visit({ compat: onlyCompatible ? 'any' : null })} data-compat-toggle>
                                         <Icon name="monitor" size={16} />
-                                        {onlyCompatible ? `Works with my console: ${consoleVersion}` : 'Any console version'}
+                                        {onlyCompatible ? `Works with my Fleetbase: ${consoleVersion}` : 'Any Fleetbase version'}
                                     </button>
                                     <button type="button" className="btn btn-quiet btn-sm" onClick={() => setEditingVersion(true)}>
                                         Change version
@@ -94,7 +94,7 @@ export default function Discover({ filters, results, categories }) {
                             ) : (
                                 <form className="row wrapflex" style={{ gap: 8 }} action="/console" method="post" onSubmit={saveVersion}>
                                     <label className="small ink2" htmlFor="console-version">
-                                        Your console version
+                                        Your Fleetbase version
                                     </label>
                                     <input id="console-version" name="version" className="input mono" style={{ width: 120 }} placeholder="0.7.69" value={version} onChange={(event) => setVersion(event.target.value)} />
                                     <button type="submit" className="btn">
@@ -218,12 +218,12 @@ export default function Discover({ filters, results, categories }) {
                                 {hasFilters || onlyCompatible ? (
                                     <EmptyState
                                         icon="search"
-                                        title={filters.q ? `No extensions match “${filters.q}”` : hasFilters ? 'No extensions match these filters' : `Nothing works with console ${consoleVersion} yet`}
+                                        title={filters.q ? `No extensions match “${filters.q}”` : hasFilters ? 'No extensions match these filters' : `Nothing works with Fleetbase ${consoleVersion} yet`}
                                         actions={
                                             <>
                                                 {onlyCompatible && (
                                                     <button type="button" className="btn" onClick={() => visit({ compat: 'any' })}>
-                                                        Show all console versions
+                                                        Show all Fleetbase versions
                                                     </button>
                                                 )}
                                                 {hasFilters && (
@@ -236,7 +236,7 @@ export default function Discover({ filters, results, categories }) {
                                     >
                                         {hasFilters
                                             ? 'Search covers names, subtitles, tags and publishers. Try a broader term, or clear a filter.'
-                                            : 'Each release says which console versions it supports. Show every version, or update your console.'}
+                                            : 'Each release says which Fleetbase versions it supports. Show every version, or update Fleetbase.'}
                                     </EmptyState>
                                 ) : (
                                     <EmptyState icon="box" title="No extensions are published yet" actions={<Link href="/studio" className="btn btn-primary">Publish the first one</Link>}>
@@ -273,7 +273,7 @@ export default function Discover({ filters, results, categories }) {
                     <section className="row wrapflex between card card-pad" style={{ background: 'var(--accent-soft)', borderColor: 'var(--accent-line)', gap: 16 }}>
                         <div className="col" style={{ gap: 6, maxWidth: 640 }}>
                             <h2 className="h3">Build for fleets everywhere</h2>
-                            <p className="ink2">Publish a console engine and API package with one command. Eight automated checks run on every release, and Fleetbase reviews first releases.</p>
+                            <p className="ink2">Publish your extension with one command. Each release is checked automatically and reviewed before it’s published.</p>
                         </div>
                         <div className="row wrapflex">
                             <Link href="/studio" className="btn btn-primary">

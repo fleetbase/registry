@@ -34,6 +34,11 @@ export function suggestedPackages(orgSlug, name) {
  * New extension: name, the organization it is published as, the package names it claims
  * (suggested from the organization's scope), category and hosting, with a live preview card.
  */
+/** Whether either suggested package name is taken, so the names need attention. */
+function namesTaken(availability) {
+    return ['npm', 'composer'].some((kind) => availability?.[kind]?.state === 'taken');
+}
+
 export default function StudioCreate({ categories = [], organization: preferred = null }) {
     const { auth } = usePage().props;
     const organizations = publishingOrganizations(auth?.account);
@@ -140,20 +145,20 @@ export default function StudioCreate({ categories = [], organization: preferred 
                             </fieldset>
                         )}
 
-                        <div className="stack">
-                            <span className="label" id="pkg-label">
-                                Packages
-                            </span>
+                        <details className="sd-more" open={editing || namesTaken(availability) || Boolean(fieldError('packages.npm') || fieldError('packages.composer')) || undefined}>
+                            <summary className="label" id="pkg-label">
+                                Package names <span className="muted" style={{ fontWeight: 400 }}>· set for you</span>
+                            </summary>
                             {editing ? (
                                 <div className="grid2">
                                     <div className="stack" style={{ gap: 8 }}>
-                                        <Field label="npm engine" error={fieldError('packages.npm')}>
+                                        <Field label="Console (npm)" error={fieldError('packages.npm')}>
                                             {(id, aria) => <input id={id} {...aria} className="input mono" value={names.npm} onChange={(e) => setNames({ ...names, npm: e.target.value })} spellCheck={false} autoComplete="off" />}
                                         </Field>
                                         <AvailabilityLine result={availability.npm} data-availability-for="npm" />
                                     </div>
                                     <div className="stack" style={{ gap: 8 }}>
-                                        <Field label="Composer API" error={fieldError('packages.composer')}>
+                                        <Field label="Server (Composer)" error={fieldError('packages.composer')}>
                                             {(id, aria) => <input id={id} {...aria} className="input mono" value={names.composer} onChange={(e) => setNames({ ...names, composer: e.target.value })} spellCheck={false} autoComplete="off" />}
                                         </Field>
                                         <AvailabilityLine result={availability.composer} data-availability-for="composer" />
@@ -162,8 +167,8 @@ export default function StudioCreate({ categories = [], organization: preferred 
                             ) : (
                                 <div className="stack" aria-labelledby="pkg-label" data-packages>
                                     {[
-                                        ['npm', 'npm engine'],
-                                        ['composer', 'Composer API'],
+                                        ['npm', 'Console (npm)'],
+                                        ['composer', 'Server (Composer)'],
                                     ].map(([kind, label]) => (
                                         <div key={kind} className="col" style={{ gap: 4 }}>
                                             <div className="sd-pkg">
@@ -186,7 +191,7 @@ export default function StudioCreate({ categories = [], organization: preferred 
                                 </div>
                             )}
                             <span className="help">
-                                Suggested from the organization slug, which is the only scope you can publish under. Your archives must use exactly these names.{' '}
+                                Suggested from the organization slug, which is the only scope you can publish under. Your extension’s files must use exactly these names.{' '}
                                 {editing ? (
                                     <button type="button" className="sd-linkbtn" onClick={() => setEditing(false)}>
                                         Use the suggested names
@@ -197,7 +202,7 @@ export default function StudioCreate({ categories = [], organization: preferred 
                                     </button>
                                 )}
                             </span>
-                        </div>
+                        </details>
 
                         <div className="grid2">
                             <Field label="Category" optional error={fieldError('category')}>
@@ -229,7 +234,7 @@ export default function StudioCreate({ categories = [], organization: preferred 
                                         Private extension
                                     </span>
                                     <span id="private-help" className="help">
-                                        Never listed in the catalog. Only your organization and organizations you grant access can see and install it. Releases skip the Fleetbase review but still run every automated check. You can change this later under Access.
+                                        Never listed in the catalog. Only your organization and organizations you grant access can see and install it. Releases skip the Fleetbase review but are still checked automatically. You can change this later under Access.
                                     </span>
                                 </span>
                             </label>

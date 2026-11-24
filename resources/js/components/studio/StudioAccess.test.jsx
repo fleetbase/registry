@@ -245,7 +245,7 @@ describe('Studio access page', () => {
         expect(screen.getByText('No organizations have access yet')).toBeInTheDocument();
         fireEvent.click(screen.getByRole('radio', { name: /private/i }));
         const dialog = screen.getByRole('dialog', { name: 'Make Client Tools private?' });
-        expect(dialog).toHaveTextContent('secret scanning included');
+        expect(dialog).toHaveTextContent('still checked automatically');
         fireEvent.click(within(dialog).getByRole('button', { name: 'Make private' }));
         await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/publisher/extensions/client-tools', { visibility: 'private' }));
     });

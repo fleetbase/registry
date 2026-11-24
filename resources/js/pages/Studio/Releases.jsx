@@ -11,11 +11,11 @@ import ReleaseActionDialog, { releaseActions } from '../../components/studio/Rel
 import { bytes, dateTime, plural } from '../../lib/format';
 import { liveRelease } from '../../lib/statuses';
 
-const ARCHIVES = { engine: 'npm engine', api: 'Composer API', dist: 'Prebuilt engine' };
+const ARCHIVES = { engine: 'Console files', api: 'Server files', dist: 'Ready-built console files' };
 
 /**
  * A listing's releases: upload a new one (or publish from the CLI), and every release with its
- * status, archives, checks and the actions its state allows.
+ * status, files, checks and the actions its state allows.
  */
 export default function StudioReleases({ extension, releases = [] }) {
     const [pending, setPending] = useState(null);
@@ -50,7 +50,7 @@ export default function StudioReleases({ extension, releases = [] }) {
                                     </ul>
                                 ) : (
                                     <EmptyState icon="upload" title="No releases yet">
-                                        Upload extension.json and the archives above, or run <code>flb publish</code> in the project.
+                                        Upload your extension’s files above, or run <code>flb publish</code> in the project.
                                     </EmptyState>
                                 )}
                             </section>
@@ -59,7 +59,7 @@ export default function StudioReleases({ extension, releases = [] }) {
                         <aside className="rail" aria-label="Publish from the CLI">
                             <section className="card card-pad stack">
                                 <h2 className="h4">Publish from the CLI</h2>
-                                <p className="small ink2">In the extension’s project, the CLI packs the engine and API, uploads them with extension.json and runs the same checks.</p>
+                                <p className="small ink2">In the extension’s project, the CLI packs and uploads the release for you. It’s checked the same way.</p>
                                 <CopyCommand value="flb publish" />
                                 <p className="xs muted">
                                     Needs a token with the publish scope. <Link href="/account/tokens">Create one</Link>
@@ -102,17 +102,22 @@ function ReleaseRow({ extension, release, onAction }) {
                         {summary.label}
                     </StatusChip>
                 </div>
-                <ul className="col" style={{ gap: 4, listStyle: 'none', margin: 0, padding: 0 }}>
-                    {archives.map(([key, label]) => (
-                        <li key={key} className="xs" style={{ overflowWrap: 'anywhere' }}>
-                            <span className="mono ink2">{release.files[key].original_filename || release.files[key].name}</span>
-                            <span className="muted">
-                                {' '}
-                                · {bytes(release.files[key].size)} · {label}
-                            </span>
-                        </li>
-                    ))}
-                </ul>
+                {archives.length > 0 && (
+                    <details className="ck-more">
+                        <summary>Files ({archives.length})</summary>
+                        <ul className="col" style={{ gap: 4, listStyle: 'none', margin: 0, padding: 0 }}>
+                            {archives.map(([key, label]) => (
+                                <li key={key} className="xs" style={{ overflowWrap: 'anywhere' }}>
+                                    <span className="mono ink2">{release.files[key].original_filename || release.files[key].name}</span>
+                                    <span className="muted">
+                                        {' '}
+                                        · {bytes(release.files[key].size)} · {label}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    </details>
+                )}
             </div>
             <div className="row wrapflex sd-actions" style={{ justifyContent: 'flex-end', gap: 8 }}>
                 <Link href={href} className="btn btn-sm" aria-label={`Open v${release.version}`}>

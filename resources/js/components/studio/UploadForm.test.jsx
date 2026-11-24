@@ -72,7 +72,7 @@ describe('upload form', () => {
         expect(screen.getByText(/readme\.md/)).toBeInTheDocument();
         expect(button).toBeEnabled();
 
-        fireEvent.click(screen.getByRole('button', { name: /remove manifest/i }));
+        fireEvent.click(screen.getByRole('button', { name: /remove extension details/i }));
         expect(button).toBeDisabled();
     });
 

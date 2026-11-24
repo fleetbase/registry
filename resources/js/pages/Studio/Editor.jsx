@@ -157,8 +157,6 @@ export default function StudioEditor({ extension, releases = [], categories = []
         setResetKey((key) => key + 1);
     }
 
-    const npm = extension.packages?.find((p) => p.kind === 'npm')?.name;
-    const composer = extension.packages?.find((p) => p.kind === 'composer')?.name;
     const releaseHref = open ? `/studio/${extension.slug}/releases/${open.id}` : `/studio/${extension.slug}/releases`;
     const sectionLinks = [
         ...SECTIONS.map((s) => ({ href: `#${s.id}`, label: s.label, count: s.id === 's-links' && missingLinks ? missingLinks : null, current: current === s.id })),
@@ -174,7 +172,7 @@ export default function StudioEditor({ extension, releases = [], categories = []
         <SiteLayout title={`${extension.name} · Studio`} section="studio">
             <div className="wrap page">
                 <div style={{ marginBottom: 24 }}>
-                    <StudioHeader extension={extension} title={extension.name} sub={<span className="mono">{[npm ?? composer ?? extension.slug, extension.status].join(' · ')}</span>}>
+                    <StudioHeader extension={extension} title={extension.name} sub={<span className="mono">{[extension.slug, extension.status].join(' · ')}</span>}>
                         <ListingStatus status={extension.status} />
                         <VisibilityChip extension={extension} />
                         {extension.status === 'published' && (

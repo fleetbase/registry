@@ -44,30 +44,36 @@ export function checksSummary(release) {
     return { tone: 'ok', label: warned ? `All passed, ${warned} ${warned === 1 ? 'warning' : 'warnings'}` : 'All passed' };
 }
 
-/** The eight check rows with their messages (errors always, warnings when `showWarnings`). */
+/**
+ * The check rows: a plain line for each and, when the service reported something (errors always,
+ * warnings when `showWarnings`), its summary and messages behind a disclosure, open when it failed.
+ */
 export default function Checks({ release, showWarnings = true }) {
     return (
         <div className="checks" aria-live="polite">
             {checkRows(release).map((row) => {
                 const look = LOOK[row.state];
+                const errors = row.check?.errors ?? [];
+                const warnings = showWarnings && row.check?.passed ? (row.check?.warnings ?? []) : [];
+                const messages = [...errors, ...warnings];
+                const found = row.check?.summary && row.check.summary !== row.description ? row.check.summary : null;
                 return (
                     <div key={row.key} className={`ck ${row.state}`} data-check={row.key} data-state={row.state}>
                         <span className="ck-dot">{look.icon && <Icon name={look.icon} strokeWidth={2.6} />}</span>
-                        <div>
+                        <div style={{ minWidth: 0 }}>
                             <div className="ck-title">{row.label}</div>
-                            <div className="ck-desc">{row.check?.summary || row.description}</div>
-                            {row.check?.errors?.map((message, index) => (
-                                <div key={`e${index}`} className="ck-msg">
-                                    {message}
-                                </div>
-                            ))}
-                            {showWarnings &&
-                                row.check?.passed &&
-                                row.check?.warnings?.map((message, index) => (
-                                    <div key={`w${index}`} className="ck-msg">
-                                        {message}
-                                    </div>
-                                ))}
+                            <div className="ck-desc">{row.description}</div>
+                            {messages.length > 0 && (
+                                <details className="ck-more" open={row.state === 'fail' || undefined}>
+                                    <summary>{row.state === 'fail' ? 'What failed' : row.state === 'warn' ? 'Warning details' : 'Details'}</summary>
+                                    {found && <div className="ck-desc">{found}</div>}
+                                    {messages.map((message, index) => (
+                                        <div key={index} className="ck-msg">
+                                            {message}
+                                        </div>
+                                    ))}
+                                </details>
+                            )}
                         </div>
                         <span className="ck-state" style={{ color: look.color }}>
                             {look.word}

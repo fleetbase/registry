@@ -73,7 +73,7 @@ function TokensPage({ tokens }) {
                 <AccountHeader
                     title="Tokens"
                     current="tokens"
-                    description="For the Fleetbase CLI, CI pipelines, npm and Composer. Each one is named, scoped and expires. You see a token in full once, when you create it."
+                    description="For the Fleetbase CLI, CI pipelines and installing paid extensions. Each one is named, limited to what you allow, and expires. You see a token in full once, when you create it."
                     actions={
                         !form && (
                             <button type="button" className="btn btn-primary" onClick={() => openForm()} data-new-token>
@@ -166,7 +166,7 @@ function TokensPage({ tokens }) {
                     </>
                 }
             >
-                <p className="ink2">Anything using {revoking?.masked ? <code>{revoking.masked}</code> : 'it'} stops working straight away: the CLI, CI jobs, npm and Composer. This can’t be undone.</p>
+                <p className="ink2">Anything using {revoking?.masked ? <code>{revoking.masked}</code> : 'it'} stops working straight away, including the CLI and CI jobs. This can’t be undone.</p>
             </Dialog>
         </div>
     );

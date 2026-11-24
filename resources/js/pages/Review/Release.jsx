@@ -25,9 +25,9 @@ const TABS = [
 ];
 
 const ARCHIVES = [
-    ['engine', 'Engine'],
-    ['api', 'API'],
-    ['dist', 'Prebuilt'],
+    ['engine', 'Console files (npm)'],
+    ['api', 'Server files (Composer)'],
+    ['dist', 'Ready-built console files'],
 ];
 
 /**
@@ -225,7 +225,7 @@ function ChecksTab({ release, changes }) {
             {changes && <ChangesCard changes={changes} />}
             <section className="card card-pad stack" aria-labelledby="archives-title">
                 <h2 id="archives-title" className="h4">
-                    Archives
+                    Files
                 </h2>
                 {archives.length ? (
                     <div className="grid3" style={{ gap: 10 }}>
@@ -245,7 +245,7 @@ function ChecksTab({ release, changes }) {
                                     <span className="col" style={{ gap: 0, minWidth: 0 }}>
                                         <span className="small" style={{ fontWeight: 600 }}>
                                             {label}
-                                            <span className="sr-only"> archive, download</span>
+                                            <span className="sr-only">, download</span>
                                         </span>
                                         <span className="xs muted">{[ext, bytes(file.size)].filter(Boolean).join(' · ')}</span>
                                     </span>
@@ -254,7 +254,7 @@ function ChecksTab({ release, changes }) {
                         })}
                     </div>
                 ) : (
-                    <p className="small muted">This release has no stored archives.</p>
+                    <p className="small muted">This release has no stored files.</p>
                 )}
                 <span className="xs muted">Every download is logged against your account.</span>
             </section>

@@ -24,7 +24,7 @@ export default function Pending({ releases, approvers = {}, suspended = [], coun
         <SiteLayout title="To publish" section="review">
             <div className="wrap page">
                 <div className="stack-lg">
-                    <PageHeader nav={<ReviewTabs current="publish" counts={counts} />} title="To publish" description="Approved without “publish at once”. Publishing makes it the latest version in the catalog, npm and Composer." />
+                    <PageHeader nav={<ReviewTabs current="publish" counts={counts} />} title="To publish" description="Approved without “publish at once”. Publishing makes it the latest version in the catalog." />
 
                     <section className="card" aria-labelledby="h-ready">
                         <div className="card-head">

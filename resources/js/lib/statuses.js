@@ -4,13 +4,13 @@
  */
 export const RELEASE_STATUSES = {
     uploaded: { tone: 'you', icon: 'arrowUp', label: 'Ready to submit', hint: 'Checks passed. Submit when the listing is ready.' },
-    checking: { tone: 'wait', icon: 'spinner', label: 'Checking', hint: 'Eight automated checks are running.' },
+    checking: { tone: 'wait', icon: 'spinner', label: 'Checking', hint: 'Automatic checks are running.' },
     failed_checks: { tone: 'fail', icon: 'x', label: 'Checks failed', hint: 'Fix and upload the same version again.' },
     submitted: { tone: 'wait', icon: 'clock', label: 'Waiting for review', hint: 'In the queue. Nothing to do.' },
     in_review: { tone: 'wait', icon: 'eye', label: 'In review', hint: 'A reviewer has it open.' },
     approved: { tone: 'wait', icon: 'check', label: 'Approved, publishing', hint: 'Approved. Goes live when Fleetbase publishes.' },
     rejected: { tone: 'fail', icon: 'x', label: 'Changes requested', hint: 'Read the reasons, fix, resubmit.' },
-    published: { tone: 'ok', icon: 'check', label: 'Live', hint: 'In the catalog, npm and Composer.' },
+    published: { tone: 'ok', icon: 'check', label: 'Live', hint: 'Available to install.' },
     yanked: { tone: 'idle', icon: 'minus', label: 'Yanked', hint: 'Hidden from new installs; lockfiles still work.' },
 };
 
@@ -24,16 +24,16 @@ export const LISTING_STATUSES = {
     suspended: { tone: 'fail', icon: 'ban', label: 'Suspended' },
 };
 
-/** The eight automated checks, in the order the service runs them. */
+/** The automated checks, in the order the service runs them. */
 export const CHECKS = {
-    manifest: { label: 'Manifest', description: 'extension.json validates against the schema' },
-    compat: { label: 'Compatibility', description: 'console and api ranges parse' },
-    package_names: { label: 'Package names', description: 'archives match the listing’s packages' },
-    version: { label: 'Version', description: 'greater than every release on the channel' },
-    size: { label: 'Size', description: 'archives within the size and entry limits' },
-    archive: { label: 'Archive safety', description: 'no traversal, links, devices or binaries' },
-    secrets_scan: { label: 'Secrets scan', description: 'no credentials or keys in the archives' },
-    dist: { label: 'Prebuilt engine', description: 'dist manifest and hashes, when uploaded' },
+    manifest: { label: 'Extension details', description: 'extension.json is complete and valid' },
+    compat: { label: 'Compatibility', description: 'the supported Fleetbase versions are readable' },
+    package_names: { label: 'Names', description: 'the files match the listing' },
+    version: { label: 'Version', description: 'newer than every earlier release' },
+    size: { label: 'Size', description: 'within the size limits' },
+    archive: { label: 'File safety', description: 'nothing unsafe in the files' },
+    secrets_scan: { label: 'Secrets scan', description: 'no passwords or keys left in the files' },
+    dist: { label: 'Ready-built files', description: 'valid, when included' },
 };
 
 /** Releases still moving through the pipeline. */
@@ -55,7 +55,7 @@ export const ROLES = {
 
 export const TOKEN_SCOPES = {
     publish: { label: 'Publish', description: 'flb publish: create listings, upload releases, submit' },
-    install: { label: 'Install', description: 'Download paid packages with npm, Composer and flb install' },
+    install: { label: 'Install', description: 'Install paid extensions, with flb install or by hand' },
     read: { label: 'Read', description: 'Read your account and listings' },
     'instance:register': { label: 'Register instances', description: 'Mint codes to connect a Fleetbase instance' },
 };

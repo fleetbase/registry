@@ -14,13 +14,13 @@ import { withSubmissionDates } from '../../components/studio/submitted';
 import { bytes, shortDate } from '../../lib/format';
 
 const FILES = [
-    ['engine', 'npm engine'],
-    ['api', 'Composer API'],
-    ['dist', 'Prebuilt engine'],
+    ['engine', 'Console files'],
+    ['api', 'Server files'],
+    ['dist', 'Ready-built console files'],
 ];
 
 /**
- * One release: its route, the eight checks (polled every 2 s while they run), what to do next
+ * One release: its route, the automated checks (polled every 2 s while they run), what to do next
  * when they fail, the way to review and submit when they pass, its files and notes.
  */
 export default function StudioRelease({ extension, release }) {

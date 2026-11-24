@@ -246,6 +246,10 @@ code, kbd, .mono { font-family: var(--mono); font-size: 0.88em; }
 .ck.fail .ck-msg { background: var(--fail-bg); color: var(--fail); }
 .ck.warn .ck-msg { background: var(--you-bg); color: var(--you); }
 .ck-state { font-size: 12px; font-weight: 600; padding-top: 3px; }
+.ck-more { margin-top: 4px; }
+.ck-more > summary { cursor: pointer; font-size: 12px; color: var(--muted); width: fit-content; }
+.ck-more > summary:hover { color: var(--ink-2); }
+.ck-more[open] > summary { margin-bottom: 2px; }
 
 /* Waypoint route: the release pipeline */
 .route { display: flex; align-items: flex-start; }

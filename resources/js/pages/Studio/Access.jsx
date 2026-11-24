@@ -60,9 +60,9 @@ export default function StudioAccess({ extension, access = null, trusted_publish
 function consequences(target, released) {
     if (target === 'private') {
         return [
-            'It leaves the catalog and search straight away, and npm and Composer answer “not found” to anyone without access.',
+            'It leaves the catalog and search straight away, and no one without access can install it.',
             'Your organization, and the organizations you grant access below, can still see, install and update it. Organizations that bought it keep their licences.',
-            'Private releases skip the Fleetbase review. They still run every automated check, secret scanning included, and publish as soon as the checks pass.',
+            'Private releases skip the Fleetbase review. They’re still checked automatically, and publish as soon as the checks pass.',
         ];
     }
     if (released) {
@@ -105,7 +105,7 @@ function VisibilitySection({ extension, visibility, pending }) {
 
     const options = [
         { value: 'public', label: 'Public', help: 'Listed in the catalog and search. Anyone can install it, or buy it when it is paid.' },
-        { value: 'private', label: 'Private', help: 'Hidden from the catalog, search, npm and Composer. Only your organization and organizations you grant access can see and install it.' },
+        { value: 'private', label: 'Private', help: 'Hidden from the catalog and search. Only your organization and organizations you grant access can see and install it.' },
     ];
 
     function choose(value) {
@@ -156,7 +156,7 @@ function VisibilitySection({ extension, visibility, pending }) {
                         </div>
                     </Note>
                 ) : visibility === 'private' ? (
-                    <span className="small muted">Private releases skip the Fleetbase review; they still run every automated check, secret scanning included, and publish when the checks pass. The listing only needs a name.</span>
+                    <span className="small muted">Private releases skip the Fleetbase review; they’re still checked automatically, and publish when the checks pass. The listing only needs a name.</span>
                 ) : null}
             </div>
 

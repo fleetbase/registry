@@ -78,7 +78,7 @@ describe('package name availability on Create', () => {
 
         // Editing a name checks the new one.
         fireEvent.click(screen.getByRole('button', { name: 'Edit names' }));
-        fireEvent.change(screen.getByLabelText('npm engine'), { target: { value: '@acme/free-engine' } });
+        fireEvent.change(screen.getByLabelText('Console (npm)'), { target: { value: '@acme/free-engine' } });
         await waitFor(() => expect(api.get).toHaveBeenLastCalledWith('/publisher/packages/availability', { organization: 'acme', npm: '@acme/free-engine', composer: 'acme/taken-api' }));
         await waitFor(() => expect(within(container.querySelector('[data-availability-for="npm"]')).getByText('Available')).toBeInTheDocument());
 

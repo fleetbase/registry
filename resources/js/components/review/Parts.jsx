@@ -109,7 +109,7 @@ export function SuspendDialog({ open, extension, onClose }) {
                 </>
             }
         >
-            <p className="ink2">It leaves the catalog and the npm and Composer endpoints at once. Uploads and publishing stop. Instances that installed it keep their copy.</p>
+            <p className="ink2">It leaves the catalog and stops installing at once. Uploads and publishing stop. Instances that installed it keep their copy.</p>
             <Field label="Reason shown to the publisher" error={error}>
                 {(id, aria) => <textarea id={id} {...aria} className="textarea" data-autofocus placeholder="What is wrong and what would lift it" value={reason} onChange={(event) => setReason(event.target.value)} />}
             </Field>
@@ -202,7 +202,7 @@ export function PublishDialog({ open, release, onClose }) {
                 </>
             }
         >
-            <p className="ink2">It becomes the latest version in the catalog, npm and Composer, and the publisher is emailed.</p>
+            <p className="ink2">It becomes the latest version in the catalog, and the publisher is emailed.</p>
         </Dialog>
     );
 }

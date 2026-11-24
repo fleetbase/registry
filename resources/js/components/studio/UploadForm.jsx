@@ -6,10 +6,10 @@ import { api } from '../../lib/api';
 import { bytes } from '../../lib/format';
 
 export const SLOTS = [
-    { key: 'manifest', label: 'Manifest', hint: 'extension.json', accept: '.json,application/json', required: true },
-    { key: 'engine', label: 'Engine (npm)', hint: '.tgz from npm pack', accept: '.tgz,.gz,application/gzip' },
-    { key: 'api', label: 'API (Composer)', hint: '.tar or .tar.gz', accept: '.tar,.gz,.tgz,application/x-tar,application/gzip' },
-    { key: 'dist', label: 'Prebuilt engine', hint: 'optional · the dist folder, tarred', accept: '.tar,.gz,.tgz,application/x-tar,application/gzip', optional: true },
+    { key: 'manifest', label: 'Extension details', hint: 'extension.json', accept: '.json,application/json', required: true },
+    { key: 'engine', label: 'Console files', hint: '.tgz from npm pack', accept: '.tgz,.gz,application/gzip' },
+    { key: 'api', label: 'Server files', hint: '.tar or .tar.gz', accept: '.tar,.gz,.tgz,application/x-tar,application/gzip' },
+    { key: 'dist', label: 'Ready-built console files', hint: 'the built dist folder, tarred', accept: '.tar,.gz,.tgz,application/x-tar,application/gzip', optional: true },
 ];
 
 /** Which slot a dropped file fills, from its name. */
@@ -22,7 +22,7 @@ export function slotFor(name) {
     return null;
 }
 
-/** The upload can go when there is a manifest and at least one of the engine and API archives. */
+/** The upload can go when there is a manifest and at least one of the console and server files. */
 export function uploadReady(files) {
     return Boolean(files.manifest && (files.engine || files.api));
 }
@@ -84,7 +84,7 @@ export default function UploadForm({ extension }) {
                 <h2 id="h-upload" className="h3">
                     Upload a release
                 </h2>
-                <span className="small muted">Eight checks run at once</span>
+                <span className="small muted">Checked automatically</span>
             </div>
             <div className="card-body stack">
                 <div
@@ -103,7 +103,7 @@ export default function UploadForm({ extension }) {
                 >
                     <Icon name="upload" size={22} />
                     <span>
-                        <strong style={{ color: 'var(--ink)' }}>Drop extension.json and the archives here</strong>
+                        <strong style={{ color: 'var(--ink)' }}>Drop your extension’s files here</strong>
                     </span>
                     <span className="xs">or choose each file below. The version comes from extension.json.</span>
                 </div>
@@ -169,7 +169,7 @@ export default function UploadForm({ extension }) {
                         );
                     })}
                 </ul>
-                <p className="xs muted">A manifest and at least one of the engine and API archives are needed.</p>
+                <p className="xs muted">extension.json and at least one of the console and server files are needed.</p>
 
                 <div className="grid2">
                     <Field label="Channel" error={fieldError('channel')} help="Leave it to extension.json, or pick one.">

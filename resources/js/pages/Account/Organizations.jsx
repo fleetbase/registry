@@ -67,7 +67,7 @@ export default function Organizations({ organizations = [], organization }) {
                                 <Icon name="plus" />
                                 New organization
                             </button>
-                            <p className="xs muted">An organization is a publisher (its name shows on listings) and a buyer (licences belong to it). Its slug becomes your npm scope and Composer vendor.</p>
+                            <p className="xs muted">An organization is a publisher (its name shows on listings) and a buyer (licences belong to it). Its slug becomes the prefix of your extensions’ package names.</p>
                         </div>
 
                         <div className="main">
@@ -435,7 +435,7 @@ function NewOrganizationDialog({ open, onClose }) {
                 <Field label="Name" error={errors.name}>
                     {(id, aria) => <input id={id} {...aria} data-autofocus className={`input ${errors.name ? 'is-error' : ''}`} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />}
                 </Field>
-                <Field label="Slug" optional error={errors.slug} help="Your npm scope and Composer vendor, like @acme. It can’t change later. Left empty, it comes from the name.">
+                <Field label="Slug" optional error={errors.slug} help="The prefix of your extensions’ package names, like @acme. It can’t change later. Left empty, it comes from the name.">
                     {(id, aria) => (
                         <input id={id} {...aria} className={`input mono ${errors.slug ? 'is-error' : ''}`} autoCapitalize="none" spellCheck={false} value={form.slug} onChange={(event) => setForm({ ...form, slug: event.target.value })} />
                     )}

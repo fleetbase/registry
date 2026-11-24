@@ -42,6 +42,25 @@ class UploadReleaseRequest extends FormRequest
         ];
     }
 
+    /** Plain names for the parts in validation messages, as the upload form labels them. */
+    public function attributes(): array
+    {
+        return [
+            'manifest' => 'extension.json',
+            'engine' => 'console files',
+            'api' => 'server files',
+            'dist' => 'ready-built console files',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'engine.required_without' => 'Add the console files, the server files, or both.',
+            'api.required_without' => 'Add the console files, the server files, or both.',
+        ];
+    }
+
     public function after(): array
     {
         return [function (Validator $validator) {

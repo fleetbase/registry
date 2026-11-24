@@ -164,7 +164,7 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                                 {release.channel === 'beta' && <StatusChip tone="you">Beta</StatusChip>}
                                                 {release.status === 'yanked' && <StatusChip tone="idle">Yanked</StatusChip>}
                                                 <span className="tl-meta">
-                                                    {[shortDate(release.published_at), release.size_bytes ? bytes(release.size_bytes) : null, release.compat?.console ? `console ${release.compat.console}` : null].filter(Boolean).join(' · ')}
+                                                    {[shortDate(release.published_at), release.size_bytes ? bytes(release.size_bytes) : null, release.compat?.console ? `Fleetbase ${release.compat.console}` : null].filter(Boolean).join(' · ')}
                                                 </span>
                                             </div>
                                             {release.notes ? <SafeHtml html={release.notes} className="quote" /> : release.status === 'yanked' ? <div className="tl-meta">Withdrawn by the publisher. Existing installs keep working.</div> : null}
@@ -181,8 +181,6 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                 </h2>
                             </div>
                             <dl className="card-body grid2" style={{ margin: 0, rowGap: 18 }}>
-                                {extension.packages?.npm && <Detail label="Engine package (npm)" mono value={extension.packages.npm} />}
-                                {extension.packages?.composer && <Detail label="API package (Composer)" mono value={extension.packages.composer} />}
                                 {extension.languages?.length > 0 && <Detail label="Languages" value={extension.languages.join(', ')} />}
                                 {extension.copyright && <Detail label="Copyright" value={extension.copyright} />}
                                 {links.length > 0 && <Detail label="Links" value={<LinkList links={links} />} />}
@@ -210,7 +208,7 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                     options={[
                                         { value: 'console', label: 'Console' },
                                         { value: 'cli', label: 'CLI' },
-                                        { value: 'packages', label: 'Packages' },
+                                        { value: 'packages', label: 'Manual' },
                                     ]}
                                 />
                                 {method === 'console' &&
@@ -227,7 +225,7 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                                 Find <strong>{extension.name}</strong>
                                                 {paid ? ', choose Buy and pay with Stripe, then Install.' : ' and choose Install.'}
                                             </Step>
-                                            <Step n={3}>The console installs the engine and API package and reloads when done.</Step>
+                                            <Step n={3}>The console installs the extension and reloads when done.</Step>
                                             {paid && <span className="xs muted">Or buy it on this page: the licence covers your organization’s instances either way.</span>}
                                         </div>
                                     ))}
@@ -245,17 +243,18 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                 )}
                                 {method === 'packages' && (
                                     <div className="col" style={{ gap: 10 }} data-install="packages">
+                                        <span className="xs muted">For developers adding the extension to a Fleetbase build by hand.</span>
                                         {extension.packages?.npm && (
                                             <>
                                                 <span className="small ink2">
-                                                    Engine, in <code>.npmrc</code>:
+                                                    Console, in <code>.npmrc</code>, then add <code className="mono">{extension.packages.npm}</code>:
                                                 </span>
                                                 <pre className="pre">{[scope ? `${scope}:registry=${registry.url}/npm/` : `registry=${registry.url}/npm/`, paid ? `//${registry.host}/npm/:_authToken=flbp_…` : null].filter(Boolean).join('\n')}</pre>
                                             </>
                                         )}
                                         {extension.packages?.composer && (
                                             <>
-                                                <span className="small ink2">API package:</span>
+                                                <span className="small ink2">Server, with Composer:</span>
                                                 <CopyCommand value={`composer config repositories.fleetbase composer ${registry.url}/composer`} label="Composer repository command" />
                                                 <CopyCommand value={`composer require ${extension.packages.composer}${latest ? `:^${latest.version}` : ''}`} label="Composer require command" />
                                             </>
@@ -277,13 +276,13 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                             </h2>
                             <dl className="col small" style={{ gap: 8, margin: 0 }}>
                                 <div className="row between">
-                                    <dt className="muted">Console</dt>
+                                    <dt className="muted">Fleetbase console</dt>
                                     <dd className="mono" style={{ margin: 0 }}>
                                         {latest?.compat?.console ?? 'Any version'}
                                     </dd>
                                 </div>
                                 <div className="row between">
-                                    <dt className="muted">API</dt>
+                                    <dt className="muted">Fleetbase server</dt>
                                     <dd className="mono" style={{ margin: 0 }}>
                                         {latest?.compat?.api ?? 'Any version'}
                                     </dd>
@@ -295,7 +294,7 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                             </dl>
                             <form className="field" method="get" onSubmit={checkVersion}>
                                 <label className="label" htmlFor="check-version">
-                                    Check a console version
+                                    Check your Fleetbase version
                                 </label>
                                 <div className="row">
                                     <input id="check-version" name="check" className="input mono" placeholder="0.7.69" value={check} onChange={(event) => setCheck(event.target.value)} />

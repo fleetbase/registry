@@ -230,7 +230,7 @@ export function DecisionDialogs({ decision }) {
             >
                 <p className="ink2">
                     {publishNow
-                        ? 'It becomes the latest version in the catalog, npm and Composer at once, and the publisher is emailed.'
+                        ? 'It becomes the latest version in the catalog at once, and the publisher is emailed.'
                         : 'It waits under To publish until someone publishes it. The publisher sees it as approved.'}
                 </p>
                 <p className="small muted">All {items.length} requirements pass.</p>
@@ -317,7 +317,7 @@ export function DecidedCard({ release, itemLabels, onPublish, onRequestChanges }
             {release.status === 'approved' && (
                 <>
                     <Note tone="info">
-                        <span className="small">Approved without publishing. Publishing makes it the latest version in the catalog, npm and Composer. Until then you can still request changes.</span>
+                        <span className="small">Approved without publishing. Publishing makes it the latest version in the catalog. Until then you can still request changes.</span>
                     </Note>
                     <div className="row wrapflex" style={{ gap: 10 }}>
                         {onRequestChanges && (

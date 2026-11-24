@@ -174,7 +174,7 @@ function ChecksPending({ extension, candidate }) {
                         <h2 id="h-checks" className="h3">
                             {running ? 'Checks are running' : 'Checks failed'}
                         </h2>
-                        <p className="ink2">{running ? 'Submit when all eight automated checks pass.' : `Fix what the checks found and upload v${candidate.version} again; it replaces this release.`}</p>
+                        <p className="ink2">{running ? 'Submit once the automatic checks pass.' : `Fix what the checks found and upload v${candidate.version} again; it replaces this release.`}</p>
                     </div>
                 </div>
                 <Link href={`/studio/${extension.slug}/releases/${candidate.id}`} className={`btn ${running ? '' : 'btn-primary'}`} style={{ alignSelf: 'flex-start' }}>
@@ -239,7 +239,7 @@ function Approved({ candidate, onWithdraw }) {
                 <h2 id="h-approved" className="h3">
                     Approved. Publishing next.
                 </h2>
-                <p className="ink2">v{candidate.version} passed review. It goes live in the catalog, npm and Composer when Fleetbase publishes it; nothing for you to do.</p>
+                <p className="ink2">v{candidate.version} passed review. It goes live when Fleetbase publishes it; nothing for you to do.</p>
                 <div className="row wrapflex between">
                     <span className="small muted">Need to change something first? Withdraw it, then upload and submit again.</span>
                     <button type="button" className="btn btn-danger" onClick={onWithdraw}>

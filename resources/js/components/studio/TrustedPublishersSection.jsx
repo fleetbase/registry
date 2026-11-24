@@ -197,7 +197,7 @@ export default function TrustedPublishersSection({ extension, publishers = [] })
                     <span className="label">Workflow</span>
                     <CopySnippet value={workflowSnippet({ ...sample, registry: registryUrl })} label="workflow" />
                     <span className="small muted">
-                        <code>id-token: write</code> lets the job ask GitHub for a token the registry trusts; nothing is stored in the repository. Releases still run every automated check.
+                        <code>id-token: write</code> lets the job ask GitHub for a token the registry trusts; nothing is stored in the repository. Releases are still checked automatically.
                     </span>
                 </div>
             </div>

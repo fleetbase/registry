@@ -20,7 +20,9 @@
 .sd-opt-card[aria-checked='true'] .sd-radio { border-color: var(--accent); }
 .sd-opt-card[aria-checked='true'] .sd-radio::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
 .sd-pkg { display: flex; align-items: center; gap: 8px; min-height: var(--h-ctl); padding: 0 10px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--surface-2); font-family: var(--mono); font-size: 13px; overflow-wrap: anywhere; }
-.sd-pkg .k { font-family: var(--font); font-size: 11.5px; font-weight: 600; color: var(--muted); min-width: 70px; }
+.sd-pkg .k { font-family: var(--font); font-size: 11.5px; font-weight: 600; color: var(--muted); min-width: 110px; }
+.sd-more > summary { cursor: pointer; width: fit-content; }
+.sd-more > * + * { margin-top: 10px; }
 .sd-linkbtn { border: 0; padding: 0; background: none; color: var(--accent); font: inherit; cursor: pointer; text-decoration: none; min-height: 24px; }
 .sd-linkbtn:hover { text-decoration: underline; }
 
