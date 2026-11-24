@@ -254,7 +254,7 @@ class ExtensionController extends PublisherController
 
             return ($value === null || $value === '') ? $current === null : $current !== null && in_array($value, [$current->slug, $current->public_id], true);
         }
-        if (in_array($field, ['tags', 'languages'], true)) {
+        if (in_array($field, ['tags', 'languages', 'highlights', 'setup_steps'], true)) {
             return array_values((array) ($value ?? [])) === array_values((array) ($extension->{$field} ?? []));
         }
 

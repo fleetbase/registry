@@ -106,3 +106,39 @@ it('lets a trusted publishing token apply the listing block, but not edit the li
     $this->patchJson($this->path, ['copyright' => 'x'], $headers)->assertUnauthorized();
     $this->putJson($this->path.'/price', ['model' => 'free'], $headers)->assertUnauthorized();
 });
+
+it('applies highlights and setup steps from the listing block and validates them', function () {
+    $this->putJson($this->path.'/listing-manifest', [
+        'highlights' => ['Live vehicle positions on the Fleet-Ops map', 'Trips and fuel from LocoNav'],
+        'setup_steps' => ['Open Settings → LocoNav', 'Paste your API key'],
+    ])->assertOk()
+        ->assertJsonPath('highlights', ['Live vehicle positions on the Fleet-Ops map', 'Trips and fuel from LocoNav'])
+        ->assertJsonPath('setup_steps', ['Open Settings → LocoNav', 'Paste your API key'])
+        ->assertJsonPath('manifest_fields', ['highlights', 'setup_steps']);
+
+    // Studio may not change them now, but may resend the same lines.
+    $this->patchJson($this->path, ['highlights' => ['Something else']])->assertStatus(422)
+        ->assertJsonPath('fields.highlights.0', 'Set in extension.json; change it there and publish.');
+    $this->patchJson($this->path, ['setup_steps' => ['Open Settings → LocoNav', 'Paste your API key']])->assertOk();
+
+    $this->putJson($this->path.'/listing-manifest', [
+        'highlights' => array_fill(0, 6, 'Too many'),
+        'setup_steps' => [str_repeat('x', 121), ''],
+    ])->assertStatus(422)->assertJsonValidationErrors(['highlights', 'setup_steps.0', 'setup_steps.1'], 'fields');
+});
+
+it('edits highlights and setup steps from Studio and shows them in the catalog', function () {
+    $this->extension->update(['status' => Extension::STATUS_PUBLISHED]);
+
+    $this->patchJson($this->path, ['highlights' => ['Maps', 'Alerts'], 'setup_steps' => ['Connect your account']])->assertOk()
+        ->assertJsonPath('highlights', ['Maps', 'Alerts'])
+        ->assertJsonPath('setup_steps', ['Connect your account']);
+
+    $this->getJson('/v1/catalog/extensions/'.$this->extension->slug)->assertOk()
+        ->assertJsonPath('highlights', ['Maps', 'Alerts'])
+        ->assertJsonPath('setup_steps', ['Connect your account']);
+
+    // An empty list clears it.
+    $this->patchJson($this->path, ['setup_steps' => []])->assertOk()->assertJsonPath('setup_steps', []);
+    expect($this->extension->fresh()->setup_steps)->toBeNull();
+});

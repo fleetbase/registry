@@ -104,15 +104,39 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                         )}
 
                         {screenshots.length > 0 && (
-                            <section aria-label="Screenshots" style={{ display: 'grid', gridTemplateColumns: screenshots.length > 1 ? 'minmax(0,3fr) minmax(0,1fr)' : 'minmax(0,1fr)', gap: 12 }}>
-                                <button type="button" className="card" style={{ padding: 0, overflow: 'hidden', cursor: 'zoom-in', height: 360 }} onClick={() => setLightbox(0)} aria-label={`Open screenshot 1 of ${screenshots.length}`}>
-                                    <img src={screenshots[0].url} alt={screenshots[0].caption ?? `${extension.name} screenshot 1`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <section
+                                aria-label="Screenshots"
+                                style={{ display: 'grid', gridTemplateColumns: screenshots.length > 1 ? 'minmax(0,3fr) minmax(0,1fr)' : 'minmax(0,1fr)', gap: 12 }}
+                            >
+                                <button
+                                    type="button"
+                                    className="card"
+                                    style={{ padding: 0, overflow: 'hidden', cursor: 'zoom-in', height: 360 }}
+                                    onClick={() => setLightbox(0)}
+                                    aria-label={`Open screenshot 1 of ${screenshots.length}`}
+                                >
+                                    <img
+                                        src={screenshots[0].url}
+                                        alt={screenshots[0].caption ?? `${extension.name} screenshot 1`}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    />
                                 </button>
                                 {screenshots.length > 1 && (
                                     <div className="hide-sm" style={{ display: 'grid', gridTemplateRows: 'repeat(3, 1fr)', gap: 12, height: 360 }}>
                                         {screenshots.slice(1, 4).map((shot, index) => (
-                                            <button key={shot.id} type="button" className="card" style={{ padding: 0, overflow: 'hidden', cursor: 'zoom-in', position: 'relative' }} onClick={() => setLightbox(index + 1)} aria-label={`Open screenshot ${index + 2} of ${screenshots.length}`}>
-                                                <img src={shot.url} alt={shot.caption ?? `${extension.name} screenshot ${index + 2}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <button
+                                                key={shot.id}
+                                                type="button"
+                                                className="card"
+                                                style={{ padding: 0, overflow: 'hidden', cursor: 'zoom-in', position: 'relative' }}
+                                                onClick={() => setLightbox(index + 1)}
+                                                aria-label={`Open screenshot ${index + 2} of ${screenshots.length}`}
+                                            >
+                                                <img
+                                                    src={shot.url}
+                                                    alt={shot.caption ?? `${extension.name} screenshot ${index + 2}`}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                />
                                                 {index === 2 && screenshots.length > 4 && (
                                                     <span className="scrim" style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 600 }}>
                                                         +{screenshots.length - 4} more
@@ -141,6 +165,40 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                             )}
                         </section>
 
+                        {(extension.highlights?.length > 0 || extension.setup_steps?.length > 0) && (
+                            <section className="card card-pad" aria-label="What you’ll get and setup" data-lists>
+                                <div className="grid2" style={{ gap: 24, alignItems: 'start' }}>
+                                    {extension.highlights?.length > 0 && (
+                                        <div className="col" style={{ gap: 10 }} data-highlights>
+                                            <h2 className="h4">What you’ll get</h2>
+                                            <ul className="col" style={{ gap: 8, listStyle: 'none', margin: 0, padding: 0 }}>
+                                                {extension.highlights.map((line, index) => (
+                                                    <li key={index} className="row small" style={{ gap: 8, alignItems: 'flex-start' }}>
+                                                        <span style={{ color: 'var(--ok, var(--accent))', marginTop: 2, flex: 'none' }} aria-hidden="true">
+                                                            <Icon name="check" size={14} strokeWidth={2.6} />
+                                                        </span>
+                                                        <span className="ink2">{line}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                    {extension.setup_steps?.length > 0 && (
+                                        <div className="col" style={{ gap: 10 }} data-setup-steps>
+                                            <h2 className="h4">After you install</h2>
+                                            <ol className="col" style={{ gap: 10, listStyle: 'none', margin: 0, padding: 0 }}>
+                                                {extension.setup_steps.map((line, index) => (
+                                                    <li key={index}>
+                                                        <Step n={index + 1}>{line}</Step>
+                                                    </li>
+                                                ))}
+                                            </ol>
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        )}
+
                         <section className="card" aria-labelledby="h-ver">
                             <div className="card-head">
                                 <h2 id="h-ver" className="h3">
@@ -164,10 +222,20 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                                 {release.channel === 'beta' && <StatusChip tone="you">Beta</StatusChip>}
                                                 {release.status === 'yanked' && <StatusChip tone="idle">Yanked</StatusChip>}
                                                 <span className="tl-meta">
-                                                    {[shortDate(release.published_at), release.size_bytes ? bytes(release.size_bytes) : null, release.compat?.console ? `Fleetbase ${release.compat.console}` : null].filter(Boolean).join(' · ')}
+                                                    {[
+                                                        shortDate(release.published_at),
+                                                        release.size_bytes ? bytes(release.size_bytes) : null,
+                                                        release.compat?.console ? `Fleetbase ${release.compat.console}` : null,
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join(' · ')}
                                                 </span>
                                             </div>
-                                            {release.notes ? <SafeHtml html={release.notes} className="quote" /> : release.status === 'yanked' ? <div className="tl-meta">Withdrawn by the publisher. Existing installs keep working.</div> : null}
+                                            {release.notes ? (
+                                                <SafeHtml html={release.notes} className="quote" />
+                                            ) : release.status === 'yanked' ? (
+                                                <div className="tl-meta">Withdrawn by the publisher. Existing installs keep working.</div>
+                                            ) : null}
                                         </div>
                                     </div>
                                 ))}
@@ -194,7 +262,13 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                             <div className="card-body stack">
                                 <div className="row between">
                                     <div className="col" style={{ gap: 2 }}>
-                                        <span className="small muted">{paid ? (extension.price.on_sale ? `One-time licence · was ${money(extension.price.amount, extension.price.currency)}` : 'One-time licence, per organization') : 'Free'}</span>
+                                        <span className="small muted">
+                                            {paid
+                                                ? extension.price.on_sale
+                                                    ? `One-time licence · was ${money(extension.price.amount, extension.price.currency)}`
+                                                    : 'One-time licence, per organization'
+                                                : 'Free'}
+                                        </span>
                                         <span className="h2 num">{priceLabel(extension.price)}</span>
                                     </div>
                                     {extension.price?.on_sale && <StatusChip tone="you">On sale</StatusChip>}
@@ -236,7 +310,8 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                         <CopyCommand value={`flb install ${extension.slug}`} label="install command" />
                                         {paid && (
                                             <span className="xs muted">
-                                                Paid: use a token with the <strong>install</strong> scope from an organization that bought it. <Link href="/account/tokens">Create a token</Link>
+                                                Paid: use a token with the <strong>install</strong> scope from an organization that bought it.{' '}
+                                                <Link href="/account/tokens">Create a token</Link>
                                             </span>
                                         )}
                                     </div>
@@ -249,14 +324,24 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                                 <span className="small ink2">
                                                     Console, in <code>.npmrc</code>, then add <code className="mono">{extension.packages.npm}</code>:
                                                 </span>
-                                                <pre className="pre">{[scope ? `${scope}:registry=${registry.url}/npm/` : `registry=${registry.url}/npm/`, paid ? `//${registry.host}/npm/:_authToken=flbp_…` : null].filter(Boolean).join('\n')}</pre>
+                                                <pre className="pre">
+                                                    {[
+                                                        scope ? `${scope}:registry=${registry.url}/npm/` : `registry=${registry.url}/npm/`,
+                                                        paid ? `//${registry.host}/npm/:_authToken=flbp_…` : null,
+                                                    ]
+                                                        .filter(Boolean)
+                                                        .join('\n')}
+                                                </pre>
                                             </>
                                         )}
                                         {extension.packages?.composer && (
                                             <>
                                                 <span className="small ink2">Server, with Composer:</span>
                                                 <CopyCommand value={`composer config repositories.fleetbase composer ${registry.url}/composer`} label="Composer repository command" />
-                                                <CopyCommand value={`composer require ${extension.packages.composer}${latest ? `:^${latest.version}` : ''}`} label="Composer require command" />
+                                                <CopyCommand
+                                                    value={`composer require ${extension.packages.composer}${latest ? `:^${latest.version}` : ''}`}
+                                                    label="Composer require command"
+                                                />
                                             </>
                                         )}
                                     </div>
@@ -287,6 +372,16 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                         {latest?.compat?.api ?? 'Any version'}
                                     </dd>
                                 </div>
+                                {(extension.requires_extensions ?? []).map((required) => (
+                                    <div key={required.package} className="row between" data-requires={required.package}>
+                                        <dt className="muted">
+                                            Needs {required.slug ? <Link href={`/extensions/${required.slug}`}>{required.name}</Link> : (required.name ?? extensionName(required.package))}
+                                        </dt>
+                                        <dd className="mono" style={{ margin: 0 }}>
+                                            {required.range}
+                                        </dd>
+                                    </div>
+                                ))}
                                 <div className="row between">
                                     <dt className="muted">Hosting</dt>
                                     <dd style={{ margin: 0 }}>{HOSTINGS[extension.hosting]}</dd>
@@ -306,7 +401,9 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                 {compatibility?.valid && !compatibility.compatible && (
                                     <span className="err">
                                         <Icon name="x" size={14} strokeWidth={2.4} />
-                                        {compatibility.newest_compatible ? `v${compatibility.newest_compatible} is the newest release that supports ${compatibility.version}.` : `No release supports ${compatibility.version}.`}
+                                        {compatibility.newest_compatible
+                                            ? `v${compatibility.newest_compatible} is the newest release that supports ${compatibility.version}.`
+                                            : `No release supports ${compatibility.version}.`}
                                     </span>
                                 )}
                             </form>
@@ -323,7 +420,13 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                                             {extension.publisher.name}
                                         </Link>
                                         <span className="xs muted">
-                                            {[extension.publisher.is_verified ? 'Verified' : null, extension.publisher.extensions_count != null ? `${extension.publisher.extensions_count} extensions` : null, extension.publisher.created_at ? `since ${new Date(extension.publisher.created_at).getFullYear()}` : null].filter(Boolean).join(' · ')}
+                                            {[
+                                                extension.publisher.is_verified ? 'Verified' : null,
+                                                extension.publisher.extensions_count != null ? `${extension.publisher.extensions_count} extensions` : null,
+                                                extension.publisher.created_at ? `since ${new Date(extension.publisher.created_at).getFullYear()}` : null,
+                                            ]
+                                                .filter(Boolean)
+                                                .join(' · ')}
                                         </span>
                                     </div>
                                 </div>
@@ -341,10 +444,36 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
     );
 }
 
+/** A readable name for another extension's package: `@fleetbase/fleetops-engine` → `Fleetops`. */
+function extensionName(packageName) {
+    const base = String(packageName ?? '')
+        .split('/')
+        .pop()
+        .replace(/-engine$/, '');
+    return base
+        .split(/[-_]/)
+        .filter(Boolean)
+        .map((word) => word[0].toUpperCase() + word.slice(1))
+        .join(' ');
+}
+
 function Step({ n, children }) {
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '28px minmax(0,1fr)', gap: 12, alignItems: 'start' }}>
-            <span style={{ width: 28, height: 28, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 650, fontSize: 13 }} aria-hidden="true">
+            <span
+                style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    display: 'grid',
+                    placeItems: 'center',
+                    background: 'var(--accent-soft)',
+                    color: 'var(--accent)',
+                    fontWeight: 650,
+                    fontSize: 13,
+                }}
+                aria-hidden="true"
+            >
                 {n}
             </span>
             <span className="small">{children}</span>
@@ -396,10 +525,25 @@ function Lightbox({ extension, screenshots, index: start, onClose }) {
         };
     }, [count, onClose]);
 
-    const button = { width: 52, height: 52, borderRadius: '50%', border: '1px solid rgba(230,240,251,.18)', background: 'rgba(230,240,251,.08)', color: '#eaf2fc', display: 'grid', placeItems: 'center', cursor: 'pointer' };
+    const button = {
+        width: 52,
+        height: 52,
+        borderRadius: '50%',
+        border: '1px solid rgba(230,240,251,.18)',
+        background: 'rgba(230,240,251,.08)',
+        color: '#eaf2fc',
+        display: 'grid',
+        placeItems: 'center',
+        cursor: 'pointer',
+    };
 
     return (
-        <div role="dialog" aria-modal="true" aria-label={`Screenshot ${index + 1} of ${count}`} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(3,11,20,.94)', display: 'flex', flexDirection: 'column' }}>
+        <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Screenshot ${index + 1} of ${count}`}
+            style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(3,11,20,.94)', display: 'flex', flexDirection: 'column' }}
+        >
             <div className="row between" style={{ padding: '20px 28px', color: '#eaf2fc' }}>
                 <div className="row" style={{ gap: 12 }}>
                     <ExtensionIcon extension={extension} size="sm" />
@@ -434,7 +578,23 @@ function Lightbox({ extension, screenshots, index: start, onClose }) {
             </div>
             <div className="row" style={{ justifyContent: 'center', gap: 10, padding: '20px 0 28px' }}>
                 {screenshots.map((s, i) => (
-                    <button key={s.id} type="button" aria-label={`Screenshot ${i + 1}`} aria-current={i === index} onClick={() => setIndex(i)} style={{ width: 96, height: 60, borderRadius: 8, border: `2px solid ${i === index ? '#61a0e8' : 'transparent'}`, padding: 0, overflow: 'hidden', background: '#1f2937', cursor: 'pointer' }}>
+                    <button
+                        key={s.id}
+                        type="button"
+                        aria-label={`Screenshot ${i + 1}`}
+                        aria-current={i === index}
+                        onClick={() => setIndex(i)}
+                        style={{
+                            width: 96,
+                            height: 60,
+                            borderRadius: 8,
+                            border: `2px solid ${i === index ? '#61a0e8' : 'transparent'}`,
+                            padding: 0,
+                            overflow: 'hidden',
+                            background: '#1f2937',
+                            cursor: 'pointer',
+                        }}
+                    >
                         <img src={s.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </button>
                 ))}

@@ -157,15 +157,7 @@ function ReviewBody({ release, reviewItems, suspension }) {
                                 </button>
                             )}
                             {extension.slug && (featured || extension.status === 'published') && (
-                                <button
-                                    type="button"
-                                    className="btn"
-                                    aria-pressed={featured}
-                                    aria-disabled={busy}
-                                    onClick={toggleFeatured}
-                                    title={featured ? 'Stop featuring this listing in the catalog' : 'Show this listing among the featured extensions'}
-                                    data-feature
-                                >
+                                <button type="button" className="btn" aria-pressed={featured} aria-disabled={busy} onClick={toggleFeatured} data-feature>
                                     <Icon name="star" /> {featured ? 'Stop featuring' : 'Feature'}
                                 </button>
                             )}
@@ -437,6 +429,26 @@ function ListingTab({ extension }) {
             )}
             {extension.promotional_text && <p className="ink2">{extension.promotional_text}</p>}
             {extension.description ? <SafeHtml html={extension.description} className="ink2" /> : <p className="small muted">No overview yet.</p>}
+            {(extension.highlights ?? []).length > 0 && (
+                <div className="col small" style={{ gap: 4 }} data-preview-highlights>
+                    <strong>What you’ll get</strong>
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                        {extension.highlights.map((line, index) => (
+                            <li key={index}>{line}</li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+            {(extension.setup_steps ?? []).length > 0 && (
+                <div className="col small" style={{ gap: 4 }} data-preview-setup-steps>
+                    <strong>After you install</strong>
+                    <ol style={{ margin: 0, paddingLeft: 18 }}>
+                        {extension.setup_steps.map((line, index) => (
+                            <li key={index}>{line}</li>
+                        ))}
+                    </ol>
+                </div>
+            )}
             {screenshots.length > 0 && (
                 <div className="grid3" style={{ gap: 10 }}>
                     {screenshots.map((shot) => (

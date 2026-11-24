@@ -22,6 +22,9 @@ class ExtensionSummaryResource extends FleetbaseResource
             'fa_icon' => $this->fa_icon,
             'icon_url' => $this->whenLoaded('icon', fn () => $this->icon?->url, null),
             'tags' => $this->tags ?? [],
+            // "What you'll get" and "After you install": up to five short lines each.
+            'highlights' => $this->highlights ?? [],
+            'setup_steps' => $this->setup_steps ?? [],
             'hosting' => $this->hosting,
             'status' => $this->status,
             'visibility' => $this->visibility ?? 'public',

@@ -9,6 +9,7 @@ import { useToast } from '../../components/Toasts';
 import { StudioHeader } from '../../components/studio/StudioChrome';
 import { readiness } from '../../components/studio/readiness';
 import TagsInput from '../../components/studio/TagsInput';
+import LinesEditor, { cleanLines } from '../../components/studio/LinesEditor';
 import OverviewEditor from '../../components/studio/OverviewEditor';
 import MediaSection from '../../components/studio/MediaSection';
 import PricingSection from '../../components/studio/PricingSection';
@@ -16,12 +17,32 @@ import { api } from '../../lib/api';
 import { HOSTINGS, openRelease } from '../../lib/statuses';
 
 /** The listing fields the editor saves with `PATCH /v1/publisher/extensions/{slug}`. */
-export const LISTING_FIELDS = ['name', 'subtitle', 'description', 'promotional_text', 'category', 'hosting', 'tags', 'website_url', 'support_url', 'privacy_url', 'repo_url', 'tos_url', 'copyright', 'fa_icon'];
+export const LISTING_FIELDS = [
+    'name',
+    'subtitle',
+    'description',
+    'promotional_text',
+    'category',
+    'hosting',
+    'tags',
+    'highlights',
+    'setup_steps',
+    'website_url',
+    'support_url',
+    'privacy_url',
+    'repo_url',
+    'tos_url',
+    'copyright',
+    'fa_icon',
+];
+
+/** The listing fields that are lists of short lines. */
+export const LINE_FIELDS = ['highlights', 'setup_steps'];
 
 export function toDraft(extension) {
     const draft = {};
     for (const field of LISTING_FIELDS) {
-        draft[field] = field === 'category' ? (extension.category?.slug ?? '') : field === 'tags' ? [...(extension.tags ?? [])] : (extension[field] ?? '');
+        draft[field] = field === 'category' ? (extension.category?.slug ?? '') : field === 'tags' || LINE_FIELDS.includes(field) ? [...(extension[field] ?? [])] : (extension[field] ?? '');
     }
     return draft;
 }
@@ -37,6 +58,8 @@ export const MANAGED_LABELS = {
     category: 'category',
     tags: 'tags',
     languages: 'languages',
+    highlights: 'what you’ll get',
+    setup_steps: 'after you install',
     hosting: 'hosting',
     website_url: 'website',
     repo_url: 'repository',
@@ -47,10 +70,17 @@ export const MANAGED_LABELS = {
     fa_icon: 'icon name',
 };
 
-/** Only what changed, with empty strings sent as null. */
+/** Only what changed, with empty strings sent as null and blank lines dropped from lists. */
 export function changes(draft, saved) {
     const payload = {};
     for (const field of LISTING_FIELDS) {
+        if (LINE_FIELDS.includes(field)) {
+            const lines = cleanLines(draft[field]);
+            if (JSON.stringify(lines) !== JSON.stringify(cleanLines(saved[field]))) {
+                payload[field] = lines;
+            }
+            continue;
+        }
         if (JSON.stringify(draft[field]) !== JSON.stringify(saved[field])) {
             payload[field] = draft[field] === '' && field !== 'name' ? null : draft[field];
         }
@@ -62,6 +92,7 @@ const SECTIONS = [
     { id: 's-basics', label: 'Basics' },
     { id: 's-media', label: 'Icon and screenshots' },
     { id: 's-overview', label: 'Overview' },
+    { id: 's-lists', label: 'Highlights and setup' },
     { id: 's-links', label: 'Links and legal' },
     { id: 's-pricing', label: 'Pricing' },
 ];
@@ -82,7 +113,10 @@ export default function StudioEditor({ extension, releases = [], categories = []
 
     const pending = useMemo(() => changes(draft, saved), [draft, saved]);
     const dirty = Object.keys(pending).length > 0;
-    const ready = readiness({ ...draft, icon_url: extension.icon_url, status: extension.status, visibility: extension.visibility, pending_visibility: extension.pending_visibility }, releases);
+    const ready = readiness(
+        { ...draft, icon_url: extension.icon_url, status: extension.status, visibility: extension.visibility, pending_visibility: extension.pending_visibility },
+        releases
+    );
     const open = openRelease(releases);
     const missingLinks = ready.items.filter((item) => item.section === 's-links' && !item.ok).length;
     const managed = useMemo(() => new Set(extension.manifest_fields ?? []), [extension.manifest_fields]);
@@ -90,6 +124,7 @@ export default function StudioEditor({ extension, releases = [], categories = []
     const bind = (field) => ({ value: draft[field] ?? '', onChange: (e) => set(field)(e.target.value), disabled: managed.has(field) || undefined });
     const error = (field) => errors[field]?.[0] ?? null;
     const help = (field, text) => (managed.has(field) ? MANAGED_HELP : text);
+    const lineError = (field) => error(field) ?? Object.entries(errors).find(([key]) => key.startsWith(`${field}.`))?.[1]?.[0] ?? null;
 
     useEffect(() => {
         if (!dirty) {
@@ -158,9 +193,7 @@ export default function StudioEditor({ extension, releases = [], categories = []
     }
 
     const releaseHref = open ? `/studio/${extension.slug}/releases/${open.id}` : `/studio/${extension.slug}/releases`;
-    const sectionLinks = [
-        ...SECTIONS.map((s) => ({ href: `#${s.id}`, label: s.label, count: s.id === 's-links' && missingLinks ? missingLinks : null, current: current === s.id })),
-    ];
+    const sectionLinks = [...SECTIONS.map((s) => ({ href: `#${s.id}`, label: s.label, count: s.id === 's-links' && missingLinks ? missingLinks : null, current: current === s.id }))];
     const pageLinks = [
         { href: `/studio/${extension.slug}/releases`, label: 'Releases and checks' },
         { href: `/studio/${extension.slug}/review`, label: 'Review' },
@@ -240,7 +273,8 @@ export default function StudioEditor({ extension, releases = [], categories = []
 
                         {managed.size > 0 && (
                             <Note icon="lock" data-manifest-note>
-                                <strong>Some fields are set in extension.json:</strong> {[...managed].map((field) => MANAGED_LABELS[field] ?? field).join(', ')}. Studio shows them read-only; change them in extension.json and run <code>flb publish</code>. Remove a field there to edit it here again.
+                                <strong>Some fields are set in extension.json:</strong> {[...managed].map((field) => MANAGED_LABELS[field] ?? field).join(', ')}. Studio shows them read-only;
+                                change them in extension.json and run <code>flb publish</code>. Remove a field there to edit it here again.
                             </Note>
                         )}
 
@@ -259,7 +293,11 @@ export default function StudioEditor({ extension, releases = [], categories = []
                                         {(id, aria) => <input id={id} {...aria} className="input" maxLength={255} placeholder="One line under the name" {...bind('subtitle')} />}
                                     </Field>
                                 </div>
-                                <Field label="Short description" help={help('description', `Shown on cards and in search. ${[...(draft.description ?? '')].length} characters; more than 12 needed.`)} error={error('description')}>
+                                <Field
+                                    label="Short description"
+                                    help={help('description', `Shown on cards and in search. ${[...(draft.description ?? '')].length} characters; more than 12 needed.`)}
+                                    error={error('description')}
+                                >
                                     {(id, aria) => <textarea id={id} {...aria} className="textarea" style={{ minHeight: 72 }} {...bind('description')} />}
                                 </Field>
                                 <div className="grid2">
@@ -307,12 +345,68 @@ export default function StudioEditor({ extension, releases = [], categories = []
                                     {MANAGED_HELP}
                                 </div>
                             )}
-                            <OverviewEditor key={resetKey} initial={saved.promotional_text} onChange={set('promotional_text')} labelledBy="h-over" readOnly={managed.has('promotional_text')} />
+                            <OverviewEditor
+                                key={resetKey}
+                                initial={saved.promotional_text}
+                                onChange={set('promotional_text')}
+                                labelledBy="h-over"
+                                readOnly={managed.has('promotional_text')}
+                            />
                             {error('promotional_text') && (
                                 <div className="card-body">
                                     <span className="err">{error('promotional_text')}</span>
                                 </div>
                             )}
+                        </section>
+
+                        <section id="s-lists" className="sd-sec card" aria-labelledby="h-lists">
+                            <div className="card-head">
+                                <h2 id="h-lists" className="h3">
+                                    Highlights and setup
+                                </h2>
+                                <span className="small muted">Short lists on your extension page</span>
+                            </div>
+                            <div className="card-body stack">
+                                <Field
+                                    label="What you’ll get"
+                                    optional
+                                    help={help('highlights', 'Up to 5 short points on what the extension does for people. 120 characters each.')}
+                                    error={lineError('highlights')}
+                                >
+                                    {(id, aria) => (
+                                        <LinesEditor
+                                            id={id}
+                                            describedBy={aria['aria-describedby']}
+                                            value={draft.highlights}
+                                            onChange={set('highlights')}
+                                            disabled={managed.has('highlights')}
+                                            itemLabel="Highlight"
+                                            addLabel="Add a highlight"
+                                            placeholder="Live vehicle positions on the map"
+                                        />
+                                    )}
+                                </Field>
+                                <Field
+                                    label="After you install"
+                                    optional
+                                    help={help('setup_steps', 'Up to 5 steps to get going, in order. 120 characters each.')}
+                                    error={lineError('setup_steps')}
+                                >
+                                    {(id, aria) => (
+                                        <LinesEditor
+                                            id={id}
+                                            describedBy={aria['aria-describedby']}
+                                            value={draft.setup_steps}
+                                            onChange={set('setup_steps')}
+                                            disabled={managed.has('setup_steps')}
+                                            numbered
+                                            itemLabel="Step"
+                                            addLabel="Add a step"
+                                            placeholder="Open Settings and connect your account"
+                                        />
+                                    )}
+                                </Field>
+                            </div>
                         </section>
 
                         <section id="s-links" className="sd-sec card" aria-labelledby="h-links">
@@ -328,7 +422,16 @@ export default function StudioEditor({ extension, releases = [], categories = []
                             </div>
                             <div className="card-body grid2">
                                 <LinkField label="Website" field="website_url" draft={draft} bind={bind} error={error} ready={ready} help={help} need="Needed for review." />
-                                <LinkField label="Support URL" field="support_url" draft={draft} bind={bind} error={error} ready={ready} help={help} need="Needed for review: where operators report problems." />
+                                <LinkField
+                                    label="Support URL"
+                                    field="support_url"
+                                    draft={draft}
+                                    bind={bind}
+                                    error={error}
+                                    ready={ready}
+                                    help={help}
+                                    need="Needed for review: where operators report problems."
+                                />
                                 <LinkField label="Privacy policy URL" field="privacy_url" draft={draft} bind={bind} error={error} ready={ready} help={help} need="Needed for review." />
                                 <Field label="Repository" optional help={help('repo_url')} error={error('repo_url')}>
                                     {(id, aria) => <input id={id} {...aria} className="input" type="url" placeholder="https://github.com/…" {...bind('repo_url')} />}
@@ -336,8 +439,21 @@ export default function StudioEditor({ extension, releases = [], categories = []
                                 <Field label="Terms of service" optional help={help('tos_url')} error={error('tos_url')}>
                                     {(id, aria) => <input id={id} {...aria} className="input" type="url" placeholder="https://" {...bind('tos_url')} />}
                                 </Field>
-                                <Field label="Copyright" error={error('copyright')} help={help('copyright', ready.items.find((i) => i.key === 'copyright')?.ok === false ? 'Needed for review.' : undefined)}>
-                                    {(id, aria) => <input id={id} {...aria} className="input" placeholder={`© ${new Date().getFullYear()} ${extension.organization?.name ?? ''}`.trim()} maxLength={255} {...bind('copyright')} />}
+                                <Field
+                                    label="Copyright"
+                                    error={error('copyright')}
+                                    help={help('copyright', ready.items.find((i) => i.key === 'copyright')?.ok === false ? 'Needed for review.' : undefined)}
+                                >
+                                    {(id, aria) => (
+                                        <input
+                                            id={id}
+                                            {...aria}
+                                            className="input"
+                                            placeholder={`© ${new Date().getFullYear()} ${extension.organization?.name ?? ''}`.trim()}
+                                            maxLength={255}
+                                            {...bind('copyright')}
+                                        />
+                                    )}
                                 </Field>
                             </div>
                         </section>

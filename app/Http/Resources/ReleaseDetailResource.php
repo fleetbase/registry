@@ -82,6 +82,8 @@ class ReleaseDetailResource extends FleetbaseResource
             'promotional_text' => $extension->promotional_text,
             'tags' => $extension->tags ?? [],
             'languages' => $extension->languages ?? [],
+            'highlights' => $extension->highlights ?? [],
+            'setup_steps' => $extension->setup_steps ?? [],
             'hosting' => $extension->hosting,
             'fa_icon' => $extension->fa_icon,
             'website_url' => $extension->website_url,

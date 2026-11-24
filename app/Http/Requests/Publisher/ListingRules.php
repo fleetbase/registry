@@ -21,6 +21,11 @@ trait ListingRules
             'tags.*' => ['string', 'min:1', 'max:64'],
             'languages' => ['nullable', 'array', 'max:50'],
             'languages.*' => ['string', 'max:16'],
+            // "What you'll get" and "After you install": a few short lines each.
+            'highlights' => ['nullable', 'array', 'max:'.Extension::MAX_LIST_ITEMS],
+            'highlights.*' => ['required', 'string', 'max:'.Extension::MAX_LIST_ITEM_LENGTH],
+            'setup_steps' => ['nullable', 'array', 'max:'.Extension::MAX_LIST_ITEMS],
+            'setup_steps.*' => ['required', 'string', 'max:'.Extension::MAX_LIST_ITEM_LENGTH],
             'hosting' => ['nullable', Rule::in(Extension::HOSTINGS)],
             'website_url' => ['nullable', 'url:http,https', 'max:255'],
             'repo_url' => ['nullable', 'url:http,https', 'max:255'],
@@ -38,7 +43,8 @@ trait ListingRules
     public function listingAttributes(): array
     {
         return collect($this->validated())
-            ->only(['name', 'subtitle', 'description', 'promotional_text', 'tags', 'languages', 'hosting', 'website_url', 'repo_url', 'support_url', 'privacy_url', 'tos_url', 'copyright', 'fa_icon'])
+            ->only(['name', 'subtitle', 'description', 'promotional_text', 'tags', 'languages', 'highlights', 'setup_steps', 'hosting', 'website_url', 'repo_url', 'support_url', 'privacy_url', 'tos_url', 'copyright', 'fa_icon'])
+            ->map(fn ($value, string $key) => in_array($key, ['highlights', 'setup_steps'], true) ? (array_values((array) ($value ?? [])) ?: null) : $value)
             ->all();
     }
 }

@@ -34,7 +34,16 @@ const account = {
     ],
 };
 const rel = (id, version, status, extra = {}) => ({ id, version, status, channel: 'stable', created_at: '2026-10-01T00:00:00Z', published_at: null, ...extra });
-const ext = (slug, org, status, releases, missing = []) => ({ id: slug, slug, name: slug, status, organization: { id: org, slug: org, name: org }, price: { model: 'free', amount: 0, currency: 'USD' }, releases, readiness: { ready: !missing.length, missing } });
+const ext = (slug, org, status, releases, missing = []) => ({
+    id: slug,
+    slug,
+    name: slug,
+    status,
+    organization: { id: org, slug: org, name: org },
+    price: { model: 'free', amount: 0, currency: 'USD' },
+    releases,
+    readiness: { ready: !missing.length, missing },
+});
 
 beforeEach(() => {
     page.props = { auth: { account } };
@@ -42,7 +51,11 @@ beforeEach(() => {
 });
 
 describe('Studio home', () => {
-    const extensions = [ext('yard', 'acme', 'published', [rel('a', '1.0.0', 'published', { published_at: '2026-09-01T00:00:00Z' }), rel('b', '1.1.0', 'rejected')]), ext('dock', 'pat', 'published', [rel('c', '0.3.0', 'in_review')]), ext('rates', 'acme', 'published', [rel('d', '2.0.0', 'published', { published_at: '2026-09-27T00:00:00Z' })])];
+    const extensions = [
+        ext('yard', 'acme', 'published', [rel('a', '1.0.0', 'published', { published_at: '2026-09-01T00:00:00Z' }), rel('b', '1.1.0', 'rejected')]),
+        ext('dock', 'pat', 'published', [rel('c', '0.3.0', 'in_review')]),
+        ext('rates', 'acme', 'published', [rel('d', '2.0.0', 'published', { published_at: '2026-09-27T00:00:00Z' })]),
+    ];
 
     it('groups the inbox and lists every listing with one action', () => {
         const { container } = render(<StudioIndex extensions={extensions} organization={null} />);
@@ -167,6 +180,45 @@ describe('listing editor', () => {
         expect(screen.getAllByText('Set in extension.json; change it there and publish.')).toHaveLength(3);
         // Fields the manifest leaves out stay editable.
         expect(screen.getByLabelText('Privacy policy URL')).not.toBeDisabled();
+    });
+
+    it('edits highlights and setup steps as lists: add, type, reorder, remove, save', async () => {
+        api.patch.mockResolvedValue({ ...extension, highlights: ['Maps'], setup_steps: ['Connect', 'Invite'] });
+        render(<StudioEditor extension={{ ...extension, setup_steps: ['Invite', 'Connect'] }} releases={releases} categories={[]} />);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Add a highlight' }));
+        expect(screen.getByLabelText('Highlight 1')).toHaveFocus();
+        fireEvent.change(screen.getByLabelText('Highlight 1'), { target: { value: '  Maps  ' } });
+        // Enter opens the next line.
+        fireEvent.keyDown(screen.getByLabelText('Highlight 1'), { key: 'Enter' });
+        expect(screen.getByLabelText('Highlight 2')).toHaveFocus();
+        // A blank line is dropped on save.
+        expect(screen.getByLabelText('Highlight 2')).toHaveValue('');
+
+        expect(screen.getByLabelText('Step 1')).toHaveValue('Invite');
+        expect(screen.getByRole('button', { name: 'Move step 1 up' })).toBeDisabled();
+        fireEvent.click(screen.getByRole('button', { name: 'Move step 2 up' }));
+        expect(screen.getByLabelText('Step 1')).toHaveValue('Connect');
+        fireEvent.click(screen.getByRole('button', { name: 'Add a step' }));
+        fireEvent.change(screen.getByLabelText('Step 3'), { target: { value: 'Remove me' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Remove step 3' }));
+        expect(screen.queryByLabelText('Step 3')).toBeNull();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+        expect(api.patch).toHaveBeenCalledWith('/publisher/extensions/label-printer', { highlights: ['Maps'], setup_steps: ['Connect', 'Invite'] });
+    });
+
+    it('caps the lists at five lines and shows them read-only when extension.json sets them', () => {
+        const { unmount } = render(<StudioEditor extension={{ ...extension, highlights: ['a', 'b', 'c', 'd', 'e'] }} releases={releases} categories={[]} />);
+        expect(screen.getByRole('button', { name: 'At most 5' })).toBeDisabled();
+        unmount();
+
+        const { container } = render(<StudioEditor extension={{ ...extension, highlights: ['Maps'], manifest_fields: ['highlights'] }} releases={releases} categories={[]} />);
+        expect(container.querySelector('[data-manifest-note]')).toHaveTextContent('Some fields are set in extension.json: what you’ll get.');
+        expect(screen.getByLabelText('Highlight 1')).toBeDisabled();
+        expect(screen.queryByRole('button', { name: 'Add a highlight' })).toBeNull();
+        expect(screen.queryByRole('button', { name: 'Remove highlight 1' })).toBeNull();
+        expect(screen.getByRole('button', { name: 'Add a step' })).toBeInTheDocument();
     });
 
     it('sends empty fields as null', () => {

@@ -134,6 +134,28 @@
                     "maxItems": 50,
                     "uniqueItems": true
                 },
+                "highlights": {
+                    "type": "array",
+                    "description": "What you'll get: up to five short points on what the extension does, shown on the extension page.",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120,
+                        "pattern": "\\S"
+                    },
+                    "maxItems": 5
+                },
+                "setup_steps": {
+                    "type": "array",
+                    "description": "After you install: up to five short steps, in order, to get going.",
+                    "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120,
+                        "pattern": "\\S"
+                    },
+                    "maxItems": 5
+                },
                 "icon": {
                     "type": "string",
                     "description": "Font Awesome icon name, for example `satellite-dish` (an uploaded icon image takes precedence).",

@@ -67,7 +67,7 @@ class Extension extends Model
 
     protected $fillable = [
         'organization_uuid', 'category_uuid', 'icon_file_uuid', 'created_by_account_uuid', 'slug', 'name',
-        'subtitle', 'description', 'promotional_text', 'tags', 'languages', 'hosting', 'status',
+        'subtitle', 'description', 'promotional_text', 'tags', 'languages', 'highlights', 'setup_steps', 'hosting', 'status',
         'visibility', 'website_url', 'repo_url', 'support_url', 'privacy_url', 'tos_url', 'copyright', 'fa_icon',
         'published_at', 'meta',
     ];
@@ -79,6 +79,8 @@ class Extension extends Model
     protected $casts = [
         'tags' => 'array',
         'languages' => 'array',
+        'highlights' => 'array',
+        'setup_steps' => 'array',
         'published_at' => 'datetime',
         'featured_at' => 'datetime',
         'meta' => 'array',
@@ -197,6 +199,11 @@ class Extension extends Model
         return $query->where($query->qualifyColumn('visibility'), self::VISIBILITY_PUBLIC);
     }
 
+    /** Most lines in `highlights` and in `setup_steps`, and the longest line. */
+    public const MAX_LIST_ITEMS = 5;
+
+    public const MAX_LIST_ITEM_LENGTH = 120;
+
     /** Whether staff feature this listing in the catalog (`featured_at`). */
     public function isFeatured(): bool
     {
@@ -209,7 +216,7 @@ class Extension extends Model
     }
 
     /** Listing fields extension.json may set (API names); price and visibility are never among them. */
-    public const MANIFEST_LISTING_FIELDS = ['subtitle', 'description', 'promotional_text', 'category', 'tags', 'languages', 'hosting', 'website_url', 'repo_url', 'support_url', 'privacy_url', 'tos_url', 'copyright', 'fa_icon'];
+    public const MANIFEST_LISTING_FIELDS = ['subtitle', 'description', 'promotional_text', 'category', 'tags', 'languages', 'highlights', 'setup_steps', 'hosting', 'website_url', 'repo_url', 'support_url', 'privacy_url', 'tos_url', 'copyright', 'fa_icon'];
 
     /**
      * The listing fields the extension's extension.json sets (`meta.manifest_fields`, written by the

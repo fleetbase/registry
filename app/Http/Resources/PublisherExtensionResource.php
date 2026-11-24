@@ -34,6 +34,8 @@ class PublisherExtensionResource extends FleetbaseResource
             'category' => $this->whenLoaded('category', fn () => $this->category ? ['id' => $this->category->public_id, 'slug' => $this->category->slug, 'name' => $this->category->name] : null),
             'tags' => $this->tags ?? [],
             'languages' => $this->languages ?? [],
+            'highlights' => $this->highlights ?? [],
+            'setup_steps' => $this->setup_steps ?? [],
             'website_url' => $this->website_url,
             'repo_url' => $this->repo_url,
             'support_url' => $this->support_url,
