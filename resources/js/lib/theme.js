@@ -11,7 +11,7 @@ function current() {
 
 /**
  * Light and dark themes: `data-theme` on <html>, remembered per browser; without a choice the
- * OS preference applies (set before first paint in app.blade.php).
+ * site is light (set before first paint in app.blade.php).
  */
 export function useTheme() {
     const [theme, setThemeState] = useState('light');

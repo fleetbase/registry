@@ -4,7 +4,7 @@
 @source '../js';
 @source '../views';
 
-/* `dark:` follows the document's data-theme (the header toggle, else the OS preference). */
+/* `dark:` follows the document's data-theme (the header toggle; light by default). */
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 /* The design system's tokens as Tailwind colours, radii and fonts, e.g. bg-surface, text-muted. */

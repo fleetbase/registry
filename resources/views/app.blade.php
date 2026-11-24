@@ -1,18 +1,15 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="light">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="description" content="Find, install and publish extensions for Fleetbase.">
         <script>
-            // Apply the stored or preferred theme before first paint so dark mode never flashes.
+            // Apply the stored theme before first paint; light unless the visitor chose dark.
             (function () {
                 var theme;
                 try { theme = window.localStorage.getItem('registry:theme'); } catch (e) {}
-                if (theme !== 'light' && theme !== 'dark') {
-                    theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-                }
-                document.documentElement.dataset.theme = theme;
+                document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
             })();
         </script>
         <link rel="preconnect" href="https://fonts.googleapis.com">
