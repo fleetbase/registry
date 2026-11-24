@@ -5,7 +5,7 @@ import ExtensionIcon from '../../components/ExtensionIcon';
 import Icon from '../../components/Icon';
 import { StatusChip } from '../../components/Status';
 import { StudioNav } from '../../components/studio/StudioChrome';
-import { EmptyState, Note } from '../../components/Ui';
+import { EmptyState, Note, PageHeader } from '../../components/Ui';
 import TrendChart from '../../components/insights/TrendChart';
 import { GROUPS, PRESETS, activePreset, change, csvHref, dayLabel, eventStatus, eventVersion, presetRange, rangeLabel, revenueIn, revenueLine, versionRows } from '../../components/insights/insights';
 import { dateTime, money, plural } from '../../lib/format';
@@ -34,20 +34,13 @@ export default function Insights({ organizations = [], organization, extensions 
 
     return (
         <SiteLayout title="Insights" section="studio">
-            <div className="wrap" style={{ paddingTop: 36, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
-                    <div className="row between wrapflex" style={{ gap: 16 }}>
-                        <div className="col" style={{ gap: 6 }}>
-                            <h1 className="h1">Insights</h1>
-                            {organization && (
-                                <p className="ink2">
-                                    {selected ? selected.name : `All extensions of ${organization.name}`}
-                                    {stats ? `, ${rangeLabel(stats.range)}` : ''}
-                                </p>
-                            )}
-                        </div>
-                        <StudioNav current="insights" />
-                    </div>
+                    <PageHeader
+                        nav={<StudioNav current="insights" />}
+                        title="Insights"
+                        description={organization ? `${selected ? selected.name : `All extensions of ${organization.name}`}${stats ? `, ${rangeLabel(stats.range)}` : ''}` : null}
+                    />
                     {organizations.length > 1 && (
                         <nav className="seg" aria-label="Organization" style={{ alignSelf: 'flex-start', maxWidth: '100%', overflowX: 'auto' }}>
                             {organizations.map((item) => (
@@ -162,7 +155,7 @@ function Filters({ organization, extensions, extension, stats, filters, onChange
                     <span className="label">To</span>
                     <input type="date" className="input" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} required />
                 </label>
-                <button type="submit" className="btn" style={{ minHeight: 44 }}>
+                <button type="submit" className="btn">
                     Show
                 </button>
                 {stats && (

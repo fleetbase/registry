@@ -3,7 +3,7 @@ import { Link } from '@inertiajs/react';
 import SiteLayout from '../../layouts/SiteLayout';
 import ExtensionIcon from '../../components/ExtensionIcon';
 import { StatusChip } from '../../components/Status';
-import { EmptyState } from '../../components/Ui';
+import { EmptyState, PageHeader } from '../../components/Ui';
 import { LiftDialog, PublishDialog, ReviewTabs } from '../../components/review/Parts';
 import { updateLabel } from '../../components/review/queue';
 import { dateTime, plural, shortDate } from '../../lib/format';
@@ -22,15 +22,9 @@ export default function Pending({ releases, approvers = {}, suspended = [], coun
 
     return (
         <SiteLayout title="To publish" section="review">
-            <div className="wrap" style={{ paddingTop: 36, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
-                    <div className="row between wrapflex" style={{ gap: 16 }}>
-                        <div className="col" style={{ gap: 6 }}>
-                            <h1 className="h1">To publish</h1>
-                            <p className="ink2">Approved without “publish at once”. Publishing makes it the latest version in the catalog, npm and Composer.</p>
-                        </div>
-                        <ReviewTabs current="publish" counts={counts} />
-                    </div>
+                    <PageHeader nav={<ReviewTabs current="publish" counts={counts} />} title="To publish" description="Approved without “publish at once”. Publishing makes it the latest version in the catalog, npm and Composer." />
 
                     <section className="card" aria-labelledby="h-ready">
                         <div className="card-head">
@@ -59,13 +53,13 @@ export default function Pending({ releases, approvers = {}, suspended = [], coun
                                                 Approved, not live
                                             </StatusChip>
                                             <div className="row wrapflex" style={{ gap: 8 }}>
-                                                <Link href={`/review/releases/${release.id}`} className="btn btn-sm" style={{ minHeight: 44 }}>
+                                                <Link href={`/review/releases/${release.id}`} className="btn btn-sm">
                                                     Open<span className="sr-only"> {extension.name}</span>
                                                 </Link>
-                                                <Link href={`/review/releases/${release.id}?changes=1`} className="btn btn-sm btn-danger" style={{ minHeight: 44 }} data-request-changes={release.id}>
+                                                <Link href={`/review/releases/${release.id}?changes=1`} className="btn btn-sm btn-danger" data-request-changes={release.id}>
                                                     Request changes<span className="sr-only"> on {extension.name}</span>
                                                 </Link>
-                                                <button type="button" className="btn btn-sm btn-primary" style={{ minHeight: 44 }} onClick={() => setPublishing(release)} data-publish={release.id}>
+                                                <button type="button" className="btn btn-sm btn-primary" onClick={() => setPublishing(release)} data-publish={release.id}>
                                                     Publish<span className="sr-only"> {extension.name}</span>
                                                 </button>
                                             </div>
@@ -106,7 +100,7 @@ export default function Pending({ releases, approvers = {}, suspended = [], coun
                                             <StatusChip tone="fail" icon="ban">
                                                 Suspended
                                             </StatusChip>
-                                            <button type="button" className="btn btn-sm" style={{ minHeight: 44 }} onClick={() => setLifting(listing)} data-lift={listing.slug}>
+                                            <button type="button" className="btn btn-sm" onClick={() => setLifting(listing)} data-lift={listing.slug}>
                                                 Lift suspension<span className="sr-only"> of {listing.name}</span>
                                             </button>
                                         </li>

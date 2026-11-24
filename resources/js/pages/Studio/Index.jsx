@@ -6,7 +6,7 @@ import ExtensionIcon from '../../components/ExtensionIcon';
 import CopyCommand from '../../components/CopyCommand';
 import Route, { releaseStops } from '../../components/Route';
 import { ListingStatus, StatusChip, VisibilityChip } from '../../components/Status';
-import { Note } from '../../components/Ui';
+import { Note, PageHeader } from '../../components/Ui';
 import { StudioNav, publishingOrganizations } from '../../components/studio/StudioChrome';
 import { groupInbox, listingState, studioUrl } from '../../components/studio/inbox';
 import { submittedAgo, withSubmissionDates } from '../../components/studio/submitted';
@@ -37,23 +37,24 @@ export default function StudioIndex({ extensions = [], organization = null }) {
 
     return (
         <SiteLayout title="My extensions" section="studio">
-            <div className="wrap" style={{ paddingTop: 36, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
-                    <div className="row between wrapflex" style={{ gap: 16 }}>
-                        <div className="col" style={{ gap: 10 }}>
-                            {organizations.length > 0 && <OrganizationSwitcher organizations={organizations} current={current} onPick={pick} />}
-                            <h1 className="h1">My extensions</h1>
-                        </div>
-                        <div className="row wrapflex">
-                            <span className="hide-sm">
-                                <StudioNav current="extensions" />
-                            </span>
+                    <PageHeader
+                        nav={<StudioNav current="extensions" />}
+                        title="My extensions"
+                        actions={
                             <Link href="/studio/new" className="btn btn-primary">
                                 <Icon name="plus" size={16} strokeWidth={2.2} />
                                 New extension
                             </Link>
-                        </div>
-                    </div>
+                        }
+                    >
+                        {organizations.length > 0 && (
+                            <div style={{ marginBottom: 6 }}>
+                                <OrganizationSwitcher organizations={organizations} current={current} onPick={pick} />
+                            </div>
+                        )}
+                    </PageHeader>
 
                     {organizations.length === 0 && (
                         <Note tone="you">
@@ -118,10 +119,6 @@ export default function StudioIndex({ extensions = [], organization = null }) {
                             </section>
                         </>
                     )}
-
-                    <div className="show-sm">
-                        <StudioNav current="extensions" />
-                    </div>
                 </div>
             </div>
         </SiteLayout>

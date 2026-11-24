@@ -6,7 +6,7 @@ import Icon from '../../components/Icon';
 import { StatusChip } from '../../components/Status';
 import { StudioNav } from '../../components/studio/StudioChrome';
 import { useToast } from '../../components/Toasts';
-import { EmptyState, Note } from '../../components/Ui';
+import { EmptyState, Note, PageHeader } from '../../components/Ui';
 import { api } from '../../lib/api';
 import { money, shortDate } from '../../lib/format';
 import { payoutStatus, purchaseStatus } from '../../lib/statuses';
@@ -66,15 +66,9 @@ function amounts(list = []) {
 export default function Payouts({ organizations = [], organization, payouts, transactions, filters = {}, error, stripe }) {
     return (
         <SiteLayout title="Payouts" section="studio">
-            <div className="wrap" style={{ paddingTop: 36, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
-                    <div className="row between wrapflex" style={{ gap: 16 }}>
-                        <div className="col" style={{ gap: 6 }}>
-                            <h1 className="h1">Payouts</h1>
-                            {organization && <p className="ink2">{organization.name}: what your extensions earned and when Stripe pays it out.</p>}
-                        </div>
-                        <StudioNav current="payouts" />
-                    </div>
+                    <PageHeader nav={<StudioNav current="payouts" />} title="Payouts" description={organization ? `${organization.name}: what your extensions earned and when Stripe pays it out.` : null} />
                     {organizations.length > 1 && (
                         <nav className="seg" aria-label="Organization" style={{ alignSelf: 'flex-start', maxWidth: '100%', overflowX: 'auto' }}>
                             {organizations.map((item) => (

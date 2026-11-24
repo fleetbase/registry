@@ -3,7 +3,7 @@ import { Link, usePage } from '@inertiajs/react';
 import SiteLayout from '../../layouts/SiteLayout';
 import ExtensionIcon from '../../components/ExtensionIcon';
 import { ReleaseStatus, StatusChip } from '../../components/Status';
-import { EmptyState } from '../../components/Ui';
+import { EmptyState, PageHeader } from '../../components/Ui';
 import { ChecksChip, ReviewTabs } from '../../components/review/Parts';
 import { QUEUE_FILTERS, filterReleases, queueAge, reasonTags, sortOldestFirst, updateLabel } from '../../components/review/queue';
 import { isPaid, priceLabel, timeAgo } from '../../lib/format';
@@ -58,20 +58,14 @@ export default function Queue({ tab = 'waiting', releases, claimers = {}, counts
 
     return (
         <SiteLayout title={heading.title} section="review">
-            <div className="wrap" style={{ paddingTop: 36, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
-                    <div className="row between wrapflex" style={{ gap: 16 }}>
-                        <div className="col" style={{ gap: 6 }}>
-                            <h1 className="h1">{heading.title}</h1>
-                            <p className="ink2">{heading.lead}</p>
-                        </div>
-                        <ReviewTabs current={tab} counts={counts} />
-                    </div>
+                    <PageHeader nav={<ReviewTabs current={tab} counts={counts} />} title={heading.title} description={heading.lead} />
 
                     {all.length > 0 && (
                         <div className="row wrapflex" style={{ gap: 8 }}>
                             {QUEUE_FILTERS.map((filter) => (
-                                <button key={filter.key} type="button" className="chip" style={{ minHeight: 44 }} aria-pressed={filters.includes(filter.key)} onClick={() => toggle(filter.key)} data-filter={filter.key}>
+                                <button key={filter.key} type="button" className="chip" aria-pressed={filters.includes(filter.key)} onClick={() => toggle(filter.key)} data-filter={filter.key}>
                                     {filter.label}
                                 </button>
                             ))}
@@ -127,14 +121,14 @@ function QueueRow({ release, tab, now, claimer, me }) {
     return (
         <Link
             href={`/review/releases/${release.id}`}
-            className="grid items-center gap-x-4 gap-y-2.5 p-4 text-ink no-underline hover:bg-surface-2 hover:text-ink hover:no-underline focus-visible:bg-surface-2 min-[900px]:grid-cols-[72px_minmax(0,1.6fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto] min-[900px]:gap-5 min-[900px]:px-6 min-[900px]:py-[18px] grid-cols-[56px_minmax(0,1fr)]"
+            className="grid items-center gap-x-3 gap-y-2 p-3 text-ink no-underline hover:bg-surface-2 hover:text-ink hover:no-underline focus-visible:bg-surface-2 min-[900px]:grid-cols-[72px_minmax(0,1.6fr)_minmax(0,1.2fr)_minmax(0,1fr)_180px] min-[900px]:gap-4 min-[900px]:px-4 min-[900px]:py-3 grid-cols-[56px_minmax(0,1fr)]"
             style={{ textDecoration: 'none' }}
             data-queue-row
             data-release={release.id}
         >
             {tab === 'waiting' ? (
                 <div className="col" style={{ gap: 6 }} data-age={age.state}>
-                    <span className="num" style={{ fontSize: 22, fontWeight: 650, letterSpacing: '-.02em' }}>
+                    <span className="num" style={{ fontSize: 18, fontWeight: 650, letterSpacing: '-.02em' }}>
                         {age.label}
                     </span>
                     <span aria-hidden="true" style={{ height: 6, borderRadius: 999, background: 'var(--bg-tint)', overflow: 'hidden' }}>

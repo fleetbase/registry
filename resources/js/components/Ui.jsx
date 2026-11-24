@@ -8,7 +8,7 @@ export function EmptyState({ icon = 'box', tone, title, children, actions }) {
     return (
         <div className="empty" data-empty-state>
             <span className="empty-glyph" style={glyph} aria-hidden="true">
-                <Icon name={icon} size={26} />
+                <Icon name={icon} size={22} />
             </span>
             <h2 className="h3">{title}</h2>
             {children && <div className="ink2" style={{ maxWidth: 460 }}>{children}</div>}
@@ -109,4 +109,25 @@ export function SafeHtml({ html, className = '' }) {
             .join('');
     }
     return <div className={`prose ${className}`} dangerouslySetInnerHTML={{ __html: markup }} />;
+}
+
+/**
+ * A page's heading. The section switcher (`nav`) sits on its own row above the title, so it stays
+ * in the same place on every page of a section, whatever the title, description or actions are.
+ * `children` render above the title (an organization switcher, say).
+ */
+export function PageHeader({ nav, title, description, actions, children }) {
+    return (
+        <div className="page-head">
+            {nav && <div className="page-head-nav">{nav}</div>}
+            <div className="page-head-title">
+                <div className="col" style={{ gap: 4, minWidth: 0, maxWidth: 760 }}>
+                    {children}
+                    <h1 className="h1">{title}</h1>
+                    {description && <p className="ink2">{description}</p>}
+                </div>
+                {actions && <div className="row wrapflex">{actions}</div>}
+            </div>
+        </div>
+    );
 }

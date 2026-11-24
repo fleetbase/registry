@@ -19,9 +19,9 @@ export function ReviewTabs({ current, counts = {} }) {
         { key: 'finance', href: '/review/finance', label: 'Finance' },
     ];
     return (
-        <nav className="seg" aria-label="Review console" style={{ flexWrap: 'wrap' }}>
+        <nav className="seg" aria-label="Review console">
             {tabs.map((tab) => (
-                <Link key={tab.key} href={tab.href} aria-current={tab.key === current ? 'page' : undefined} data-tab={tab.key} style={{ minHeight: 44, ...(tab.key === current ? SELECTED : {}) }}>
+                <Link key={tab.key} href={tab.href} aria-current={tab.key === current ? 'page' : undefined} data-tab={tab.key} style={tab.key === current ? SELECTED : undefined}>
                     {tab.label}
                 </Link>
             ))}
