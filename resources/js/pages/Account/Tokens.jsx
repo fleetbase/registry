@@ -68,7 +68,7 @@ function TokensPage({ tokens }) {
     }
 
     return (
-        <div className="wrap" style={{ paddingTop: 40, paddingBottom: 80 }}>
+        <div className="wrap page">
             <div className="stack-lg">
                 <AccountHeader
                     title="Tokens"
@@ -88,11 +88,33 @@ function TokensPage({ tokens }) {
 
                 {tokens.length > 0 ? (
                     <section className="card" aria-label="Your tokens">
-                        <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                            {tokens.map((token) => (
-                                <TokenRow key={token.id} token={token} organizationName={organizationName(token.organization)} isStaff={account.is_staff} onRevoke={() => setRevoking(token)} onReplace={() => openForm(token)} />
-                            ))}
-                        </ul>
+                        <div className="tbl-wrap">
+                            <table className="tbl tok-tbl">
+                                <colgroup>
+                                    <col className="c-name" />
+                                    <col className="c-scopes" />
+                                    <col className="c-used" />
+                                    <col className="c-exp" />
+                                    <col className="c-act" />
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Can do</th>
+                                        <th scope="col">Last used</th>
+                                        <th scope="col">Expires</th>
+                                        <th scope="col" className="tbl-actions">
+                                            <span className="sr-only">Actions</span>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tokens.map((token) => (
+                                        <TokenRow key={token.id} token={token} organizationName={organizationName(token.organization)} isStaff={account.is_staff} onRevoke={() => setRevoking(token)} onReplace={() => openForm(token)} />
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </section>
                 ) : (
                     !form && (
@@ -155,51 +177,61 @@ function TokenRow({ token, organizationName, isStaff, onRevoke, onReplace }) {
     const expiring = left !== null && left <= EXPIRY_WARNING_DAYS;
 
     return (
-        <li className="tok" data-token={token.id}>
-            <div className="col" style={{ gap: 2, minWidth: 0 }}>
-                <span className="h4" style={{ overflowWrap: 'anywhere' }}>
-                    {token.name}
-                </span>
-                <span className="mono small muted">{token.masked}</span>
-            </div>
-            <div className="row wrapflex" style={{ gap: 6 }}>
-                {(token.scopes ?? []).map((scope) => (
-                    <span key={scope} className="tag">
-                        {scopeLabel(scope, isStaff)}
+        <tr data-token={token.id}>
+            <td>
+                <div className="col" style={{ gap: 1, minWidth: 0 }}>
+                    <span className="tok-name">{token.name}</span>
+                    <span className="mono xs muted">{token.masked}</span>
+                </div>
+            </td>
+            <td>
+                <div className="tagline">
+                    {(token.scopes ?? []).map((scope) => (
+                        <span key={scope} className="tag">
+                            {scopeLabel(scope, isStaff)}
+                        </span>
+                    ))}
+                    <span className="tag">
+                        <Icon name="building" size={12} />
+                        <span style={{ marginLeft: 4 }}>{token.organization ? (organizationName ?? 'One organization') : 'All organizations'}</span>
                     </span>
-                ))}
-                <span className="tag">
-                    <Icon name="building" size={12} />
-                    <span style={{ marginLeft: 4 }}>{token.organization ? (organizationName ?? 'One organization') : 'All organizations'}</span>
-                </span>
-            </div>
-            <div className="col small" style={{ gap: 2 }}>
-                {token.last_used_at ? (
-                    <>
-                        <span>Used {timeAgo(token.last_used_at)}</span>
-                        {token.last_used_ip && <span className="muted">from {token.last_used_ip}</span>}
-                    </>
-                ) : (
-                    <span className="muted">Never used</span>
-                )}
-            </div>
-            <div className="row wrapflex" style={{ gap: 8 }}>
+                </div>
+            </td>
+            <td>
+                <div className="col xs" style={{ gap: 1 }}>
+                    {token.last_used_at ? (
+                        <>
+                            <span className="small">Used {timeAgo(token.last_used_at)}</span>
+                            {token.last_used_ip && <span className="muted mono">{token.last_used_ip}</span>}
+                        </>
+                    ) : (
+                        <span className="small muted">Never used</span>
+                    )}
+                </div>
+            </td>
+            <td>
                 {expiring ? (
                     <StatusChip tone="you" icon="clock">
                         {left === 0 ? 'Expires today' : `Expires in ${left} ${left === 1 ? 'day' : 'days'}`}
                     </StatusChip>
+                ) : token.expires_at ? (
+                    <span className="small">{shortDate(token.expires_at)}</span>
                 ) : (
-                    token.expires_at && <span className="small muted">Expires {shortDate(token.expires_at)}</span>
+                    <span className="small muted">Never</span>
                 )}
-                {expiring && (
-                    <button type="button" className="btn btn-sm" style={{ minHeight: 44 }} onClick={onReplace} aria-label={`Replace ${token.name}`}>
-                        Replace
+            </td>
+            <td className="tbl-actions">
+                <div className="row">
+                    {expiring && (
+                        <button type="button" className="btn btn-sm" onClick={onReplace} aria-label={`Replace ${token.name}`}>
+                            Replace
+                        </button>
+                    )}
+                    <button type="button" className="btn btn-sm btn-danger" onClick={onRevoke} aria-label={`Revoke ${token.name}`} data-revoke>
+                        Revoke
                     </button>
-                )}
-                <button type="button" className="btn btn-sm btn-danger" style={{ minHeight: 44 }} onClick={onRevoke} aria-label={`Revoke ${token.name}`} data-revoke>
-                    Revoke
-                </button>
-            </div>
-        </li>
+                </div>
+            </td>
+        </tr>
     );
 }

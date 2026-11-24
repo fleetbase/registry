@@ -4,7 +4,7 @@ import SiteLayout from '../../layouts/SiteLayout';
 import Dialog from '../../components/Dialog';
 import Icon from '../../components/Icon';
 import { StatusChip } from '../../components/Status';
-import { EmptyState, Field, Note } from '../../components/Ui';
+import { EmptyState, Field, Note, PageHeader } from '../../components/Ui';
 import { ReviewTabs, useAction } from '../../components/review/Parts';
 import { monthLabel, refundError, refundSplit, toMajor, toMinor } from '../../components/review/finance';
 import { api } from '../../lib/api';
@@ -41,17 +41,13 @@ export default function Finance({ summary = {}, purchases, filters = {}, stripe 
 
     return (
         <SiteLayout title="Finance" section="review">
-            <div className="wrap" style={{ paddingTop: 36, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
-                    <div className="row between wrapflex" style={{ gap: 16 }}>
-                        <div className="col" style={{ gap: 6 }}>
-                            <h1 className="h1">Finance</h1>
-                            <p className="ink2">
-                                Fleetbase’s fee revenue, refunds and disputes from {shortDate(summary.from)} to {shortDate(summary.to)}, by the date of each sale.
-                            </p>
-                        </div>
-                        <ReviewTabs current="finance" counts={counts} />
-                    </div>
+                    <PageHeader
+                        nav={<ReviewTabs current="finance" counts={counts} />}
+                        title="Finance"
+                        description={`Fleetbase’s fee revenue, refunds and disputes from ${shortDate(summary.from)} to ${shortDate(summary.to)}, by the date of each sale.`}
+                    />
 
                     <form className="card card-pad row wrapflex" style={{ gap: 12, alignItems: 'flex-end' }} onSubmit={apply} aria-label="Date range">
                         <label className="field">
@@ -62,7 +58,7 @@ export default function Finance({ summary = {}, purchases, filters = {}, stripe 
                             <span className="label">To</span>
                             <input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} />
                         </label>
-                        <button type="submit" className="btn" style={{ minHeight: 44 }}>
+                        <button type="submit" className="btn">
                             Show
                         </button>
                         <div className="row wrapflex grow" style={{ gap: 8, justifyContent: 'flex-end' }}>
@@ -148,7 +144,11 @@ function Breakdown({ id, title, rows, label, heading, empty, rowKey }) {
                 </div>
             ) : (
                 <div className="tbl-wrap">
-                    <table className="tbl">
+                    {/* Fixed layout and a set first column, so By month and By publisher line up. */}
+                    <table className="tbl" style={{ tableLayout: 'fixed', minWidth: 720 }}>
+                        <colgroup>
+                            <col style={{ width: '22%' }} />
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th scope="col">{heading}</th>
@@ -307,7 +307,7 @@ function Purchases({ purchases, filters, range, publishers, stripe, onRefund }) 
                                         </td>
                                         <td style={RIGHT}>
                                             {stripe.configured && row.refundable > 0 && (
-                                                <button type="button" className="btn btn-sm" style={{ minHeight: 44 }} onClick={() => onRefund(row)} data-refund={row.id}>
+                                                <button type="button" className="btn btn-sm" onClick={() => onRefund(row)} data-refund={row.id}>
                                                     Refund<span className="sr-only"> {row.extension?.name} for {row.customer?.name}</span>
                                                 </button>
                                             )}
