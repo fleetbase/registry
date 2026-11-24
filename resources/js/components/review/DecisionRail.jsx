@@ -48,7 +48,7 @@ export function useDecision(release, items) {
     };
 }
 
-const PF_BASE = { minHeight: 'var(--h-ctl-sm)', minWidth: 58, padding: '0 10px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--surface)', color: 'var(--ink-2)', font: '600 13px/1 var(--font)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4 };
+const PF_BASE = { minHeight: 'var(--h-ctl-sm)', minWidth: 54, padding: '0 8px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--surface)', color: 'var(--ink-2)', font: '600 13px/1 var(--font)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4 };
 const PF_ON = {
     pass: { background: 'var(--ok-bg)', borderColor: 'var(--ok-line)', color: 'var(--ok)' },
     fail: { background: 'var(--fail-bg)', borderColor: 'var(--fail-line)', color: 'var(--fail)' },
@@ -91,8 +91,8 @@ export function DecisionCard({ decision, onCancel }) {
                                 </span>
                             )}
                         </div>
-                        <div className="row wrapflex" style={{ gap: 8 }}>
-                            <div role="group" aria-label={`${item.code} result`} style={{ display: 'inline-flex', gap: 4 }}>
+                        <div className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
+                            <div role="group" aria-label={`${item.code} result`} style={{ display: 'inline-flex', gap: 4, flex: 'none' }}>
                                 {[
                                     ['pass', 'check', 'Pass'],
                                     ['fail', 'x', 'Fail'],
@@ -104,8 +104,8 @@ export function DecisionCard({ decision, onCancel }) {
                                 ))}
                             </div>
                             <input
-                                className="input grow"
-                                style={{ minHeight: 'var(--h-ctl-sm)', padding: '4px 8px', fontSize: 13, minWidth: 160 }}
+                                className="input"
+                                style={{ flex: '1 1 0', width: 'auto', minWidth: 0, minHeight: 'var(--h-ctl-sm)', padding: '4px 8px', fontSize: 13 }}
                                 aria-label={`Note for ${item.code}, shown to the publisher`}
                                 placeholder="Note for the publisher"
                                 value={notes[item.code] ?? ''}

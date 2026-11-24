@@ -22,16 +22,12 @@ export default function Billing({ organizations = [], organization, purchases = 
         <SiteLayout title={organization ? `${organization.name} · Billing` : 'Billing'}>
             <div className="wrap page">
                 <div className="stack-lg">
-                    <AccountHeader title="Billing" current="billing" description="Extensions your organizations bought, their licences and receipts." />
-                    {organizations.length > 1 && (
-                        <nav className="seg" aria-label="Organization" style={{ alignSelf: 'flex-start', maxWidth: '100%', overflowX: 'auto' }}>
-                            {organizations.map((item) => (
-                                <Link key={item.id} href={`/account/billing/${item.slug}`} aria-current={item.slug === organization?.slug ? 'page' : undefined}>
-                                    {item.name}
-                                </Link>
-                            ))}
-                        </nav>
-                    )}
+                    <AccountHeader
+                        title="Billing"
+                        current="billing"
+                        description="Extensions your organizations bought, their licences and receipts."
+                        actions={organizations.length > 1 && <OrganizationPicker organizations={organizations} current={organization} />}
+                    />
                     {!organization ? (
                         <EmptyState icon="card" title="No organization to show">
                             You are not a member of an organization yet.
@@ -52,6 +48,28 @@ export default function Billing({ organizations = [], organization, purchases = 
                 </div>
             </div>
         </SiteLayout>
+    );
+}
+
+/** Which organization's billing to show: a labelled dropdown beside the title, so it doesn't read as a second row of tabs. */
+function OrganizationPicker({ organizations, current }) {
+    return (
+        <label className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
+            <span className="small ink2">Organization</span>
+            <select
+                className="select select-sm"
+                style={{ width: 'auto', maxWidth: 240 }}
+                value={current?.slug ?? ''}
+                onChange={(event) => router.visit(`/account/billing/${event.target.value}`)}
+                data-organization-picker
+            >
+                {organizations.map((item) => (
+                    <option key={item.id} value={item.slug}>
+                        {item.name}
+                    </option>
+                ))}
+            </select>
+        </label>
     );
 }
 
