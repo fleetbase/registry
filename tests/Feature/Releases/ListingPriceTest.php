@@ -31,19 +31,23 @@ it('sets a one-time price for an organization with Stripe Connect', function () 
     actingAsAccount($account, [Token::SCOPE_PUBLISH]);
     $path = '/v1/publisher/extensions/'.$listing->slug.'/price';
 
-    $this->putJson($path, ['model' => 'one_time'])->assertStatus(422)->assertJsonStructure(['fields' => ['amount', 'currency']]);
+    // Prices are in USD only (Price::CURRENCY): the currency may be left out, an amount may not
+    $this->putJson($path, ['model' => 'one_time'])->assertStatus(422)->assertJsonStructure(['fields' => ['amount']]);
     $this->putJson($path, ['model' => 'one_time', 'amount' => 0, 'currency' => 'USD'])->assertStatus(422);
     $this->putJson($path, ['model' => 'one_time', 'amount' => 49.5, 'currency' => 'USD'])->assertStatus(422);
     $this->putJson($path, ['model' => 'one_time', 'amount' => 4900, 'currency' => 'US'])->assertStatus(422);
     $this->putJson($path, ['model' => 'subscription', 'amount' => 4900, 'currency' => 'USD'])->assertStatus(422);
 
-    $this->putJson($path, ['model' => 'one_time', 'amount' => 4900, 'currency' => 'eur'])
+    $this->putJson($path, ['model' => 'one_time', 'amount' => 4900, 'currency' => 'eur'])->assertStatus(422)->assertJsonPath('fields.currency.0', 'Extensions are priced in USD.');
+
+    $this->putJson($path, ['model' => 'one_time', 'amount' => 4900, 'currency' => 'usd'])
         ->assertOk()
-        ->assertJsonPath('price', ['model' => 'one_time', 'amount' => 4900, 'currency' => 'EUR', 'on_sale' => false, 'sale_amount' => null, 'effective_amount' => 4900]);
+        ->assertJsonPath('price', ['model' => 'one_time', 'amount' => 4900, 'currency' => 'USD', 'on_sale' => false, 'sale_amount' => null, 'effective_amount' => 4900]);
+    $this->putJson($path, ['model' => 'one_time', 'amount' => 5900])->assertOk()->assertJsonPath('price.currency', 'USD');
 
     $this->putJson($path, ['model' => 'free'])->assertOk()->assertJsonPath('price.amount', 0);
     expect(Price::where('extension_uuid', $listing->uuid)->count())->toBe(1)
-        ->and(Event::where('kind', 'extension.price_changed')->count())->toBe(2);
+        ->and(Event::where('kind', 'extension.price_changed')->count())->toBe(3);
 });
 
 it('sends the next release to review after a price change', function () {

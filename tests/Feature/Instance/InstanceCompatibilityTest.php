@@ -207,7 +207,8 @@ it('describes private extensions only to instances that may see them', function 
         compatInstall($instance, $extension, compatRelease($extension, '1.0.0', ['console' => '^0.8']));
         compatRelease($extension, '1.1.0', ['console' => '^0.8']);
     }
-    Licence::create(['extension_uuid' => $granted->uuid, 'organization_uuid' => $instance->organization_uuid, 'kind' => Licence::KIND_FREE, 'status' => Licence::STATUS_ACTIVE]);
+    // Private extensions are seen through a grant or a paid licence (ExtensionAccess::PRIVATE_ACCESS_KINDS)
+    Licence::create(['extension_uuid' => $granted->uuid, 'organization_uuid' => $instance->organization_uuid, 'kind' => Licence::KIND_GRANT, 'status' => Licence::STATUS_ACTIVE]);
     Licence::create(['extension_uuid' => $revoked->uuid, 'organization_uuid' => $instance->organization_uuid, 'kind' => Licence::KIND_FREE, 'status' => Licence::STATUS_REVOKED]);
 
     actingAsInstance($instance);
