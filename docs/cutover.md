@@ -22,7 +22,7 @@ Infra](#step-3-infra) · [Step 4 Deploy](#step-4-deploy) · [Step 5 Unfreeze](#s
 - **The service** (`fleetbase/registry` `v2.0.0`) runs in the `production` stack of
   `fleetbase/registry-infra` beside Verdaccio, on `registry.fleetbase.io`. It is deployed and frozen
   (`registry:maintenance on`) before the window, with an empty database.
-- **The cloud console's API** (fleetbase `v0.9.0` with registry-bridge `0.3.0`) registers itself with
+- **The cloud console's API** (fleetbase `v0.9.0` with registry-bridge `0.3.1`) registers itself with
   the service on boot as the one cloud instance (`registry:init` → `registry:cloud-register`), signed
   with the platform secret both sides share. That instance acts for each cloud company
   (`X-Registry-Tenant`): licences, installs and checkouts belong to the company's organization.
@@ -173,7 +173,7 @@ If that is not close to zero, decide before the window between flipping `route_a
 published upgrade note) and keeping Verdaccio for npm reads only (skip step 3's `route_all` and
 scale-down; see [Decisions](#decisions-this-runbook-depends-on)).
 
-**7. Releases ready.** Tags built and images pushed: registry `v2.0.0`, registry-bridge `0.3.0`,
+**7. Releases ready.** Tags built and images pushed: registry `v2.0.0`, registry-bridge `0.3.1`,
 ember-core `0.4.0`, fleetbase `v0.9.0` (API and console), `@fleetbase/cli@2.0.0` published under the
 `next` dist-tag (the CLI's tag workflow publishes a non-prerelease as `latest`: publish it by hand with
 `--tag next`, or hold the merge until step 4). Previous production tags written down for rollback.
@@ -298,7 +298,7 @@ aws ecs describe-services --cluster fleetbase-registry-production --services app
 *Gate: smoke test of Explore, install and purchase on the three reference organizations (below). Time:
 25 minutes.*
 
-1. **Cloud API and console**: deploy fleetbase `v0.9.0` (ember-core 0.4.0, registry-bridge 0.3.0) with
+1. **Cloud API and console**: deploy fleetbase `v0.9.0` (ember-core 0.4.0, registry-bridge 0.3.1) with
    the staged configuration, the usual way for production. Wait for the ECS deployment to reach steady
    state, so no task of the old API is left writing to the old tables.
 
