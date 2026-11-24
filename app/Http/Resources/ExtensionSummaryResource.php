@@ -47,6 +47,9 @@ class ExtensionSummaryResource extends FleetbaseResource
             'is_paid' => $this->whenLoaded('price', fn () => $this->price !== null && ! $this->price->isFree(), false),
             'installs_count' => (int) ($this->installs_count ?? 0),
             'published_at' => $this->published_at,
+            // Set by staff from the review console; `sort=featured` lists these first.
+            'featured_at' => $this->featured_at,
+            'is_featured' => $this->featured_at !== null,
             'updated_at' => $this->updated_at,
             'created_at' => $this->created_at,
         ];

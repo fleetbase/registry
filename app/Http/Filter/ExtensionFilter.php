@@ -12,12 +12,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
 /**
- * Catalog query parameters: q, category, pricing, hosting, publisher, tag, compatible (with
- * console), sort.
+ * Catalog query parameters: q, category, pricing, hosting, publisher, tag, featured, compatible
+ * (with console), sort.
  */
 class ExtensionFilter extends Filter
 {
-    public const SORTS = ['newest', 'updated', 'popular', 'name', 'price'];
+    public const SORTS = ['featured', 'newest', 'updated', 'popular', 'name', 'price'];
 
     /**
      * Free-text search. MySQL uses the fulltext index; other drivers fall back to LIKE.
@@ -108,6 +108,19 @@ class ExtensionFilter extends Filter
     }
 
     /**
+     * `featured=1`: only listings staff feature; `featured=0`: only the others.
+     */
+    public function featured(string $featured): void
+    {
+        $value = filter_var($featured, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($value === true) {
+            $this->builder->whereNotNull('extensions.featured_at');
+        } elseif ($value === false) {
+            $this->builder->whereNull('extensions.featured_at');
+        }
+    }
+
+    /**
      * `compatible=1` with `console=<version>`: only listings with a published release that works
      * with that console version (the release the console would install). Ignored without a valid
      * console version.
@@ -128,21 +141,27 @@ class ExtensionFilter extends Filter
     public function applySort(?string $sort): void
     {
         $sort = in_array($sort, self::SORTS, true) ? $sort : 'popular';
+        // Most active installs first, then newest. A closure: every filter method is a query parameter.
+        $popular = fn (Builder $builder) => $builder
+            ->orderByDesc(
+                Install::query()->selectRaw('count(*)')
+                    ->whereColumn('installs.extension_uuid', 'extensions.uuid')
+                    ->where('installs.status', Install::STATUS_INSTALLED)
+            )
+            ->orderByDesc('published_at');
 
         match ($sort) {
+            // Featured listings first, most recently featured on top; the rest by popularity.
+            'featured' => $popular($this->builder
+                ->orderByRaw('CASE WHEN extensions.featured_at IS NULL THEN 1 ELSE 0 END')
+                ->orderByDesc('extensions.featured_at')),
             'newest' => $this->builder->orderByDesc('published_at')->orderByDesc('created_at'),
             'updated' => $this->builder->orderByDesc('updated_at'),
             'name' => $this->builder->orderBy('name'),
             'price' => $this->builder->orderBy(
                 Price::query()->select('amount')->whereColumn('prices.extension_uuid', 'extensions.uuid')->limit(1)
             )->orderBy('name'),
-            default => $this->builder
-                ->orderByDesc(
-                    Install::query()->selectRaw('count(*)')
-                        ->whereColumn('installs.extension_uuid', 'extensions.uuid')
-                        ->where('installs.status', Install::STATUS_INSTALLED)
-                )
-                ->orderByDesc('published_at'),
+            default => $popular($this->builder),
         };
     }
 

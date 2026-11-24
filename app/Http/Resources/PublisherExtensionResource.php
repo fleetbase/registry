@@ -62,6 +62,8 @@ class PublisherExtensionResource extends FleetbaseResource
             ])->values()->all()),
             'suspension' => $this->meta['suspension'] ?? null,
             'published_at' => $this->published_at,
+            'featured_at' => $this->featured_at,
+            'is_featured' => $this->featured_at !== null,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

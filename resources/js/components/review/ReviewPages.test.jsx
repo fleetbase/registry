@@ -4,10 +4,10 @@ import Release from '../../pages/Review/Release';
 import Queue from '../../pages/Review/Queue';
 import Pending from '../../pages/Review/Pending';
 
-const { post, reload, page } = vi.hoisted(() => ({ post: vi.fn(), reload: vi.fn(), page: { url: '/review' } }));
+const { post, put, reload, page } = vi.hoisted(() => ({ post: vi.fn(), put: vi.fn(), reload: vi.fn(), page: { url: '/review' } }));
 
 vi.mock('../../lib/api', () => ({
-    api: { post },
+    api: { post, put },
     ApiError: class ApiError extends Error {},
 }));
 
@@ -49,13 +49,21 @@ function makeRelease(overrides = {}) {
         review: { required: true, reasons: { first_release: 'This is the extension’s first release.' } },
         reviews: [],
         manifest: { name: 'geotab-bridge' },
-        extension: { slug: 'geotab-bridge', name: 'Geotab Bridge', status: 'draft', organization: { slug: 'nw', name: 'Northwind Labs', is_verified: false }, price: { model: 'free', amount: 0 }, tags: [] },
+        extension: {
+            slug: 'geotab-bridge',
+            name: 'Geotab Bridge',
+            status: 'draft',
+            organization: { slug: 'nw', name: 'Northwind Labs', is_verified: false },
+            price: { model: 'free', amount: 0 },
+            tags: [],
+        },
         ...overrides,
     };
 }
 
 beforeEach(() => {
     post.mockReset();
+    put.mockReset();
     reload.mockReset();
     page.url = '/review';
 });
@@ -69,9 +77,23 @@ function update(overrides = {}) {
         size_bytes: 2400000,
         manifest: { name: 'geotab-bridge', version: '0.3.0', permissions: ['read orders', 'write orders'] },
         previous_version: '0.2.1',
-        previous: { id: 'rel_0', version: '0.2.1', published_at: '2026-10-12T14:02:00Z', size_bytes: 2100000, compat: { console: '>=0.7.60' }, manifest: { name: 'geotab-bridge', version: '0.2.1', permissions: ['read orders'] } },
+        previous: {
+            id: 'rel_0',
+            version: '0.2.1',
+            published_at: '2026-10-12T14:02:00Z',
+            size_bytes: 2100000,
+            compat: { console: '>=0.7.60' },
+            manifest: { name: 'geotab-bridge', version: '0.2.1', permissions: ['read orders'] },
+        },
         review: { required: true, reasons: { permissions: 'The manifest’s permissions changed.' } },
-        extension: { slug: 'geotab-bridge', name: 'Geotab Bridge', status: 'published', organization: { slug: 'nw', name: 'Northwind Labs', is_verified: false }, price: { model: 'free', amount: 0 }, tags: [] },
+        extension: {
+            slug: 'geotab-bridge',
+            name: 'Geotab Bridge',
+            status: 'published',
+            organization: { slug: 'nw', name: 'Northwind Labs', is_verified: false },
+            price: { model: 'free', amount: 0 },
+            tags: [],
+        },
         ...overrides,
     });
 }
@@ -98,10 +120,12 @@ describe('Review/Release decision rail', () => {
         fireEvent.click(approve);
         fireEvent.click(document.querySelector('[data-confirm-approve]'));
 
-        await waitFor(() => expect(post).toHaveBeenCalledWith('/admin/releases/rel_1/approve', {
-            items: ITEMS.map((item) => ({ code: item.code, passed: true })),
-            publish: true,
-        }));
+        await waitFor(() =>
+            expect(post).toHaveBeenCalledWith('/admin/releases/rel_1/approve', {
+                items: ITEMS.map((item) => ({ code: item.code, passed: true })),
+                publish: true,
+            })
+        );
         await waitFor(() => expect(reload).toHaveBeenCalled());
         expect(await screen.findByText('Geotab Bridge v1.0.0 is live. Instances see it within a minute.')).toBeInTheDocument();
     });
@@ -121,14 +145,16 @@ describe('Review/Release decision rail', () => {
 
         fireEvent.click(reject);
         fireEvent.click(document.querySelector('[data-confirm-reject]'));
-        await waitFor(() => expect(post).toHaveBeenCalledWith('/admin/releases/rel_1/reject', {
-            reason: 'Add screenshots.',
-            items: [
-                { code: 'R1', passed: true },
-                { code: 'R3', passed: false, note: 'No screenshots' },
-                { code: 'R4', passed: true },
-            ],
-        }));
+        await waitFor(() =>
+            expect(post).toHaveBeenCalledWith('/admin/releases/rel_1/reject', {
+                reason: 'Add screenshots.',
+                items: [
+                    { code: 'R1', passed: true },
+                    { code: 'R3', passed: false, note: 'No screenshots' },
+                    { code: 'R4', passed: true },
+                ],
+            })
+        );
     });
 
     it('shows Start review for a submitted release and the decided state once approved', async () => {
@@ -138,7 +164,15 @@ describe('Review/Release decision rail', () => {
         await waitFor(() => expect(post).toHaveBeenCalledWith('/admin/releases/rel_1/claim'));
         unmount();
 
-        render(<Release release={makeRelease({ status: 'approved', reviews: [{ action: 'approve', actor: 'staff', by: { id: 'acc_x', name: 'Sam Reviewer' }, items: [], created_at: new Date().toISOString() }] })} reviewItems={ITEMS} />);
+        render(
+            <Release
+                release={makeRelease({
+                    status: 'approved',
+                    reviews: [{ action: 'approve', actor: 'staff', by: { id: 'acc_x', name: 'Sam Reviewer' }, items: [], created_at: new Date().toISOString() }],
+                })}
+                reviewItems={ITEMS}
+            />
+        );
         expect(screen.queryByRole('region', { name: 'Requirements' })).not.toBeInTheDocument();
         expect(screen.getByText(/Approved by Sam Reviewer/)).toBeInTheDocument();
         expect(screen.getAllByRole('button', { name: /Publish/ }).length).toBeGreaterThan(0);
@@ -168,14 +202,16 @@ describe('Review/Release decision rail', () => {
         fireEvent.click(reject);
         expect(screen.getByText(/Its approval is withdrawn/)).toBeInTheDocument();
         fireEvent.click(document.querySelector('[data-confirm-reject]'));
-        await waitFor(() => expect(post).toHaveBeenCalledWith('/admin/releases/rel_1/reject', {
-            reason: 'The support link 404s.',
-            items: [
-                { code: 'R1', passed: true },
-                { code: 'R3', passed: false },
-                { code: 'R4', passed: true },
-            ],
-        }));
+        await waitFor(() =>
+            expect(post).toHaveBeenCalledWith('/admin/releases/rel_1/reject', {
+                reason: 'The support link 404s.',
+                items: [
+                    { code: 'R1', passed: true },
+                    { code: 'R3', passed: false },
+                    { code: 'R4', passed: true },
+                ],
+            })
+        );
         expect(post).not.toHaveBeenCalledWith(expect.stringContaining('/approve'), expect.anything());
 
         fireEvent.click(within(card).getByRole('button', { name: 'Cancel' }));
@@ -220,6 +256,26 @@ describe('Review/Release decision rail', () => {
         fireEvent.click(confirm);
         await waitFor(() => expect(post).toHaveBeenCalledWith('/admin/extensions/geotab-bridge/suspend', { reason: 'Leaks phone numbers.' }));
     });
+
+    it('features a published listing and stops featuring a featured one', async () => {
+        put.mockResolvedValue({});
+        const live = (featured_at) => makeRelease({ status: 'published', extension: { ...makeRelease().extension, status: 'published', featured_at } });
+        const { unmount } = render(<Release release={live(null)} reviewItems={ITEMS} />);
+        expect(document.querySelector('[data-featured]')).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: 'Feature' }));
+        await waitFor(() => expect(put).toHaveBeenCalledWith('/admin/extensions/geotab-bridge/featured', { featured: true }));
+        unmount();
+
+        render(<Release release={live('2026-11-20T00:00:00Z')} reviewItems={ITEMS} />);
+        expect(document.querySelector('[data-featured]')).toHaveTextContent('Featured');
+        fireEvent.click(screen.getByRole('button', { name: 'Stop featuring' }));
+        await waitFor(() => expect(put).toHaveBeenCalledWith('/admin/extensions/geotab-bridge/featured', { featured: false }));
+    });
+
+    it('offers Feature only for a published listing', () => {
+        render(<Release release={makeRelease()} reviewItems={ITEMS} />);
+        expect(document.querySelector('[data-feature]')).toBeNull();
+    });
 });
 
 describe('Review/Queue', () => {
@@ -227,7 +283,18 @@ describe('Review/Queue', () => {
     const releases = {
         data: [
             makeRelease({ id: 'rel_new', status: 'submitted', submission: { submitted_at: new Date(now - 3600000 * 5).toISOString() } }),
-            makeRelease({ id: 'rel_old', status: 'in_review', submission: { submitted_at: new Date(now - 86400000 * 9).toISOString() }, extension: { slug: 'dock', name: 'Dock Scheduler', status: 'published', organization: { name: 'Acme', is_verified: true }, price: { model: 'one_time', amount: 4900, currency: 'USD' } } }),
+            makeRelease({
+                id: 'rel_old',
+                status: 'in_review',
+                submission: { submitted_at: new Date(now - 86400000 * 9).toISOString() },
+                extension: {
+                    slug: 'dock',
+                    name: 'Dock Scheduler',
+                    status: 'published',
+                    organization: { name: 'Acme', is_verified: true },
+                    price: { model: 'one_time', amount: 4900, currency: 'USD' },
+                },
+            }),
         ],
         meta: { total: 2 },
     };

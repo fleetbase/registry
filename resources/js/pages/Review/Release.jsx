@@ -42,7 +42,10 @@ export default function ReviewRelease({ release, reviewItems = [], suspension = 
 
 /** Whether the page was opened to request changes (`?changes=1`, from To publish). */
 function wantsChanges(url) {
-    const query = String(url ?? '').split('?')[1]?.split('#')[0] ?? '';
+    const query =
+        String(url ?? '')
+            .split('?')[1]
+            ?.split('#')[0] ?? '';
     return new URLSearchParams(query).get('changes') === '1';
 }
 
@@ -61,6 +64,7 @@ function ReviewBody({ release, reviewItems, suspension }) {
     const showChanges = changeable && !approvable && changing;
     const changes = releaseChanges(release);
     const suspended = extension.status === 'suspended';
+    const featured = Boolean(extension.featured_at);
     const itemLabels = Object.fromEntries(reviewItems.map((item) => [item.code, item.label]));
     const claim = [...(release.reviews ?? [])].reverse().find((entry) => entry.action === 'claim');
     const mine = claim?.by?.id && claim.by.id === auth?.account?.id;
@@ -76,6 +80,15 @@ function ReviewBody({ release, reviewItems, suspension }) {
         card?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
         card?.querySelector('#decision-title')?.focus?.({ preventScroll: true });
     }, [showChanges, decision.cardRef]);
+
+    function toggleFeatured() {
+        if (busy) {
+            return;
+        }
+        run(() => api.put(`/admin/extensions/${extension.slug}/featured`, { featured: !featured }), {
+            success: featured ? `${extension.name} is no longer featured.` : `${extension.name} is featured in the catalog.`,
+        });
+    }
 
     function startReview() {
         if (busy) {
@@ -113,6 +126,11 @@ function ReviewBody({ release, reviewItems, suspension }) {
                                         Listing suspended
                                     </StatusChip>
                                 )}
+                                {featured && (
+                                    <StatusChip tone="ok" icon="star" data-featured>
+                                        Featured
+                                    </StatusChip>
+                                )}
                             </div>
                             <div className="row wrapflex small muted" style={{ gap: 14 }}>
                                 {organization && (
@@ -136,6 +154,19 @@ function ReviewBody({ release, reviewItems, suspension }) {
                             {release.status === 'approved' && (
                                 <button type="button" className="btn btn-primary" onClick={() => setDialog('publish')}>
                                     <Icon name="globe" /> Publish
+                                </button>
+                            )}
+                            {extension.slug && (featured || extension.status === 'published') && (
+                                <button
+                                    type="button"
+                                    className="btn"
+                                    aria-pressed={featured}
+                                    aria-disabled={busy}
+                                    onClick={toggleFeatured}
+                                    title={featured ? 'Stop featuring this listing in the catalog' : 'Show this listing among the featured extensions'}
+                                    data-feature
+                                >
+                                    <Icon name="star" /> {featured ? 'Stop featuring' : 'Feature'}
                                 </button>
                             )}
                             {extension.slug &&
@@ -195,7 +226,12 @@ function ReviewBody({ release, reviewItems, suspension }) {
                             {approvable ? (
                                 <DecisionCard decision={decision} />
                             ) : (
-                                <DecidedCard release={release} itemLabels={itemLabels} onPublish={() => setDialog('publish')} onRequestChanges={changeable && !changing ? () => setChanging(true) : null} />
+                                <DecidedCard
+                                    release={release}
+                                    itemLabels={itemLabels}
+                                    onPublish={() => setDialog('publish')}
+                                    onRequestChanges={changeable && !changing ? () => setChanging(true) : null}
+                                />
                             )}
                             {showChanges && <DecisionCard decision={decision} onCancel={() => setChanging(false)} />}
                         </aside>
@@ -238,7 +274,16 @@ function ChecksTab({ release, changes }) {
                                     key={kind}
                                     href={`/v1/admin/releases/${release.id}/files/${kind}`}
                                     className="row hover:border-accent-line"
-                                    style={{ gap: 8, padding: '8px 12px', minHeight: 36, borderRadius: 10, border: '1px solid var(--line)', color: 'var(--ink)', textDecoration: 'none', background: 'var(--surface-2)' }}
+                                    style={{
+                                        gap: 8,
+                                        padding: '8px 12px',
+                                        minHeight: 36,
+                                        borderRadius: 10,
+                                        border: '1px solid var(--line)',
+                                        color: 'var(--ink)',
+                                        textDecoration: 'none',
+                                        background: 'var(--surface-2)',
+                                    }}
                                     data-archive={kind}
                                 >
                                     <Icon name="download" />
@@ -271,9 +316,7 @@ function ChangesCard({ changes }) {
                 <h2 id="changes-title" className="h4">
                     Since v{changes.version}
                 </h2>
-                <span className="small muted">
-                    The live version{changes.publishedAt ? `, published ${dateTime(changes.publishedAt)}` : ''}.
-                </span>
+                <span className="small muted">The live version{changes.publishedAt ? `, published ${dateTime(changes.publishedAt)}` : ''}.</span>
             </div>
             <ul className="col small" style={{ gap: 6, margin: 0, paddingLeft: 18 }}>
                 <li data-change="compat">
@@ -282,7 +325,8 @@ function ChangesCard({ changes }) {
                         ? changes.compat.map((change, index) => (
                               <span key={change.key}>
                                   {index ? '; ' : ''}
-                                  <span className="mono">{change.key}</span> {change.before ?? 'any'} → {change.after ?? 'any'}
+                                  <span className="mono">{change.key}</span> {change.before === null ? 'any' : preview(change.before)} →{' '}
+                                  {change.after === null ? 'any' : preview(change.after)}
                               </span>
                           ))
                         : 'unchanged'}
@@ -397,8 +441,17 @@ function ListingTab({ extension }) {
                 <div className="grid3" style={{ gap: 10 }}>
                     {screenshots.map((shot) => (
                         <figure key={shot.id} style={{ margin: 0 }}>
-                            <img src={shot.url} alt={shot.caption || `${extension.name} screenshot`} loading="lazy" style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 10, border: '1px solid var(--line)' }} />
-                            {shot.caption && <figcaption className="xs muted" style={{ marginTop: 4 }}>{shot.caption}</figcaption>}
+                            <img
+                                src={shot.url}
+                                alt={shot.caption || `${extension.name} screenshot`}
+                                loading="lazy"
+                                style={{ width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 10, border: '1px solid var(--line)' }}
+                            />
+                            {shot.caption && (
+                                <figcaption className="xs muted" style={{ marginTop: 4 }}>
+                                    {shot.caption}
+                                </figcaption>
+                            )}
                         </figure>
                     ))}
                 </div>

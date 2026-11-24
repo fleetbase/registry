@@ -73,6 +73,7 @@ class ReleaseDetailResource extends FleetbaseResource
             'slug' => $extension->slug,
             'name' => $extension->name,
             'status' => $extension->status,
+            'featured_at' => $extension->featured_at,
             'organization' => $loaded('organization') && $extension->organization
                 ? ['id' => $extension->organization->public_id, 'slug' => $extension->organization->slug, 'name' => $extension->organization->name, 'is_verified' => $extension->organization->verified_at !== null]
                 : null,

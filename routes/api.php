@@ -179,6 +179,7 @@ Route::prefix('v1')->name('v1.')->middleware('stateful')->group(function () {
         Route::post('releases/{release}/publish', [ReviewController::class, 'publish'])->middleware('maintenance')->name('releases.publish');
         Route::post('extensions/{slug}/suspend', [ReviewController::class, 'suspend'])->name('extensions.suspend');
         Route::post('extensions/{slug}/unsuspend', [ReviewController::class, 'unsuspend'])->name('extensions.unsuspend');
+        Route::put('extensions/{slug}/featured', [ReviewController::class, 'feature'])->name('extensions.featured');
         Route::get('extensions/{slug}/access', [AccessController::class, 'show'])->name('extensions.access.show');
         Route::post('extensions/{slug}/access', [AccessController::class, 'store'])->name('extensions.access.store');
         Route::patch('extensions/{slug}/access/{grant}', [AccessController::class, 'update'])->name('extensions.access.update');

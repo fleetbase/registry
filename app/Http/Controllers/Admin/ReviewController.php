@@ -16,10 +16,12 @@ use App\Models\Release;
 use App\Releases\PreviousReleases;
 use App\Releases\ReleasePipeline;
 use App\Services\ReleaseStorage;
+use App\Support\CatalogCache;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -165,6 +167,31 @@ class ReviewController extends Controller
 
         $extension = Extension::query()->where(fn (Builder $q) => $q->where('slug', $slug)->orWhere('public_id', $slug))->firstOrFail();
         $extension = $this->pipeline->unsuspend($extension, $request->user(), $request->input('reason'));
+
+        return new PublisherExtensionResource($extension->load(PublisherExtensionController::DETAIL));
+    }
+
+    /**
+     * PUT /v1/admin/extensions/{slug}/featured — `{featured: bool}`. Staff feature a published
+     * listing in the catalog (`featured_at`, now) or stop featuring it. Only a published listing
+     * can be featured; stopping always works. Featuring an already featured listing keeps its date.
+     */
+    public function feature(Request $request, string $slug): PublisherExtensionResource
+    {
+        $request->validate(['featured' => ['required', 'boolean']]);
+
+        $extension = Extension::query()->where(fn (Builder $q) => $q->where('slug', $slug)->orWhere('public_id', $slug))->firstOrFail();
+        $featured = $request->boolean('featured');
+
+        if ($featured && $extension->status !== Extension::STATUS_PUBLISHED) {
+            throw ValidationException::withMessages(['featured' => 'Only a published listing can be featured.']);
+        }
+
+        if ($featured !== $extension->isFeatured()) {
+            $extension->forceFill(['featured_at' => $featured ? now() : null])->save();
+            Event::record($featured ? 'extension.featured' : 'extension.unfeatured', $extension, $request->user());
+            CatalogCache::flush();
+        }
 
         return new PublisherExtensionResource($extension->load(PublisherExtensionController::DETAIL));
     }

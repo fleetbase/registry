@@ -80,6 +80,7 @@ class Extension extends Model
         'tags' => 'array',
         'languages' => 'array',
         'published_at' => 'datetime',
+        'featured_at' => 'datetime',
         'meta' => 'array',
     ];
 
@@ -194,6 +195,12 @@ class Extension extends Model
     public function scopePubliclyVisible(Builder $query): Builder
     {
         return $query->where($query->qualifyColumn('visibility'), self::VISIBILITY_PUBLIC);
+    }
+
+    /** Whether staff feature this listing in the catalog (`featured_at`). */
+    public function isFeatured(): bool
+    {
+        return $this->featured_at !== null;
     }
 
     public function isPrivate(): bool
