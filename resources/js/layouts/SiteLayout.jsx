@@ -76,7 +76,7 @@ export default function SiteLayout({ title, section = 'public', children, wide =
                             </span>
                         )}
                         <button type="button" className="icon-btn" aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'} onClick={toggle} data-theme-toggle>
-                            <Icon name={isDark ? 'sun' : 'moon'} size={20} />
+                            <Icon name={isDark ? 'sun' : 'moon'} size={18} />
                         </button>
                         {account ? (
                             <AccountMenu account={account} />
@@ -95,7 +95,7 @@ export default function SiteLayout({ title, section = 'public', children, wide =
                         )}
                     </div>
                 </header>
-                <nav className="show-sm" aria-label="Sections" style={{ gap: 4, padding: '8px 16px', borderBottom: '1px solid var(--line)', overflowX: 'auto' }}>
+                <nav className="show-sm" aria-label="Sections" style={{ gap: 4, padding: '6px 16px', borderBottom: '1px solid var(--line)', overflowX: 'auto' }}>
                     {nav.map((item) => (
                         <Link key={item.href} href={item.href} className="chip" aria-current={item.current ? 'page' : undefined} aria-pressed={item.current}>
                             {item.label}
@@ -106,9 +106,9 @@ export default function SiteLayout({ title, section = 'public', children, wide =
                     {children}
                 </main>
                 <footer style={{ borderTop: '1px solid var(--line)' }}>
-                    <div className="wrap row between wrapflex" style={{ paddingTop: 24, paddingBottom: 32, gap: 16 }}>
+                    <div className="wrap row between wrapflex" style={{ paddingTop: 16, paddingBottom: 20, gap: 12 }}>
                         <span className="small muted">Fleetbase Extensions Registry</span>
-                        <nav className="row wrapflex small" aria-label="Footer" style={{ gap: 20 }}>
+                        <nav className="row wrapflex small" aria-label="Footer" style={{ gap: 16 }}>
                             <a href="https://fleetbase.io/docs/extension-development" target="_blank" rel="noopener noreferrer">
                                 Developer guide
                             </a>
@@ -178,19 +178,19 @@ function AccountMenu({ account }) {
                 {initials(account.name)}
             </button>
             {open && (
-                <div role="menu" className="card" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', width: 260, padding: 6, zIndex: 40, boxShadow: 'var(--e2)' }}>
-                    <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--line)', marginBottom: 6 }}>
+                <div role="menu" className="card" style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', width: 240, padding: 4, zIndex: 40, boxShadow: 'var(--e2)' }}>
+                    <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--line)', marginBottom: 4 }}>
                         <div className="h4">{account.name}</div>
                         <div className="xs muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {account.email}
                         </div>
                     </div>
                     {items.map(([label, href]) => (
-                        <Link key={href} href={href} role="menuitem" className="row" style={{ minHeight: 40, padding: '0 12px', borderRadius: 8, color: 'var(--ink)' }} onClick={() => setOpen(false)}>
+                        <Link key={href} href={href} role="menuitem" className="row" style={{ minHeight: 32, padding: '0 10px', borderRadius: 6, fontSize: 13.5, color: 'var(--ink)' }} onClick={() => setOpen(false)}>
                             {label}
                         </Link>
                     ))}
-                    <button type="button" role="menuitem" className="row" style={{ width: '100%', minHeight: 40, padding: '0 12px', borderRadius: 8, border: 0, background: 'transparent', color: 'var(--ink)', font: 'inherit', cursor: 'pointer', borderTop: '1px solid var(--line)', marginTop: 6 }} onClick={signOut} data-sign-out>
+                    <button type="button" role="menuitem" className="row" style={{ width: '100%', minHeight: 32, padding: '0 10px', borderRadius: 6, border: 0, background: 'transparent', color: 'var(--ink)', font: 'inherit', fontSize: 13.5, cursor: 'pointer', borderTop: '1px solid var(--line)', marginTop: 4 }} onClick={signOut} data-sign-out>
                         Sign out
                     </button>
                 </div>

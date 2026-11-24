@@ -131,7 +131,7 @@ export default function PricingSection({ extension }) {
                                 />
                             )}
                         </Field>
-                        <label className="row small" style={{ gap: 8, alignSelf: 'end', minHeight: 44 }}>
+                        <label className="row small" style={{ gap: 8, alignSelf: 'end', minHeight: 'var(--h-ctl)' }}>
                             <input type="checkbox" checked={onSale && saleMinor !== null} disabled={saleMinor === null} onChange={(e) => setOnSale(e.target.checked)} />
                             On sale now
                         </label>

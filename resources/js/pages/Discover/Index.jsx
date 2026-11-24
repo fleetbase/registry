@@ -65,22 +65,22 @@ export default function Discover({ filters, results, categories }) {
     return (
         <SiteLayout title={filters.q ? `“${filters.q}”` : category ? category.name : 'Discover'}>
             <section className="hero">
-                <div className="wrap" style={{ paddingTop: 72, paddingBottom: 56 }}>
-                    <div className="col" style={{ gap: 20, maxWidth: 820 }}>
+                <div className="wrap" style={{ paddingTop: 36, paddingBottom: 32 }}>
+                    <div className="col" style={{ gap: 14, maxWidth: 760 }}>
                         <span className="eyebrow">Extensions for Fleetbase</span>
                         <h1 className="display">Add what your operation needs next.</h1>
                         <p className="lead" style={{ maxWidth: 640 }}>
                             Engines and integrations for Fleet-Ops, Storefront and the rest of your console. Every listing shows who built it, whether Fleetbase reviewed it, and if it runs on your version.
                         </p>
                         <form className="searchbox" role="search" action="/" method="get" onSubmit={submitSearch}>
-                            <Icon name="search" size={22} className="muted" />
+                            <Icon name="search" size={18} className="muted" />
                             <input name="q" aria-label="Search extensions" placeholder="Try “dock appointments” or “telematics”" value={search} onChange={(event) => setSearch(event.target.value)} data-catalog-search />
                             <kbd className="kbd hide-sm">⌘ K</kbd>
                             <button type="submit" className="btn btn-primary">
                                 Search
                             </button>
                         </form>
-                        <div className="row wrapflex" style={{ gap: 10 }}>
+                        <div className="row wrapflex" style={{ gap: 8 }}>
                             {consoleVersion && !editingVersion ? (
                                 <>
                                     <button type="button" className="compat" aria-pressed={onlyCompatible} onClick={() => visit({ compat: onlyCompatible ? 'any' : null })} data-compat-toggle>
@@ -96,8 +96,8 @@ export default function Discover({ filters, results, categories }) {
                                     <label className="small ink2" htmlFor="console-version">
                                         Your console version
                                     </label>
-                                    <input id="console-version" name="version" className="input mono" style={{ width: 120, minHeight: 40 }} placeholder="0.7.69" value={version} onChange={(event) => setVersion(event.target.value)} />
-                                    <button type="submit" className="btn btn-sm">
+                                    <input id="console-version" name="version" className="input mono" style={{ width: 120 }} placeholder="0.7.69" value={version} onChange={(event) => setVersion(event.target.value)} />
+                                    <button type="submit" className="btn">
                                         Show what works
                                     </button>
                                     <span className="xs muted">Settings → About in your console shows it.</span>
@@ -108,7 +108,7 @@ export default function Discover({ filters, results, categories }) {
                 </div>
             </section>
 
-            <div className="wrap" style={{ paddingTop: 40, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
                     <section className="stack" aria-labelledby="h-intent">
                         <div className="row between">
@@ -122,7 +122,7 @@ export default function Discover({ filters, results, categories }) {
                                 return (
                                     <button key={item.category} type="button" className="intent" aria-pressed={on} onClick={() => visit({ category: on ? null : item.category })} style={{ font: 'inherit', textAlign: 'left', cursor: 'pointer', borderColor: on ? 'var(--accent)' : undefined }} data-intent={item.category}>
                                         <span className="ig" aria-hidden="true">
-                                            <Icon name={item.icon} size={20} />
+                                            <Icon name={item.icon} size={18} />
                                         </span>
                                         <span className="col" style={{ gap: 2 }}>
                                             <span className="h4">{item.title}</span>
@@ -135,8 +135,8 @@ export default function Discover({ filters, results, categories }) {
                     </section>
 
                     <section className="stack" aria-labelledby="h-results">
-                        <div className="row between wrapflex" style={{ gap: 16 }}>
-                            <div className="col" style={{ gap: 4 }}>
+                        <div className="row between wrapflex" style={{ gap: 12 }}>
+                            <div className="col" style={{ gap: 2 }}>
                                 <h2 id="h-results" className="h3">
                                     {filters.q ? `Results for “${filters.q}”` : intent ? intent.title : category ? category.name : 'Popular right now'}
                                 </h2>
@@ -145,7 +145,7 @@ export default function Discover({ filters, results, categories }) {
                                     {onlyCompatible ? ` that work with console ${consoleVersion}` : ''}
                                 </span>
                             </div>
-                            <div className="row wrapflex" style={{ gap: 10 }}>
+                            <div className="row wrapflex" style={{ gap: 8 }}>
                                 <Segmented
                                     label="Price"
                                     value={filters.pricing ?? 'all'}
@@ -159,7 +159,7 @@ export default function Discover({ filters, results, categories }) {
                                 <label className="sr-only" htmlFor="hosting">
                                     Hosting
                                 </label>
-                                <select id="hosting" className="select" style={{ width: 'auto', minHeight: 40, borderRadius: 999, padding: '0 14px' }} value={filters.hosting ?? ''} onChange={(event) => visit({ hosting: event.target.value || null })}>
+                                <select id="hosting" className="select select-pill" value={filters.hosting ?? ''} onChange={(event) => visit({ hosting: event.target.value || null })}>
                                     <option value="">Any hosting</option>
                                     <option value="cloud">Fleetbase Cloud</option>
                                     <option value="self_hosted">Self-hosted</option>
@@ -167,7 +167,7 @@ export default function Discover({ filters, results, categories }) {
                                 <label className="sr-only" htmlFor="category">
                                     Category
                                 </label>
-                                <select id="category" className="select" style={{ width: 'auto', maxWidth: 220, minHeight: 40, borderRadius: 999, padding: '0 14px' }} value={filters.category ?? ''} onChange={(event) => visit({ category: event.target.value || null })}>
+                                <select id="category" className="select select-pill" style={{ maxWidth: 220 }} value={filters.category ?? ''} onChange={(event) => visit({ category: event.target.value || null })}>
                                     <option value="">All categories</option>
                                     {categories
                                         .filter((c) => c.extensions_count || c.slug === filters.category)
@@ -180,7 +180,7 @@ export default function Discover({ filters, results, categories }) {
                                 <label className="sr-only" htmlFor="sort">
                                     Sort
                                 </label>
-                                <select id="sort" className="select" style={{ width: 'auto', minHeight: 40, borderRadius: 999, padding: '0 14px' }} value={filters.sort ?? 'popular'} onChange={(event) => visit({ sort: event.target.value === 'popular' ? null : event.target.value })}>
+                                <select id="sort" className="select select-pill" value={filters.sort ?? 'popular'} onChange={(event) => visit({ sort: event.target.value === 'popular' ? null : event.target.value })}>
                                     {SORTS.map((sort) => (
                                         <option key={sort.value} value={sort.value}>
                                             {sort.label}
@@ -248,7 +248,7 @@ export default function Discover({ filters, results, categories }) {
                     </section>
 
                     <section className="card card-pad" aria-labelledby="h-trust">
-                        <div className="row wrapflex" style={{ gap: 32, alignItems: 'flex-start' }}>
+                        <div className="row wrapflex" style={{ gap: 20, alignItems: 'flex-start' }}>
                             <div className="col" style={{ gap: 6, maxWidth: 300 }}>
                                 <h2 id="h-trust" className="h4">
                                     What the marks mean
@@ -270,7 +270,7 @@ export default function Discover({ filters, results, categories }) {
                         </div>
                     </section>
 
-                    <section className="row wrapflex between card card-pad" style={{ background: 'var(--accent-soft)', borderColor: 'var(--accent-line)', gap: 24 }}>
+                    <section className="row wrapflex between card card-pad" style={{ background: 'var(--accent-soft)', borderColor: 'var(--accent-line)', gap: 16 }}>
                         <div className="col" style={{ gap: 6, maxWidth: 640 }}>
                             <h2 className="h3">Build for fleets everywhere</h2>
                             <p className="ink2">Publish a console engine and API package with one command. Eight automated checks run on every release, and Fleetbase reviews first releases.</p>

@@ -22,7 +22,7 @@ export default function StudioAccess({ extension, access = null, trusted_publish
 
     return (
         <SiteLayout title={`Access · ${extension.name}`} section="studio">
-            <div className="wrap" style={{ paddingTop: 28, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
                     <StudioHeader extension={extension} title={extension.name} sub="Who can see, install and publish it" back={`/studio/${extension.slug}`} backLabel={`Back to ${extension.name}`}>
                         <VisibilityChip extension={{ visibility, pending_visibility: pending }} showPublic />

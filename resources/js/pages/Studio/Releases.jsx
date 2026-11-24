@@ -23,7 +23,7 @@ export default function StudioReleases({ extension, releases = [] }) {
 
     return (
         <SiteLayout title={`Releases · ${extension.name}`} section="studio">
-            <div className="wrap" style={{ paddingTop: 28, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
                     <StudioHeader extension={extension} title="Releases" sub={`${extension.name}${live ? ` · live: v${live.version}` : ' · nothing live yet'}`} back={`/studio/${extension.slug}`} backLabel={`Back to ${extension.name}`}>
                         <ListingTabs extension={extension} current="releases" />

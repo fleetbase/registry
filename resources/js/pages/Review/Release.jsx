@@ -86,7 +86,7 @@ function ReviewBody({ release, reviewItems, suspension }) {
 
     return (
         <SiteLayout title={`Review ${extension.name} v${release.version}`} section="review">
-            <div className="wrap" style={{ paddingTop: 28, paddingBottom: 64 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
                     <div className="row wrapflex" style={{ gap: 16, alignItems: 'flex-start' }}>
                         <Link href="/review" className="icon-btn" aria-label="Back to the queue" style={{ border: '1px solid var(--line)' }}>
@@ -238,7 +238,7 @@ function ChecksTab({ release, changes }) {
                                     key={kind}
                                     href={`/v1/admin/releases/${release.id}/files/${kind}`}
                                     className="row hover:border-accent-line"
-                                    style={{ gap: 10, padding: '12px 14px', minHeight: 44, borderRadius: 12, border: '1px solid var(--line)', color: 'var(--ink)', textDecoration: 'none', background: 'var(--surface-2)' }}
+                                    style={{ gap: 8, padding: '8px 12px', minHeight: 36, borderRadius: 10, border: '1px solid var(--line)', color: 'var(--ink)', textDecoration: 'none', background: 'var(--surface-2)' }}
                                     data-archive={kind}
                                 >
                                     <Icon name="download" />

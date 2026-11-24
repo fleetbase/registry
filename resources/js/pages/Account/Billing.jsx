@@ -20,7 +20,7 @@ export const FINALIZE_TIMEOUT_MS = 60_000;
 export default function Billing({ organizations = [], organization, purchases = null, licences = [], checkout }) {
     return (
         <SiteLayout title={organization ? `${organization.name} · Billing` : 'Billing'}>
-            <div className="wrap" style={{ paddingTop: 40, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
                     <AccountHeader title="Billing" current="billing" description="Extensions your organizations bought, their licences and receipts." />
                     {organizations.length > 1 && (

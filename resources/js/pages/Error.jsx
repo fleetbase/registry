@@ -20,7 +20,7 @@ export default function Error({ status, message }) {
     const body = denied ? (auth?.account ? `You’re signed in as ${auth.account.email}. Looking for your own submissions?` : copy.body) : (message ?? copy.body);
     return (
         <SiteLayout title={title}>
-            <div className="wrap" style={{ paddingTop: 64, paddingBottom: 96, maxWidth: 720 }}>
+            <div className="wrap" style={{ paddingTop: 40, paddingBottom: 56, maxWidth: 640 }}>
                 <div className="card" data-error-status={status}>
                     <EmptyState
                         icon={copy.icon}

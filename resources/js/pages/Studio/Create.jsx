@@ -92,7 +92,7 @@ export default function StudioCreate({ categories = [] }) {
 
     return (
         <SiteLayout title="New extension" section="studio">
-            <div className="wrap" style={{ paddingTop: 40, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="split">
                     <form method="post" className="main" aria-labelledby="h-create" onSubmit={submit} noValidate>
                         <div className="col" style={{ gap: 8 }}>
@@ -115,7 +115,7 @@ export default function StudioCreate({ categories = [] }) {
                         )}
 
                         <Field label="Extension name" help="The public name. At least 4 characters." error={fieldError('name') ?? fieldError('slug')}>
-                            {(id, aria) => <input id={id} {...aria} className="input" style={{ fontSize: 18, minHeight: 52 }} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={120} required />}
+                            {(id, aria) => <input id={id} {...aria} className="input" style={{ fontSize: 16, minHeight: 'var(--h-ctl-lg)' }} value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" maxLength={120} required />}
                         </Field>
 
                         {organizations.length > 0 && (
@@ -222,7 +222,7 @@ export default function StudioCreate({ categories = [] }) {
                         </div>
 
                         <div className="field">
-                            <label className="row" style={{ gap: 10, alignItems: 'flex-start', minHeight: 44, cursor: 'pointer' }}>
+                            <label className="row" style={{ gap: 8, alignItems: 'flex-start', cursor: 'pointer' }}>
                                 <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} style={{ marginTop: 3 }} aria-describedby="private-help" data-private />
                                 <span className="col" style={{ gap: 2 }}>
                                     <span className="label" style={{ margin: 0 }}>
@@ -236,7 +236,7 @@ export default function StudioCreate({ categories = [] }) {
                             {fieldError('visibility') && <span className="err">{fieldError('visibility')}</span>}
                         </div>
 
-                        <div className="row between wrapflex" style={{ borderTop: '1px solid var(--line)', paddingTop: 20 }}>
+                        <div className="row between wrapflex" style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
                             <span className="small muted">
                                 Prefer the CLI? <code>flb publish</code> creates the listing from extension.json.
                             </span>

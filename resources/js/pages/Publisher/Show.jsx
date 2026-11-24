@@ -27,16 +27,16 @@ export default function PublisherShow({ publisher }) {
     return (
         <SiteLayout title={publisher.name}>
             <section className="hero">
-                <div className="wrap row wrapflex" style={{ paddingTop: 56, paddingBottom: 48, gap: 28, alignItems: 'flex-start' }}>
+                <div className="wrap row wrapflex" style={{ paddingTop: 28, paddingBottom: 24, gap: 18, alignItems: 'flex-start' }}>
                     {publisher.avatar_url ? (
-                        <img src={publisher.avatar_url} alt="" className="avatar" style={{ width: 96, height: 96, borderRadius: 24, objectFit: 'cover' }} />
+                        <img src={publisher.avatar_url} alt="" className="avatar" style={{ width: 64, height: 64, borderRadius: 16, objectFit: 'cover' }} />
                     ) : (
-                        <span className="avatar" style={{ width: 96, height: 96, fontSize: 32, borderRadius: 24 }} aria-hidden="true">
+                        <span className="avatar" style={{ width: 64, height: 64, fontSize: 22, borderRadius: 16 }} aria-hidden="true">
                             {initials(publisher.name)}
                         </span>
                     )}
-                    <div className="col grow" style={{ gap: 12, minWidth: 260 }}>
-                        <div className="row wrapflex" style={{ gap: 12 }}>
+                    <div className="col grow" style={{ gap: 8, minWidth: 260 }}>
+                        <div className="row wrapflex" style={{ gap: 10 }}>
                             <h1 className="h1" data-publisher-name>
                                 {publisher.name}
                             </h1>
@@ -47,7 +47,7 @@ export default function PublisherShow({ publisher }) {
                                 {publisher.bio}
                             </p>
                         )}
-                        <div className="row wrapflex small muted" style={{ gap: 18 }}>
+                        <div className="row wrapflex small muted" style={{ gap: 14 }}>
                             <span className="mono">@{publisher.slug}</span>
                             <span>{plural(count, 'extension')}</span>
                             {since && <span>Publishing since {since}</span>}
@@ -61,7 +61,7 @@ export default function PublisherShow({ publisher }) {
                 </div>
             </section>
 
-            <div className="wrap" style={{ paddingTop: 40, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="split">
                     <div className="main">
                         <h2 className="h3">Extensions</h2>

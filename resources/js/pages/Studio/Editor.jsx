@@ -172,7 +172,7 @@ export default function StudioEditor({ extension, releases = [], categories = []
 
     return (
         <SiteLayout title={`${extension.name} · Studio`} section="studio">
-            <div className="wrap" style={{ paddingTop: 28, paddingBottom: 96 }}>
+            <div className="wrap page">
                 <div style={{ marginBottom: 24 }}>
                     <StudioHeader extension={extension} title={extension.name} sub={<span className="mono">{[npm ?? composer ?? extension.slug, extension.status].join(' · ')}</span>}>
                         <ListingStatus status={extension.status} />

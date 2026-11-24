@@ -210,10 +210,10 @@ function GrantRow({ grant, onEdit, onRevoke }) {
             <td>
                 {grant.status !== 'revoked' && (
                     <div className="row" style={{ gap: 8, justifyContent: 'flex-end' }}>
-                        <button type="button" className="btn btn-sm" style={{ minHeight: 44 }} onClick={onEdit} aria-label={`Edit access for ${name}`}>
+                        <button type="button" className="btn btn-sm" onClick={onEdit} aria-label={`Edit access for ${name}`}>
                             Edit
                         </button>
-                        <button type="button" className="btn btn-sm btn-danger" style={{ minHeight: 44 }} onClick={onRevoke} aria-label={`Revoke access for ${name}`} data-revoke>
+                        <button type="button" className="btn btn-sm btn-danger" onClick={onRevoke} aria-label={`Revoke access for ${name}`} data-revoke>
                             Revoke
                         </button>
                     </div>

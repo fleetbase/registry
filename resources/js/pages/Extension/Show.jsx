@@ -45,7 +45,7 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
 
     return (
         <SiteLayout title={extension.name}>
-            <div className="wrap" style={{ paddingTop: 28, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <nav className="small muted row" aria-label="Breadcrumb" style={{ gap: 8, marginBottom: 24 }}>
                     <Link href="/">Discover</Link>
                     {extension.category && (
@@ -60,9 +60,9 @@ export default function ExtensionShow({ extension, releases, compatibility }) {
                     </span>
                 </nav>
 
-                <div className="row wrapflex" style={{ gap: 24, alignItems: 'flex-start', marginBottom: 32 }}>
-                    <ExtensionIcon extension={extension} size="xl" />
-                    <div className="col grow" style={{ gap: 10, minWidth: 260 }}>
+                <div className="row wrapflex" style={{ gap: 16, alignItems: 'flex-start', marginBottom: 20 }}>
+                    <ExtensionIcon extension={extension} size="lg" />
+                    <div className="col grow" style={{ gap: 6, minWidth: 260 }}>
                         <div className="row wrapflex" style={{ gap: 12 }}>
                             <h1 className="h1" data-extension-name>
                                 {extension.name}

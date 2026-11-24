@@ -136,7 +136,7 @@ export default function TrustedPublishersSection({ extension, publishers = [] })
                                     {publisher.created_at ? ` on ${shortDate(publisher.created_at)}` : ''}
                                 </span>
                             </div>
-                            <button type="button" className="btn btn-sm btn-danger" style={{ minHeight: 44 }} onClick={() => setRemoving(publisher)} aria-label={`Remove ${publisher.repository} ${publisher.workflow}`} data-remove-trusted>
+                            <button type="button" className="btn btn-sm btn-danger" onClick={() => setRemoving(publisher)} aria-label={`Remove ${publisher.repository} ${publisher.workflow}`} data-remove-trusted>
                                 Remove
                             </button>
                         </li>

@@ -42,7 +42,7 @@ export default function Organizations({ organizations = [], organization }) {
 
     return (
         <SiteLayout title={organization ? `${organization.name} · Organizations` : 'Organizations'}>
-            <div className="wrap" style={{ paddingTop: 40, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
                     <AccountHeader current="organizations" />
                     <div className="split">
@@ -126,8 +126,8 @@ function ProfileCard({ organization }) {
     return (
         <section className="card" aria-labelledby="h-org">
             <div className="card-head">
-                <div className="row" style={{ gap: 14, minWidth: 0 }}>
-                    <OrgAvatar organization={organization} size={48} radius={14} />
+                <div className="row" style={{ gap: 10, minWidth: 0 }}>
+                    <OrgAvatar organization={organization} size={36} radius={10} />
                     <div className="col" style={{ gap: 0, minWidth: 0 }}>
                         <div className="row wrapflex" style={{ gap: 8 }}>
                             <h2 id="h-org" className="h3">
@@ -142,7 +142,7 @@ function ProfileCard({ organization }) {
                         <span className="small muted mono">@{organization.slug}</span>
                     </div>
                 </div>
-                <Link href={`/publishers/${organization.slug}`} className="btn btn-sm" style={{ minHeight: 44 }}>
+                <Link href={`/publishers/${organization.slug}`} className="btn btn-sm">
                     Public profile
                 </Link>
             </div>
@@ -272,7 +272,7 @@ function MembersCard({ organization }) {
                             <label className="sr-only" htmlFor={selectId}>
                                 Role for {member.name}
                             </label>
-                            <select id={selectId} className="role" value={member.role} disabled={locked} onChange={(event) => changeRole(member, event.target.value)}>
+                            <select id={selectId} className="select select-sm role" value={member.role} disabled={locked} onChange={(event) => changeRole(member, event.target.value)}>
                                 {(locked ? [member.role] : [...new Set([...assignable, member.role])]).map((role) => (
                                     <option key={role} value={role}>
                                         {roleLabel(role)}
@@ -280,7 +280,7 @@ function MembersCard({ organization }) {
                                 ))}
                             </select>
                             {you ? (
-                                <button type="button" className="btn btn-sm btn-quiet" style={{ minHeight: 44 }} onClick={() => setRemoving(member)} data-leave>
+                                <button type="button" className="btn btn-sm btn-quiet" onClick={() => setRemoving(member)} data-leave>
                                     Leave
                                 </button>
                             ) : removable ? (

@@ -48,7 +48,7 @@ export function useDecision(release, items) {
     };
 }
 
-const PF_BASE = { minHeight: 44, minWidth: 64, padding: '0 10px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--surface)', color: 'var(--ink-2)', font: '600 13px/1 var(--font)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4 };
+const PF_BASE = { minHeight: 'var(--h-ctl-sm)', minWidth: 58, padding: '0 10px', borderRadius: 8, border: '1px solid var(--line-strong)', background: 'var(--surface)', color: 'var(--ink-2)', font: '600 13px/1 var(--font)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4 };
 const PF_ON = {
     pass: { background: 'var(--ok-bg)', borderColor: 'var(--ok-line)', color: 'var(--ok)' },
     fail: { background: 'var(--fail-bg)', borderColor: 'var(--fail-line)', color: 'var(--fail)' },
@@ -80,7 +80,7 @@ export function DecisionCard({ decision, onCancel }) {
             )}
             <div className="card-body" style={{ paddingTop: 4, paddingBottom: 4 }}>
                 {items.map((item, index) => (
-                    <div key={item.code} className="col" style={{ gap: 8, padding: '14px 0', borderTop: index ? '1px solid var(--line)' : 0 }} data-item={item.code} data-mark={marks[item.code] ?? 'none'}>
+                    <div key={item.code} className="col" style={{ gap: 6, padding: '10px 0', borderTop: index ? '1px solid var(--line)' : 0 }} data-item={item.code} data-mark={marks[item.code] ?? 'none'}>
                         <div className="row between" style={{ gap: 10 }}>
                             <span className="small">
                                 <strong className="mono">{item.code}</strong> · {item.label}
@@ -105,7 +105,7 @@ export function DecisionCard({ decision, onCancel }) {
                             </div>
                             <input
                                 className="input grow"
-                                style={{ minHeight: 44, padding: '6px 10px', fontSize: 13, minWidth: 160 }}
+                                style={{ minHeight: 'var(--h-ctl-sm)', padding: '4px 8px', fontSize: 13, minWidth: 160 }}
                                 aria-label={`Note for ${item.code}, shown to the publisher`}
                                 placeholder="Note for the publisher"
                                 value={notes[item.code] ?? ''}

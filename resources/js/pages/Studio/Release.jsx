@@ -46,7 +46,7 @@ export default function StudioRelease({ extension, release }) {
 
     return (
         <SiteLayout title={`v${release.version} · ${extension.name}`} section="studio">
-            <div className="wrap" style={{ paddingTop: 28, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
                     <StudioHeader extension={extension} title={`Release v${release.version}`} sub={`${extension.name} · ${release.channel} channel`} back={`/studio/${extension.slug}/releases`} backLabel={`Back to ${extension.name} releases`}>
                         <ReleaseStatus status={release.status} aria-live="polite" />

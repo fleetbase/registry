@@ -16,10 +16,10 @@ export default function ExtensionCard({ extension, console: consoleVersion }) {
                 </div>
                 <span className={`price ${paid ? '' : 'price-free'}`}>{priceLabel(extension.price)}</span>
             </div>
-            <p className="small ink2" style={{ minHeight: 44 }}>
+            <p className="small ink2" style={{ minHeight: 38 }}>
                 {extension.subtitle}
             </p>
-            <div className="row wrapflex" style={{ gap: 14 }}>
+            <div className="row wrapflex" style={{ gap: 10 }}>
                 {consoleVersion && extension.compatible === true && <WorksWith version={consoleVersion} className="xs" />}
                 {extension.publisher?.is_verified && <Verified short className="xs" />}
                 {extension.hosting === 'self_hosted' && <span className="tag">Self-hosted only</span>}

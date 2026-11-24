@@ -24,7 +24,7 @@ function timezones(current) {
 export default function Profile() {
     return (
         <SiteLayout title="Profile and password">
-            <div className="wrap" style={{ paddingTop: 40, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
                     <AccountHeader current="profile" />
                     <section className="card" aria-labelledby="h-profile">

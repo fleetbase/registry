@@ -6,9 +6,9 @@ import './account.css';
 export default function AuthShell({ title, labelledBy, onSubmit, children }) {
     return (
         <SiteLayout title={title}>
-            <div className="wrap" style={{ paddingTop: 40, paddingBottom: 72 }}>
-                <div className="col" style={{ alignItems: 'center', gap: 24 }}>
-                    <div className="col" style={{ alignItems: 'center', gap: 8, textAlign: 'center' }}>
+            <div className="wrap page">
+                <div className="col" style={{ alignItems: 'center', gap: 16, paddingTop: 16 }}>
+                    <div className="col" style={{ alignItems: 'center', gap: 6, textAlign: 'center' }}>
                         <Link href="/" className="logo" aria-label="Fleetbase Extensions home">
                             <img className="logo-mark" src="/images/fleetbase-icon.svg" alt="" width={28} height={28} />
                             Fleetbase <span className="tag">Extensions</span>

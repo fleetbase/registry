@@ -168,7 +168,7 @@ function VerifyForm({ initialEmail, sent, submitRef }) {
             </button>
             <div className="row between wrapflex small" style={{ gap: 8 }}>
                 <span className="muted">Didn’t get it? Check spam.</span>
-                <button type="button" className="btn btn-quiet btn-sm" style={{ minHeight: 44 }} aria-disabled={wait > 0} onClick={resend} data-resend>
+                <button type="button" className="btn btn-quiet btn-sm" aria-disabled={wait > 0} onClick={resend} data-resend>
                     {wait > 0 ? `Resend in ${countdown}` : 'Resend code'}
                 </button>
             </div>

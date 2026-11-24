@@ -107,7 +107,7 @@ export default function ReleaseNotes({ release }) {
                 <>
                     {release.notes ? <SafeHtml html={release.notes} className="small ink2" /> : <p className="small muted">No notes for this release.</p>}
                     {editable && (
-                        <button ref={editButton} type="button" className="sd-linkbtn small" style={{ alignSelf: 'flex-start', minHeight: 44 }} onClick={start}>
+                        <button ref={editButton} type="button" className="sd-linkbtn small" style={{ alignSelf: 'flex-start', minHeight: 28 }} onClick={start}>
                             {release.notes ? 'Edit notes' : 'Add notes'}
                         </button>
                     )}

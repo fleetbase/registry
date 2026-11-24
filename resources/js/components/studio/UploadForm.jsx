@@ -182,7 +182,7 @@ export default function UploadForm({ extension }) {
                         )}
                     </Field>
                     <div className="field" style={{ justifyContent: 'flex-end' }}>
-                        <label className="check" style={{ minHeight: 44, alignItems: 'center' }}>
+                        <label className="check" style={{ minHeight: 'var(--h-ctl)', alignItems: 'center' }}>
                             <input type="checkbox" checked={submit} onChange={(e) => setSubmit(e.target.checked)} />
                             <span>Submit for review when the checks pass</span>
                         </label>

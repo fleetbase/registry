@@ -34,7 +34,7 @@ export default function InstanceCodeCard({ organization }) {
                 <h2 id="h-instances" className="h4">
                     Fleetbase instances
                 </h2>
-                <button type="button" className="btn btn-sm" style={{ minHeight: 44 }} onClick={mint} disabled={busy} data-mint-instance-code>
+                <button type="button" className="btn btn-sm" onClick={mint} disabled={busy} data-mint-instance-code>
                     {busy ? <Icon name="spinner" spin /> : <Icon name="plus" />}
                     {code ? 'New code' : 'Create registration code'}
                 </button>

@@ -38,7 +38,7 @@ export default function StudioHistory({ extension, releases = [], truncated = fa
 
     return (
         <SiteLayout title={`History · ${extension.name}`} section="studio">
-            <div className="wrap" style={{ paddingTop: 28, paddingBottom: 80 }}>
+            <div className="wrap page">
                 <div className="stack-lg">
                     <StudioHeader extension={extension} title="History" sub={`${extension.name} · every upload, check and decision`} back={`/studio/${extension.slug}`} backLabel={`Back to ${extension.name}`}>
                         <Segmented
