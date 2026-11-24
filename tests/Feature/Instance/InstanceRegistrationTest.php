@@ -161,6 +161,17 @@ it('validates the registration body without burning the code', function () {
     expect($code->fresh()->used_at)->toBeNull();
 });
 
+it('registers only self-hosted instances with a code: cloud is the signed platform registration', function () {
+    [$account, $organization] = accountWithOrganization();
+    $code = InstanceRegistrationCode::mint($organization, $account);
+
+    $response = $this->postJson('/v1/instances/register', registrationPayload($code->plainTextCode, ['kind' => Instance::KIND_CLOUD]))
+        ->assertStatus(422);
+    expect($response->json('fields'))->toHaveKey('kind')
+        ->and(Instance::count())->toBe(0)
+        ->and($code->fresh()->used_at)->toBeNull();
+});
+
 it('keeps instance and personal tokens apart', function () {
     $account = Account::factory()->create();
     $personal = Token::issue($account, 'cli');

@@ -192,7 +192,7 @@ class InstallController extends Controller
             return 'Only published releases can be installed.';
         }
 
-        if ($extension->hosting !== Extension::HOSTING_BOTH && $extension->hosting !== $instance->kind) {
+        if ($extension->hosting !== Extension::HOSTING_BOTH && $extension->hosting !== $instance->hostingKind()) {
             return "This extension is only available for {$extension->hosting} instances.";
         }
 

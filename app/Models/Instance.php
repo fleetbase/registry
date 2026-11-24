@@ -199,6 +199,16 @@ class Instance extends Model implements AuthenticatableContract
     }
 
     /**
+     * The hosting kind an extension's `hosting` is matched against: cloud only for the platform
+     * instance, whatever kind another instance was stored with, so registering (or having been
+     * imported) as `cloud` never opens cloud-only listings to a self-hosted install.
+     */
+    public function hostingKind(): string
+    {
+        return $this->isPlatform() ? self::KIND_CLOUD : self::KIND_SELF_HOSTED;
+    }
+
+    /**
      * Act for a cloud company's organization for the rest of this request: its licences, installs
      * and checkouts. Only the platform instance can; null goes back to its own organization.
      */

@@ -128,7 +128,7 @@ class CheckoutSessions
             throw new UnprocessableEntityHttpException("{$extension->name} is free: install it without buying.");
         }
 
-        if ($instance && $extension->hosting !== Extension::HOSTING_BOTH && $extension->hosting !== $instance->kind) {
+        if ($instance && $extension->hosting !== Extension::HOSTING_BOTH && $extension->hosting !== $instance->hostingKind()) {
             throw new UnprocessableEntityHttpException("This extension is only available for {$extension->hosting} instances.");
         }
 
