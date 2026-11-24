@@ -247,25 +247,25 @@ export default function Discover({ filters, results, categories }) {
                         )}
                     </section>
 
-                    <section className="card card-pad" aria-labelledby="h-trust">
-                        <div className="row wrapflex" style={{ gap: 20, alignItems: 'flex-start' }}>
-                            <div className="col" style={{ gap: 6, maxWidth: 300 }}>
-                                <h2 id="h-trust" className="h4">
-                                    What the marks mean
-                                </h2>
-                                <p className="small muted">Three marks, one fact each. No stars, no badges for sale.</p>
-                            </div>
-                            <div className="col grow" style={{ gap: 6, minWidth: 220 }}>
+                    <section className="card card-pad col" style={{ gap: 14 }} aria-labelledby="h-trust">
+                        <div className="col" style={{ gap: 4 }}>
+                            <h2 id="h-trust" className="h4">
+                                What the marks mean
+                            </h2>
+                            <p className="small muted">Three marks, one fact each. No stars, no badges for sale.</p>
+                        </div>
+                        <div className="grid3" style={{ gap: 16 }}>
+                            <div className="col" style={{ gap: 6, alignItems: 'flex-start' }}>
                                 <Verified short />
                                 <span className="small muted">Fleetbase confirmed who the publisher is.</span>
                             </div>
-                            <div className="col grow" style={{ gap: 6, minWidth: 220 }}>
+                            <div className="col" style={{ gap: 6, alignItems: 'flex-start' }}>
                                 <Reviewed short />
                                 <span className="small muted">A person at Fleetbase reviewed the latest release.</span>
                             </div>
-                            <div className="col grow" style={{ gap: 6, minWidth: 220 }}>
-                                <WorksWith version={consoleVersion ?? 'your console'} />
-                                <span className="small muted">The release’s console range includes your version.</span>
+                            <div className="col" style={{ gap: 6, alignItems: 'flex-start' }}>
+                                <WorksWith version={consoleVersion ? `Fleetbase ${consoleVersion}` : 'your Fleetbase'} />
+                                <span className="small muted">The latest release supports your Fleetbase version.</span>
                             </div>
                         </div>
                     </section>
