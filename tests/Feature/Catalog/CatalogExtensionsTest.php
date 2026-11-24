@@ -221,3 +221,21 @@ it('filters and annotates listings by console compatibility', function () {
     $this->getJson('/v1/catalog/extensions?compatible=1')->assertJsonPath('meta.total', 3)->assertJsonMissingPath('data.0.compatibility');
     $this->getJson('/v1/catalog/extensions?compatible=1&console=latest')->assertJsonPath('meta.total', 3)->assertJsonMissingPath('data.0.compatibility');
 });
+
+it('exposes compat.extensions and names the required extensions the catalog lists', function () {
+    $fleetops = catalogExtension(['slug' => 'fleet-ops', 'name' => 'Fleet-Ops']);
+    $fleetops->packages()->where('kind', 'npm')->update(['name' => '@fleetbase/fleetops-engine']);
+    $extension = catalogExtension(['slug' => 'needs-fleetops']);
+    $extension->releases()->update(['compat' => ['console' => '>=0.7', 'extensions' => ['@fleetbase/fleetops-engine' => '>=0.6', '@acme/unlisted-engine' => '^1.0']]]);
+
+    $this->getJson('/v1/catalog/extensions?q=needs-fleetops')->assertOk()
+        ->assertJsonPath('data.0.compat.extensions', ['@fleetbase/fleetops-engine' => '>=0.6', '@acme/unlisted-engine' => '^1.0']);
+
+    $this->getJson('/v1/catalog/extensions/needs-fleetops')->assertOk()
+        ->assertJsonPath('compat.extensions.@fleetbase/fleetops-engine', '>=0.6')
+        ->assertJsonPath('requires_extensions', [
+            ['package' => '@fleetbase/fleetops-engine', 'range' => '>=0.6', 'name' => 'Fleet-Ops', 'slug' => 'fleet-ops'],
+            ['package' => '@acme/unlisted-engine', 'range' => '^1.0', 'name' => null, 'slug' => null],
+        ]);
+    $this->getJson('/v1/catalog/extensions/fleet-ops')->assertOk()->assertJsonPath('requires_extensions', []);
+});

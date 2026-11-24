@@ -214,8 +214,8 @@ default here is 12) because Laravel's `hashed` cast refuses hashes above the con
 
 | Method and path | Returns |
 | --- | --- |
-| `GET /v1/catalog/extensions?q=&category=&pricing=&hosting=&console=&compatible=&sort=&page=&limit=` | Paged listings with publisher, category, latest release, install count, compat, price, package names. `console=<version>` adds `compatibility: {console, compatible, newest_compatible}` to each item (does the latest release work, and the newest published release that does); with `compatible=1` only listings that have such a release |
-| `GET /v1/catalog/extensions/{slug}` | Full listing, screenshots, publisher, versions summary |
+| `GET /v1/catalog/extensions?q=&category=&pricing=&hosting=&featured=&console=&compatible=&sort=&page=&limit=` | Paged listings with publisher, category, latest release, install count, compat (`console`, `api`, and `extensions`: other extensions the release needs, package name => range), price, package names, `featured_at` / `is_featured`. `featured=1` keeps staff-featured listings; `sort` is `featured` (featured first, most recently featured on top), `popular` (default), `newest`, `updated`, `name` or `price`. `console=<version>` adds `compatibility: {console, compatible, newest_compatible}` to each item (does the latest release work, and the newest published release that does); with `compatible=1` only listings that have such a release |
+| `GET /v1/catalog/extensions/{slug}` | Full listing, screenshots, publisher, versions summary, and `requires_extensions: [{package, range, name, slug}]` from the latest release's `compat.extensions` (`name` and `slug` when the catalog lists that package, else null) |
 | `GET /v1/catalog/extensions/{slug}/releases?channel=` | Published (and yanked) releases: versions, channels, dates, sizes, notes, compat |
 | `GET /v1/catalog/publishers/{slug}` | Publisher profile and their published extensions |
 | `GET /v1/catalog/categories` | Categories with published extension counts |
@@ -352,7 +352,7 @@ per check with `passed` and `output` (`summary`, `errors`, `warnings`, details):
 | Check | Fails when |
 | --- | --- |
 | `manifest` | extension.json does not validate against `resources/schemas/extension.schema.json` (draft 2020-12, shared with registry-bridge); `engine`/`api` declared without the archive or the reverse; version or channel differ from the release |
-| `compat` | `compat.console` or `compat.api` does not parse as a composer/semver range (missing ranges are a warning) |
+| `compat` | `compat.console`, `compat.api` or a `compat.extensions` range does not parse as a composer/semver range (missing console/api ranges are a warning) |
 | `package_names` | the `package.json` / `composer.json` name is not the listing's `extension_packages` name of that kind, or disagrees with the manifest; the engine's `package.json` version is not the release version |
 | `version` | not greater than every published or yanked release on the same channel; not installable by Composer (`-next.1` and the like) when there is an api archive |
 | `size` | an archive over its limit, more than `REGISTRY_MAX_ARCHIVE_ENTRIES` entries, unpacked size over `REGISTRY_MAX_UNPACKED_BYTES`, a file over `REGISTRY_MAX_FILE_BYTES` |
@@ -407,6 +407,7 @@ checks are emailed too.
 | `POST /v1/admin/releases/{id}/publish` | An approved release |
 | `POST /v1/admin/extensions/{slug}/suspend` | Required `reason`. The listing leaves the catalog and the package endpoints; uploads and publishing stop |
 | `POST /v1/admin/extensions/{slug}/unsuspend` | Optional `reason`. Restores the status saved at suspension |
+| `PUT /v1/admin/extensions/{slug}/featured` | `{featured: bool}`. Features a published listing in the catalog (`featured_at`) or stops featuring it; recorded as `extension.featured` / `extension.unfeatured` |
 | `GET /v1/admin/releases/{id}/files/{engine,api,dist}` | Downloads an archive for review; recorded as `release.downloaded` |
 | `GET /v1/admin/review-items` | The review requirements R1 to R6 (`registry.review.items`); approve and reject accept only these codes |
 | `GET /v1/admin/facilitator-fees` | The fee in effect (`current_rate_bps`), the configured default, and every scheduled fee, newest first |

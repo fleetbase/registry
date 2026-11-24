@@ -94,10 +94,7 @@ class ReleasePipeline
                 'channel' => $channel,
                 'status' => Release::STATUS_UPLOADED,
                 'manifest' => $manifest,
-                'compat' => array_filter([
-                    'console' => is_string($manifest['compat']['console'] ?? null) ? $manifest['compat']['console'] : null,
-                    'api' => is_string($manifest['compat']['api'] ?? null) ? $manifest['compat']['api'] : null,
-                ]) ?: null,
+                'compat' => static::compatFromManifest($manifest),
                 'notes' => $notes,
                 'meta' => $meta + ['submission' => ['requested' => $submit, 'requested_by' => $submit ? $account->uuid : null, 'errors' => []]],
             ]);
@@ -497,5 +494,23 @@ class ReleasePipeline
         } catch (\Throwable $e) {
             report($e);
         }
+    }
+
+    /**
+     * The release's `compat` from its manifest: `console` and `api` ranges, and `extensions` (the
+     * other extensions it needs, console package name => node-semver range). Null when it sets none.
+     *
+     * @return array{console?: string, api?: string, extensions?: array<string, string>}|null
+     */
+    public static function compatFromManifest(array $manifest): ?array
+    {
+        $compat = is_array($manifest['compat'] ?? null) ? $manifest['compat'] : [];
+        $extensions = is_array($compat['extensions'] ?? null) ? array_filter($compat['extensions'], fn ($range, $name) => is_string($name) && $name !== '' && is_string($range) && $range !== '', ARRAY_FILTER_USE_BOTH) : [];
+
+        return array_filter([
+            'console' => is_string($compat['console'] ?? null) ? $compat['console'] : null,
+            'api' => is_string($compat['api'] ?? null) ? $compat['api'] : null,
+            'extensions' => $extensions ?: null,
+        ]) ?: null;
     }
 }

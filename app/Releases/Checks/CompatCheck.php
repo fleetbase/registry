@@ -8,7 +8,8 @@ use App\Support\Compat;
 /**
  * `compat.console` and `compat.api` must parse as npm/Composer ranges (composer/semver);
  * the schema only checks their characters. A missing range means "any version", which is
- * allowed with a warning.
+ * allowed with a warning. Each `compat.extensions` range (another extension the release needs)
+ * must parse too.
  */
 class CompatCheck implements Check
 {
@@ -29,6 +30,16 @@ class CompatCheck implements Check
                 $warnings[] = "No compat.{$side} range: the release is offered to every {$side} version.";
             } elseif (! is_string($range) || ! Compat::validRange($range)) {
                 $errors[] = "compat.{$side} `".(is_string($range) ? $range : json_encode($range)).'` is not a valid version range.';
+            }
+        }
+
+        $extensions = $compat['extensions'] ?? null;
+        if ($extensions !== null && ! is_array($extensions)) {
+            $errors[] = 'compat.extensions must map extension package names to version ranges.';
+        }
+        foreach (is_array($extensions) ? $extensions : [] as $package => $range) {
+            if (! is_string($range) || $range === '' || ! Compat::validRange($range)) {
+                $errors[] = "compat.extensions `{$package}` `".(is_string($range) ? $range : json_encode($range)).'` is not a valid version range.';
             }
         }
 

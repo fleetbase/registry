@@ -47,6 +47,22 @@ it('requires compat ranges that parse and warns when they are missing', function
         ->and($compat['warnings'])->toContain('No compat.console range: the release is offered to every console version.');
 });
 
+it('stores compat.extensions with the release and checks its ranges', function () {
+    [$account, , $extension] = publisher();
+
+    $id = uploadRelease($account, $extension, '1.0.0', ['manifest' => ['compat' => ['console' => '>=0.7', 'api' => '^1.6', 'extensions' => ['@fleetbase/fleetops-engine' => '>=0.6']]]])->assertCreated()->json('id');
+    expect(Release::findById($id)->compat)->toBe(['console' => '>=0.7', 'api' => '^1.6', 'extensions' => ['@fleetbase/fleetops-engine' => '>=0.6']])
+        ->and(checkOf($id, ReleaseCheck::CHECK_COMPAT)['passed'])->toBeTrue()
+        ->and(checkOf($id, ReleaseCheck::CHECK_MANIFEST)['passed'])->toBeTrue();
+
+    $release = failingUpload($account, $extension, '1.0.1', ['manifest' => ['compat' => ['console' => '>=0.7', 'api' => '^1.6', 'extensions' => ['@fleetbase/fleetops-engine' => '>=0.6 <<1']]]]);
+    expect(checkOf($release, ReleaseCheck::CHECK_COMPAT)['errors'])->toBe(['compat.extensions `@fleetbase/fleetops-engine` `>=0.6 <<1` is not a valid version range.']);
+
+    // The schema refuses a name that is not a package name and a range that is not a string.
+    $release = failingUpload($account, $extension, '1.0.2', ['manifest' => ['compat' => ['extensions' => ['Not A Package' => '>=1', '@fleetbase/ledger-engine' => 2]]]]);
+    expect(implode("\n", checkOf($release, ReleaseCheck::CHECK_MANIFEST)['errors']))->toContain('/compat/extensions');
+});
+
 it('requires the tarball package names to be the listing\'s', function () {
     [$account, , $extension] = publisher();
     $npm = packageName($extension, 'npm');

@@ -31,7 +31,7 @@
         },
         "compat": {
             "type": "object",
-            "description": "Version ranges of the Fleetbase console and API this release is compatible with.",
+            "description": "Version ranges of the Fleetbase console and API this release is compatible with, and the other extensions it needs.",
             "properties": {
                 "console": {
                     "description": "node-semver style range for `@fleetbase/console`, for example `>=0.7 <1.0`.",
@@ -40,6 +40,20 @@
                 "api": {
                     "description": "Composer style range for `fleetbase/core-api`, for example `^1.6`.",
                     "$ref": "#/$defs/versionRange"
+                },
+                "extensions": {
+                    "type": "object",
+                    "description": "Other extensions this release needs, by their console package name, each with the node-semver range it works with, for example `{\"@fleetbase/fleetops-engine\": \">=0.6\"}`. An instance without one of them (or with a version outside the range) cannot install this release.",
+                    "propertyNames": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 214,
+                        "pattern": "^(@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*$"
+                    },
+                    "additionalProperties": {
+                        "$ref": "#/$defs/versionRange"
+                    },
+                    "maxProperties": 20
                 }
             },
             "additionalProperties": false
