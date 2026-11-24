@@ -1,7 +1,7 @@
 # Cutover runbook: cloud onto the Registry Service
 
 One deployment in five steps (implementation plan, "Data migration and cutover", revised 24 Oct 2026):
-**freeze, import, infra, deploy, unfreeze**. v1 is removed from registry-bridge 0.2.0, so the cloud
+**freeze, import, infra, deploy, unfreeze**. v1 is removed from registry-bridge 0.3.0, so the cloud
 console cannot fall back to its old `registry_*` tables; rollback is redeploying the previous release
 of every component together, which works because this release only reads those tables.
 
@@ -22,7 +22,7 @@ Infra](#step-3-infra) · [Step 4 Deploy](#step-4-deploy) · [Step 5 Unfreeze](#s
 - **The service** (`fleetbase/registry` `v2.0.0`) runs in the `production` stack of
   `fleetbase/registry-infra` beside Verdaccio, on `registry.fleetbase.io`. It is deployed and frozen
   (`registry:maintenance on`) before the window, with an empty database.
-- **The cloud console's API** (fleetbase `v0.8.0` with registry-bridge `0.2.0`) registers itself with
+- **The cloud console's API** (fleetbase `v0.9.0` with registry-bridge `0.3.0`) registers itself with
   the service on boot as the one cloud instance (`registry:init` → `registry:cloud-register`), signed
   with the platform secret both sides share. That instance acts for each cloud company
   (`X-Registry-Tenant`): licences, installs and checkouts belong to the company's organization.
@@ -33,7 +33,7 @@ Infra](#step-3-infra) · [Step 4 Deploy](#step-4-deploy) · [Step 5 Unfreeze](#s
 - **The import runs twice.** Once in step 2 (the bulk of the data, and the copy of every tarball),
   and once more in step 4, after the old API is gone, to pick up anything the old console or
   Verdaccio wrote meanwhile. The importer is idempotent; the second run takes about a minute. This is
-  what makes the freeze safe even though the running cloud API (bridge 0.1.x) has no maintenance
+  what makes the freeze safe even though the running cloud API (fleetbase 0.8.x, bridge 0.2.x) has no maintenance
   switch (see [Decisions](#decisions-this-runbook-depends-on)).
 - **After the second import** the API records locally what each company had installed
   (`registry:cloud-sync-installs`), which is what makes each company's console load its engines.
@@ -90,7 +90,7 @@ Do these in the week before. Each has a check; all of them feed the [go/no-go](#
 | Cloud files bucket | the cloud API's S3 bucket; also `service.import_source_bucket` |
 | Staff organization slug | the organization Fleetbase's own cloud company imports as (see the dry-run report) |
 | Three reference organizations | one with a paid purchase, one with several free installs, one publisher; their company uuids |
-| Previous release tags | cloud API and console images now in production; registry-bridge 0.1.x |
+| Previous release tags | cloud API and console images now in production (fleetbase 0.8.x); registry-bridge 0.2.x |
 
 **1. Service infrastructure** (registry-infra, `production` stack). `service.enabled` is set before the
 window, not in step 3: the import in step 2 writes into the production service's database, so it has to
@@ -111,8 +111,8 @@ pulumi preview && pulumi up
 
 Check: `pulumi stack output` shows the service; `curl -fsS https://registry.fleetbase.io/up` answers 200.
 
-**2. Deploy the service and freeze it.** Push the `v2.0.0` tag of `fleetbase/registry` to
-`deploy/production` (the workflow builds the image, runs migrations and deploys `app` and `queue`).
+**2. Deploy the service and freeze it.** Tag `v2.0.0` on `main` of `fleetbase/registry` (this repository has no tag workflow: `git tag v2.0.0 && git push origin v2.0.0`) and push it to
+`deploy/production` (`git push origin v2.0.0:deploy/production`) (the workflow builds the image, runs migrations and deploys `app` and `queue`).
 Then, before anything else reaches it:
 
 ```bash
@@ -173,9 +173,10 @@ If that is not close to zero, decide before the window between flipping `route_a
 published upgrade note) and keeping Verdaccio for npm reads only (skip step 3's `route_all` and
 scale-down; see [Decisions](#decisions-this-runbook-depends-on)).
 
-**7. Releases ready.** Tags built and images pushed: registry `v2.0.0`, registry-bridge `0.2.0`,
-ember-core `0.4.0`, fleetbase `v0.8.0` (API and console), `@fleetbase/cli@2.0.0` published under the
-`next` dist-tag. Previous production tags written down for rollback.
+**7. Releases ready.** Tags built and images pushed: registry `v2.0.0`, registry-bridge `0.3.0`,
+ember-core `0.4.0`, fleetbase `v0.9.0` (API and console), `@fleetbase/cli@2.0.0` published under the
+`next` dist-tag (the CLI's tag workflow publishes a non-prerelease as `latest`: publish it by hand with
+`--tag next`, or hold the merge until step 4). Previous production tags written down for rollback.
 
 **8. Announce** the window (status page, console banner on the current release if available, email to
 publishers): publishing and purchases pause, installed extensions keep working.
@@ -218,7 +219,7 @@ WHERE deleted_at IS NULL AND company_uuid IN ('<uuid 1>', '<uuid 2>', '<uuid 3>'
    svc php artisan registry:maintenance status
    ```
 
-3. The running cloud API (bridge 0.1.x) has no maintenance switch, so purchases, installs and
+3. The running cloud API (fleetbase 0.8.x, bridge 0.2.x) has no maintenance switch, so purchases, installs and
    Verdaccio publishing are not technically blocked until step 4 replaces it. That is safe: anything
    written to the old tables until then is imported by the second run in step 4. Keep the window short
    and the announcement clear.
@@ -297,7 +298,7 @@ aws ecs describe-services --cluster fleetbase-registry-production --services app
 *Gate: smoke test of Explore, install and purchase on the three reference organizations (below). Time:
 25 minutes.*
 
-1. **Cloud API and console**: deploy fleetbase `v0.8.0` (ember-core 0.4.0, registry-bridge 0.2.0) with
+1. **Cloud API and console**: deploy fleetbase `v0.9.0` (ember-core 0.4.0, registry-bridge 0.3.0) with
    the staged configuration, the usual way for production. Wait for the ECS deployment to reach steady
    state, so no task of the old API is left writing to the old tables.
 
@@ -471,10 +472,10 @@ characters that SQLite accepted.
 
 ## Decisions this runbook depends on
 
-1. **Freeze on the running cloud API.** Bridge 0.1.x has no maintenance switch, so the old console
+1. **Freeze on the running cloud API.** Bridge 0.2.x has no maintenance switch, so the old console
    cannot be frozen in step 1. This runbook relies on the second import in step 4 instead. If the
    window must also stop purchases on the old console, backport the bridge's `REGISTRY_MAINTENANCE`
-   setting to a 0.1.x hotfix and deploy it before the window.
+   setting to a 0.2.x hotfix and deploy it before the window.
 2. **`route_all` and Verdaccio as an npm proxy** (go/no-go item 6). Flip it and break pre-0.8 clients
    that read `@fleetbase/*` through registry.fleetbase.io, or keep Verdaccio for npm reads (no
    `route_all`, no scale-down) until those clients upgrade.
