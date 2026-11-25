@@ -19,7 +19,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 /**
  * Buying a paid extension from a console. The console starts a checkout, sends the operator to
  * Stripe's hosted page, and on return polls the hand-off until the webhook has created the
- * purchase and licence (see README, "Instance checkout").
+ * purchase and licence (see docs/commerce.md, "Instance checkout").
  */
 class PurchaseController extends Controller
 {

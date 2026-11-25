@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Install and sales figures for one or more listings over a range, read straight from
- * `installs` and `purchases` (no counters or rollups; see the README's "Publisher analytics").
+ * `installs` and `purchases` (no counters or rollups; see docs/analytics.md).
  *
  * - An install is a row that reached `installed` without replacing another (`installed_at`, no
  *   `previous_release_uuid`); an update is one that replaced the instance's previous install; an
