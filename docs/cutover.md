@@ -131,6 +131,7 @@ reads these:
 | `REGISTRY_SERVICE_URL` | `https://registry.fleetbase.io` |
 | `REGISTRY_CLOUD_AUTO_REGISTER` | `true` |
 | `REGISTRY_CLOUD_PLATFORM_SECRET` | the same value as the service's (compare `sha256sum` fingerprints, never the secret) |
+| `REGISTRY_PREINSTALLED_EXTENSIONS` | `true`. The cloud image ships every extension, so an install only changes the install record, inside the request. Without it an install is queued on an `installer` queue, which the cloud has no SQS queue or worker for, and would run Composer in the API container |
 | `REGISTRY_MAINTENANCE` | `true` (the console comes up frozen; removed in step 5) |
 | `APP_URL` | unchanged; its host must equal the service's `REGISTRY_CLOUD_HOST` |
 
