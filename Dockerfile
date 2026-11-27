@@ -67,6 +67,7 @@ ENV AUTORUN_ENABLED=true \
 FROM base AS aws-app
 USER root
 COPY --from=ssm-parent /usr/bin/ssm-parent /usr/bin/ssm-parent
+ADD --chmod=644 https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /etc/ssl/certs/rds-global-bundle.pem
 USER www-data
 ENV AUTORUN_ENABLED=true \
     AUTORUN_LARAVEL_MIGRATION=true
