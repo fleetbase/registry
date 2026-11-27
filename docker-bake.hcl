@@ -1,4 +1,4 @@
-// docker-bake.hcl
+// docker-bake.hcl — Registry Service (v2). The Verdaccio build lives in legacy/.
 variable "REGISTRY" { default = "" }
 variable "VERSION" { default = "latest" }
 variable "CACHE" { default = "" }
@@ -9,11 +9,9 @@ group "default" {
 
 target "app" {
   context    = "./"
-  dockerfile = "Dockerfile.verdaccio"
-  platforms = [
-    "linux/amd64",
-  ]
-  target = "aws-app"
+  dockerfile = "Dockerfile"
+  platforms  = ["linux/amd64"]
+  target     = "aws-app"
 
   tags = notequal("", REGISTRY) ? formatlist(
     "${REGISTRY}:%s",

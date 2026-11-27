@@ -1,0 +1,19 @@
+{
+  "id": "ch_3QfLmTCharge00001",
+  "object": "charge",
+  "amount": 5292,
+  "amount_captured": 5292,
+  "amount_refunded": 5292,
+  "application_fee_amount": 490,
+  "captured": true,
+  "created": 1792800100,
+  "currency": "usd",
+  "disputed": false,
+  "livemode": false,
+  "paid": true,
+  "payment_intent": "pi_3QfLmTPayment0001",
+  "receipt_url": "https://pay.stripe.com/receipts/payment/CAcaFwoVYWNjdF8xUWZMbVQ",
+  "refunded": true,
+  "status": "succeeded",
+  "transfer_data": { "amount": null, "destination": "acct_1QfLmTPublisher01" }
+}

@@ -1,0 +1,15 @@
+{
+    "name": "registry-demo/hello-api",
+    "description": "Registry fixture: free API package used by registry:seed --seed-release.",
+    "type": "library",
+    "license": "AGPL-3.0-or-later",
+    "keywords": ["fleetbase-extension"],
+    "require": {
+        "php": ">=8.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "RegistryDemo\\Hello\\": "src/"
+        }
+    }
+}

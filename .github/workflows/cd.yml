@@ -12,6 +12,7 @@ env:
   PROJECT: fleetbase-registry
 
 jobs:
+  # v1: Verdaccio (legacy/), until it is parked at the cutover (registry-infra verdaccio.desired_count: 0).
   build_service:
     name: Build and Deploy the Registry
     runs-on: ubuntu-latest
@@ -52,6 +53,7 @@ jobs:
           VERSION: ${{ env.VERSION }}
           CACHE: type=gha
         with:
+          workdir: ./legacy
           push: true
           files: |
             ./docker-bake.hcl
@@ -65,3 +67,76 @@ jobs:
           set -eu
           # run deploy.sh script before deployments
           ./ecs-tool deploy --image_tag '${{ env.VERSION }}' --cluster ${{ env.PROJECT }}-${{ env.STACK }} -s app
+
+  # v2: the Registry Service (root Dockerfile, target aws-app) on the stack's `-service` cluster, created by
+  # registry-infra when `service.enabled` is true. Skipped on stacks where the service is not enabled yet.
+  # Migrations run when the new `app` task starts (AUTORUN_LARAVEL_MIGRATION); `queue` does not migrate.
+  deploy_registry_service:
+    name: Build and Deploy the Registry Service
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Dynamic ENV Vars
+        run: |
+          echo "VERSION=$(echo $GITHUB_SHA | cut -c -8)" >> $GITHUB_ENV
+          STACK=$(basename $GITHUB_REF)
+          echo "STACK=${STACK}" >> $GITHUB_ENV
+          echo "SERVICE=${{ env.PROJECT }}-${STACK}-service" >> $GITHUB_ENV
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_NUMBER }}:role/${{ env.PROJECT }}-${{ env.STACK }}-deployer
+          role-session-name: github
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Is the Registry Service enabled on this stack?
+        id: enabled
+        # The deployer may describe the repository only once registry-infra created it (service.enabled), so
+        # "not found" and "access denied" both mean the service is off on this stack. Any other error fails.
+        run: |
+          if out=$(aws ecr describe-repositories --repository-names "${SERVICE}" 2>&1); then
+            echo "enabled=true" >> $GITHUB_OUTPUT
+          elif echo "$out" | grep -qE 'RepositoryNotFoundException|AccessDenied'; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "::notice::No ECR repository ${SERVICE}: service.enabled is off for the ${STACK} stack, nothing to deploy."
+          else
+            echo "$out"; exit 1
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.enabled.outputs.enabled == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Amazon ECR
+        if: steps.enabled.outputs.enabled == 'true'
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push the image
+        if: steps.enabled.outputs.enabled == 'true'
+        uses: docker/bake-action@v5
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}/${{ env.SERVICE }}
+          VERSION: ${{ env.VERSION }}
+          CACHE: type=gha,scope=registry-service
+        with:
+          push: true
+          files: |
+            ./docker-bake.hcl
+
+      - name: Download ecs-tool
+        if: steps.enabled.outputs.enabled == 'true'
+        run: |
+          wget -O ecs-tool.tar.gz https://github.com/springload/ecs-tool/releases/download/1.9.6/ecs-tool_1.9.6_linux_amd64.tar.gz && tar -xvf ecs-tool.tar.gz ecs-tool
+
+      - name: Deploy app and queue 🚀
+        if: steps.enabled.outputs.enabled == 'true'
+        run: |-
+          set -eu
+          ./ecs-tool deploy --image_tag '${{ env.VERSION }}' --cluster "${SERVICE}" -s app -s queue

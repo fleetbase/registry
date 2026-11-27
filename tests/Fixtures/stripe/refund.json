@@ -1,0 +1,17 @@
+{
+  "id": "re_3QfLmTRefund00001",
+  "object": "refund",
+  "amount": 5292,
+  "balance_transaction": "txn_3QfLmTRefundTxn01",
+  "charge": "ch_3QfLmTCharge00001",
+  "created": 1792900100,
+  "currency": "usd",
+  "destination_details": { "card": { "type": "refund" }, "type": "card" },
+  "metadata": {},
+  "payment_intent": "pi_3QfLmTPayment0001",
+  "reason": null,
+  "receipt_number": null,
+  "source_transfer_reversal": null,
+  "status": "succeeded",
+  "transfer_reversal": "trr_1QfLmTReversal001"
+}
