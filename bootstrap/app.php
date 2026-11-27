@@ -42,6 +42,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'platform' => VerifyPlatformSignature::class,
         ]);
 
+        // Which proxies are trusted is config/trustedproxy.php. From them the client's address,
+        // scheme and port are read; X-Forwarded-Host is not, since AWS load balancers pass a
+        // client's own value through and the public host is REGISTRY_PUBLIC_URL anyway.
+        $middleware->trustProxies(headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO | Request::HEADER_X_FORWARDED_PORT);
+
         // The website's cookie session must start before `auth:token,web` resolves the caller.
         $middleware->prependToPriorityList(EncryptCookies::class, StatefulSession::class);
 

@@ -214,6 +214,7 @@ likely to change, with their values in `.env.example`:
 | --- | --- | --- |
 | `APP_URL` | `http://localhost:8000` | The service's own address |
 | `REGISTRY_PUBLIC_URL` | the request's host | Base URL written into npm and Composer metadata. Set it behind a proxy or CDN |
+| `TRUSTED_PROXIES` | private and loopback ranges | Proxies whose `X-Forwarded-For` is believed: addresses or CIDR ranges, comma-separated, or `*`. Rate limits count per client address, so a proxy outside these ranges makes every client share one limit |
 | `DB_CONNECTION` | `sqlite` | `mysql` in Docker and production |
 | `REGISTRY_STORAGE_DISK` | `local` | Disk for tarballs, prebuilt engines, icons and screenshots. `s3` with the `AWS_*` variables for S3 or MinIO |
 | `QUEUE_CONNECTION` | `database` | Release checks run here. A check may take up to 900 seconds, so keep the queue's `retry_after` above that (`DB_QUEUE_RETRY_AFTER=960`) |
@@ -387,6 +388,8 @@ A deployment needs:
   store as the app, because a release that passes its checks can be published from the job.
 - Outgoing mail.
 - `REGISTRY_PUBLIC_URL` and `SESSION_SECURE_COOKIE=true` behind HTTPS.
+- `TRUSTED_PROXIES`, if the load balancer or proxy reaches the service from a public address.
+- The categories, seeded once: `php artisan registry:seed --force`.
 - If a CDN sits in front of `/v1/catalog`, `/npm` and `/composer`, it must forward the
   `Authorization` header, or instances never see their private listings.
 - `GET /up` as the health check.

@@ -119,6 +119,7 @@ Then, before anything else reaches it:
 svc php artisan registry:maintenance on --message="Extensions are moving to the new Fleetbase registry. Publishing and purchases are paused until the move is finished."
 svc php artisan registry:maintenance status          # Maintenance: ON
 svc php artisan migrate:status                        # every migration Ran
+svc php artisan registry:seed --force                 # Seeded categories. (the import matches the cloud's onto them)
 ```
 
 The freeze is stored in the service's database cache, so it holds across tasks and deploys until step 5.
