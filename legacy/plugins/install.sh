@@ -15,7 +15,7 @@ for dir in */; do
 		echo "Running npm install in $dir"
 		cd "$dir"
 		npm install --no-bin-links --install-strategy=shallow --omit=optional
-		npm run build
+		node node_modules/typescript/bin/tsc
 		cd "$current_dir" # Go back to the original directory
 	else
 		echo "No package.json found in $dir, skipping..."
