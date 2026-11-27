@@ -72,4 +72,4 @@ USER www-data
 ENV AUTORUN_ENABLED=true \
     AUTORUN_LARAVEL_MIGRATION=true
 ENTRYPOINT ["/usr/bin/ssm-parent", "run", "-e", "-n", "$SSM_PARAMETER", "--", "docker-php-serversideup-entrypoint"]
-CMD ["s6-svscan", "/etc/s6-overlay/s6-rc.d"]
+CMD ["/init"]
