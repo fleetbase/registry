@@ -15,7 +15,8 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-        <link rel="icon" href="/images/fleetbase-icon.svg" type="image/svg+xml">
+        {{-- Inline, like the logo in the bundle: no path of its own for a proxy in front to route. --}}
+        <link rel="icon" href="data:image/svg+xml;base64,{{ base64_encode(file_get_contents(resource_path('images/fleetbase-icon.svg'))) }}" type="image/svg+xml">
         @viteReactRefresh
         @vite(['resources/css/app.css', 'resources/js/app.jsx', "resources/js/pages/{$page['component']}.jsx"])
         @inertiaHead

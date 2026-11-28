@@ -6,6 +6,7 @@ import { ToastProvider } from '../components/Toasts';
 import { api } from '../lib/api';
 import { initials } from '../lib/format';
 import { useTheme } from '../lib/theme';
+import logoMark from '../../images/fleetbase-icon.svg';
 
 const TAGS = { public: 'Extensions', studio: 'Studio', review: 'Review' };
 
@@ -53,7 +54,7 @@ export default function SiteLayout({ title, section = 'public', children, wide =
                 <header className="top">
                     <div className="wrap">
                         <Link href={section === 'studio' ? '/studio' : section === 'review' ? '/review' : '/'} className="logo">
-                            <img className="logo-mark" src="/images/fleetbase-icon.svg" alt="" width={28} height={28} />
+                            <img className="logo-mark" src={logoMark} alt="" width={28} height={28} />
                             Fleetbase <span className="tag">{TAGS[section]}</span>
                         </Link>
                         <nav className="nav" aria-label="Main">
